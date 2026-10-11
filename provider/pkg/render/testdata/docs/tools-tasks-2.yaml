@@ -1,0 +1,7 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/tools/tasks/ (tools-tasks__2.yaml)
+agents:
+  root:
+    model: openai/gpt-4o
+    toolsets:
+      - type: tasks
+        path: ./project-tasks.json

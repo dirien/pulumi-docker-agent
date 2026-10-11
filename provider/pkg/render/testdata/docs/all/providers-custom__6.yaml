@@ -1,0 +1,7 @@
+providers:
+  local_llm:
+    base_url: http://localhost:8000/v1
+
+agents:
+  root:
+    model: local_llm/llama-3.1-8b

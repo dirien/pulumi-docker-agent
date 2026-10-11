@@ -1,0 +1,4 @@
+# Use built-in providers inline
+agents:
+  root:
+    model: mistral/mistral-large-latest

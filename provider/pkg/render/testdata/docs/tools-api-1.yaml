@@ -1,0 +1,20 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/tools/api/ (tools-api__1.yaml)
+agents:
+  assistant:
+    model: openai/gpt-4o
+    description: Assistant with API access
+    instruction: You can look up weather information.
+    toolsets:
+      - type: api
+        api_config:
+          name: get_weather
+          method: GET
+          endpoint: "https://api.weather.example/v1/current?city=${city}"
+          instruction: Get current weather for a city
+          args:
+            city:
+              type: string
+              description: City name to get weather for
+          required: ["city"]
+          headers:
+            Authorization: "Bearer ${env.WEATHER_API_KEY}"

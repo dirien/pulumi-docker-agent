@@ -1,0 +1,11 @@
+agents:
+  root:
+    toolsets:
+      - type: think
+
+flavors:
+  with-shell:
+    agents:
+      root:
+        toolsets+:
+          - type: shell

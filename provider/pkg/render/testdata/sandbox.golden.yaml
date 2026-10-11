@@ -1,0 +1,25 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Works on the repository inside a sandbox
+    instruction: Fix the failing tests. Only talk to GitHub and npm.
+    toolsets:
+      - type: shell
+      - type: filesystem
+        readonly: true
+      - type: fetch
+        allowed_domains:
+          - api.github.com
+    safety: balanced
+permissions:
+  ask:
+    - shell
+  deny:
+    - shell:cmd=rm -rf*
+runtime:
+  sandbox: true
+  network_allowlist:
+    - api.github.com
+    - registry.npmjs.org:443
+  safety: restricted

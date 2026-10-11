@@ -1,0 +1,61 @@
+# Compaction Model Example
+#
+# This example demonstrates how a model can delegate session compaction
+# (summary generation) to another, cheaper/faster model via the
+# `compaction_model` field.
+#
+# When a session is compacted (manual `/compact`, the proactive ~90% threshold
+# trigger, or post-overflow recovery), the whole conversation is fed to a model
+# to be summarized. That summary call is the slowest and most expensive call in
+# a session, and it only runs when the context is already large. There is no
+# need to spend a heavyweight reasoning model on it: point the primary model's
+# `compaction_model` at a small model and docker-agent will use it for the
+# summary call only. Everything else still runs on the primary model. When
+# `compaction_model` is omitted, compaction reuses the agent's own model.
+#
+# The field can also be set directly on an agent, or on a provider definition
+# as a default for every agent whose model uses that provider. Resolution
+# priority: the agent-level `compaction_model` wins, then the model-level one,
+# then the provider-level default.
+#
+# Note: if the compaction model has a SMALLER context window than the primary,
+# docker-agent triggers compaction against the smaller window so the summary
+# call can always ingest the conversation it must compact. Pair the primary
+# with a compaction model whose context window is at least as large to keep the
+# proactive trigger aligned with the primary's window.
+
+models:
+  primary:
+    provider: anthropic
+    model: claude-sonnet-5
+    # Summarize the conversation with the cheaper Haiku model instead of Sonnet.
+    compaction_model: fast
+  fast:
+    provider: anthropic
+    model: claude-haiku-4-5
+  budget:
+    provider: my_anthropic
+    model: claude-sonnet-4-6
+
+providers:
+  my_anthropic:
+    provider: anthropic
+    # Provider-level default: agents whose model uses this provider compact
+    # with Haiku unless the model or the agent overrides it.
+    compaction_model: anthropic/claude-haiku-4-5
+
+agents:
+  root:
+    model: primary
+    description: An assistant that compacts its sessions with a cheaper model.
+    instruction: You are a helpful assistant.
+  reviewer:
+    model: anthropic/claude-sonnet-5
+    description: An assistant configuring its compaction model at the agent level.
+    instruction: You are a helpful code reviewer.
+    # Agent-level value: wins over any model- or provider-level setting.
+    compaction_model: fast
+  frugal:
+    model: budget
+    description: An assistant inheriting its compaction model from the provider.
+    instruction: You are a helpful assistant.

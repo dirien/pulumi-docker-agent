@@ -1,0 +1,18 @@
+budgets:
+  shell-work:
+    max_cost: 0.03
+    max_tokens: 8000
+  research:
+    max_time: 1m
+
+agents:
+  root:
+    model: openai/gpt-4o-mini
+    description: Does shell work.
+    instruction: You are a helpful assistant.
+    budgets: [shell-work]
+  researcher:
+    model: openai/gpt-4o-mini
+    description: Answers questions.
+    instruction: You answer questions concisely.
+    budgets: [shell-work, research]

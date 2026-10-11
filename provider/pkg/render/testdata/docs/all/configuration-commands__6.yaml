@@ -1,0 +1,19 @@
+commands:
+  ci:
+    deploy: "Deploy the application"
+    test: "Run the test suite"
+
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Lead developer
+    instruction: You are the lead developer. Coordinate the team.
+    use_commands: [ci]      # reuse the "ci" command group
+    commands:
+      lint: "Run the linter"  # inline command, merged in (wins on conflict)
+
+  docs-writer:
+    model: anthropic/claude-sonnet-4-5
+    description: Documentation writer
+    instruction: You write and maintain the project documentation.
+    use_commands: [ci]      # same group, reused without duplication

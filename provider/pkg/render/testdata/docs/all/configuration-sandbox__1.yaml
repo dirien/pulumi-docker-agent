@@ -1,0 +1,11 @@
+# agent.yaml
+runtime:
+  sandbox: true
+
+agents:
+  root:
+    model: openai/gpt-4o
+    description: A helpful assistant
+    instruction: You are a helpful assistant.
+    toolsets:
+      - type: shell

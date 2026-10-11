@@ -1,0 +1,11 @@
+agents:
+  reviewer: &specialist
+    model: anthropic/claude-sonnet-4-5
+    description: Reviews code changes.
+    instruction: |
+      You are a meticulous software professional.
+    toolsets:
+      - type: filesystem
+  documenter:
+    <<: *specialist                   # inherit model, instruction, toolsets
+    description: Writes documentation. # then override one field

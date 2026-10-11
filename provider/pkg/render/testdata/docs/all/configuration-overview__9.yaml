@@ -1,0 +1,20 @@
+toolsets:
+  fs:               # a named shared toolset
+    type: filesystem
+  docs:
+    type: fetch
+    allowed_domains:
+      - docker.com
+
+agents:
+  root:
+    model: openai/gpt-5
+    # Pull in shared toolsets by name; inline toolsets come first.
+    use_toolsets: [fs, docs]
+    toolsets:
+      - type: think
+
+  reviewer:
+    model: openai/gpt-5
+    # Reuse the same filesystem toolset without copying its definition.
+    use_toolsets: [fs]

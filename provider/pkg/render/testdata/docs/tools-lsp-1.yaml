@@ -1,0 +1,13 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/tools/lsp/ (tools-lsp__1.yaml)
+agents:
+  developer:
+    model: anthropic/claude-sonnet-4-5
+    description: Code developer with LSP support
+    instruction: You are a software developer.
+    toolsets:
+      - type: lsp
+        command: gopls
+        args: []
+        file_types: [".go"]
+      - type: filesystem
+      - type: shell

@@ -1,0 +1,34 @@
+mcps:
+  github:
+    remote:
+      url: https://api.githubcopilot.com/mcp
+      transport_type: sse
+
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Full-featured developer assistant
+    instruction: You are an expert developer.
+    toolsets:
+      # Docker MCP catalog entry
+      - type: mcp
+        ref: docker:duckduckgo
+
+      # Reusable definition from the top-level mcps: block
+      - type: mcp
+        ref: github
+        tools: ["list_issues", "create_issue"]
+        toon: "list_.*"
+
+      # Local stdio server with auto-install
+      - type: mcp
+        command: gopls
+        version: "golang/tools@v0.21.0"
+        args: ["mcp"]
+
+      # Remote MCP with OAuth (handled automatically)
+      - type: mcp
+        remote:
+          url: "https://mcp.linear.app/mcp"
+          transport_type: "streamable"
+        instruction: Use Linear for issue tracking.

@@ -1,0 +1,7 @@
+# Agent YAML (author-declared defaults)
+runtime:
+  safety: balanced # config-wide default for new sessions
+
+agents:
+  root:
+    safety: strict # overrides runtime.safety for this agent

@@ -1,0 +1,115 @@
+# golangci-lint v2 configuration (https://golangci-lint.run/docs/configuration/file/).
+# Based on pulumi/pulumi-provider-boilerplate, adapted for this provider.
+# Run from provider/ (`make lint`); golangci-lint discovers this file in the parent directory.
+version: "2"
+
+run:
+  timeout: 10m
+  tests: true
+
+linters:
+  # errcheck, govet, ineffassign, staticcheck, unused
+  default: standard
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errorlint
+    - goconst
+    - gosec
+    - lll
+    - misspell # default (neutral) locale: British and American spellings are both accepted
+    - nakedret
+    - revive
+    - unconvert
+    - usestdlibvars
+  settings:
+    errorlint:
+      # Keep %w checks and type assertions; plain `err == io.EOF` comparisons are fine.
+      comparison: false
+    goconst:
+      min-len: 3
+      min-occurrences: 5
+      ignore-string-values:
+        - "^sha256:"
+        - "^!!" # YAML node tags (!!str, !!seq, !!int ...)
+    gosec:
+      excludes:
+        - G104 # unhandled errors: errcheck covers this
+        - G115 # integer overflow conversions: too noisy for size/int fields
+    lll:
+      line-length: 140
+    nakedret:
+      max-func-lines: 30
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+          disabled: true # infer types are documented through Annotate(), not doc comments
+        - name: increment-decrement
+        - name: var-declaration
+        - name: package-comments
+          disabled: true
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+          disabled: true # infer controllers return unexported types by design
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+          disabled: true # gRPC/infer method signatures are fixed
+        - name: unreachable-code
+        - name: redefines-builtin-id
+        - name: var-naming
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - schema.go
+      - pulumiManifest.go
+      - third_party$
+      - builtin$
+      - examples$
+      - sdk$
+    rules:
+      - path: _test\.go
+        linters:
+          - goconst
+          - gosec
+          - lll
+          - bodyclose
+      # ParseTag-style struct tags and long descriptions in Annotate() blocks.
+      - linters:
+          - lll
+        source: '^\s*(a|an)\.(Describe|SetDefault)\('
+      - linters:
+          - lll
+        source: "`pulumi:\""
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+  exclusions:
+    generated: lax
+    paths:
+      - schema.go
+      - pulumiManifest.go
+      - third_party$
+      - builtin$
+      - examples$
+      - sdk$

@@ -1,0 +1,10 @@
+agents:
+  root:
+    hooks:
+      session_start:
+        - type: command
+          command: ./notify.sh
+          working_dir: "~/scripts"                # ~, $VAR, ${VAR}, ${env.VAR} all work
+          env:
+            API_TOKEN: "${env.NOTIFY_TOKEN}"      # expanded
+            PASSWORD: "pa$$word"                  # kept literal

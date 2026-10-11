@@ -1,0 +1,16 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/commands/ (configuration-commands__4.yaml)
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: An agent with handy URL shortcuts.
+    instruction: You are a helpful assistant.
+    commands:
+      feedback:
+        description: "Open the feedback site for this session"
+        url: https://example.com/feedback?session={{session_id}}
+      docs:
+        description: "Open the documentation"
+        url: https://docs.docker.com/
+      desktop:
+        description: "Open this session in Docker Desktop"
+        url: docker-desktop://dashboard/session/{{session_id}}

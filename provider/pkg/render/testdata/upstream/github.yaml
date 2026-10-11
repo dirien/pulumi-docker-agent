@@ -1,0 +1,20 @@
+agents:
+  root:
+    model: claude
+    description: "GitHub Agent - Help with GitHub using MCP tools"
+    instruction: |
+      You are a helpful assistant that can help with all things GitHub by leveraging GitHub MCP tools
+    toolsets:
+      - type: mcp
+        ref: docker:github-official
+        instruction: |
+          {ORIGINAL_INSTRUCTIONS}
+          Use these tools to help users with their GitHub-related tasks effectively.
+    commands:
+      whoami: "Who am I on GitHub?"
+
+models:
+  claude:
+    provider: anthropic
+    model: claude-sonnet-5
+    max_tokens: 64000

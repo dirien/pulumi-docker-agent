@@ -1,0 +1,31 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Executes approved plans
+    instruction: |
+      You execute plans the planner has handed off. When you see a message
+      that a plan has been approved, read it with read_session_plan and work
+      through its steps in order.
+    toolsets:
+      - type: session_plan
+        tools:
+          - read_session_plan
+      - type: filesystem
+      - type: shell
+    commands:
+      plan:
+        description: "Switch to the planner"
+        agent: planner
+
+  planner:
+    model: anthropic/claude-sonnet-4-5
+    description: Investigates and writes plans for review
+    instruction: |
+      Investigate the user's request, then write the plan with
+      write_session_plan. Iterate with the user until the plan is complete,
+      then call exit_plan_mode to mark it ready for review.
+    toolsets:
+      - type: session_plan
+      - type: filesystem
+        readonly: true
+      - type: user_prompt

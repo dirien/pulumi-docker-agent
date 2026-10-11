@@ -1,0 +1,10 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Notion Expert
+    instruction: You are an AI assistant with expertise in the Notion project's documentation.
+    toolsets:
+      - type: mcp
+        remote:
+          url: https://mcp.notion.com/mcp
+          transport_type: streamable

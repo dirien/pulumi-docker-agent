@@ -1,0 +1,8 @@
+providers:
+  router:
+    base_url: https://router.requesty.ai/v1
+    token_key: REQUESTY_API_KEY
+
+agents:
+  root:
+    model: router/anthropic/claude-sonnet-4-5

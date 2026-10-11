@@ -1,0 +1,20 @@
+# Remote MCP streams reconnect after clean idle closes by default.
+# Set lifecycle.restart: never to opt out for a server that should not reconnect.
+
+agents:
+  root:
+    model: openai/gpt-4o
+    description: Demonstrates remote MCP reconnect defaults.
+    instruction: Use the remote MCP tools when helpful.
+    toolsets:
+      - type: mcp
+        remote:
+          url: https://mcp.notion.com/sse
+          transport_type: sse
+
+      - type: mcp
+        remote:
+          url: https://example.com/mcp/sse
+          transport_type: sse
+        lifecycle:
+          restart: never

@@ -1,0 +1,14 @@
+agents:
+  assistant:
+    model: openai/gpt-5
+    description: Development assistant
+    instruction: You are a helpful coding assistant.
+    welcome_message: |
+      👋 Welcome! I'm your development assistant.
+
+      I can help you with:
+      - Writing and reviewing code
+      - Running tests and debugging
+      - Explaining concepts
+
+      What would you like to work on?

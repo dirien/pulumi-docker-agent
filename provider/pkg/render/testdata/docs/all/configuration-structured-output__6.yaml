@@ -1,0 +1,36 @@
+agents:
+  extractor:
+    model: openai/gpt-4o
+    description: Extract structured data from text
+    instruction: |
+      Extract contact information from the provided text.
+      Return all found contacts in the structured format.
+    structured_output:
+      name: contacts
+      description: Extracted contact information
+      strict: true
+      schema:
+        type: object
+        properties:
+          contacts:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Full name of the contact
+                email:
+                  type: string
+                  description: Email address
+                phone:
+                  type: string
+                  description: Phone number
+                company:
+                  type: string
+                  description: Company or organization
+              required: ["name"]
+          total_found:
+            type: integer
+            description: Total number of contacts found
+        required: ["contacts", "total_found"]

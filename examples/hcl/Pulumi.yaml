@@ -1,0 +1,9 @@
+name: docker-agent-hcl
+runtime: hcl
+description: Builds a two-agent Docker Agent configuration, pushes it to an OCI registry and reads it back.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. When you copy the
+  # example elsewhere, remove this block; see README.md for installing the released plugin.
+  providers:
+    - name: docker-agent
+      path: ../../bin

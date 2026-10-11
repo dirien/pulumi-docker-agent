@@ -1,0 +1,19 @@
+models:
+  primary:
+    provider: anthropic
+    model: claude-sonnet-4-5
+  fast:
+    provider: anthropic
+    model: claude-haiku-4-5
+
+agents:
+  root:
+    model: primary
+    toolsets:
+      - type: filesystem
+        model: fast            # process file reads with the fast model
+      - type: shell
+        model: fast            # ditto for shell stdout
+      - type: mcp
+        ref: docker:github-official
+        model: openai/gpt-4o-mini  # inline provider/model also works

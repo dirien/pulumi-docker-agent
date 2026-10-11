@@ -1,0 +1,35 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/routing/ (configuration-routing__1.yaml)
+models:
+  smart_router:
+    # Fallback model when no routing rule matches
+    provider: openai
+    model: gpt-5-mini
+
+    # Routing rules
+    routing:
+      - model: anthropic/claude-sonnet-4-5
+        examples:
+          - "Write a detailed technical document"
+          - "Help me architect this system"
+          - "Review this code for security issues"
+          - "Explain this complex algorithm"
+
+      - model: openai/gpt-5
+        examples:
+          - "Generate some creative ideas"
+          - "Write a story about"
+          - "Help me brainstorm"
+          - "Come up with names for"
+
+      - model: openai/gpt-5-mini
+        examples:
+          - "What time is it"
+          - "Convert this to JSON"
+          - "Simple math calculation"
+          - "Translate this word"
+
+agents:
+  root:
+    model: smart_router
+    description: Assistant with intelligent model routing
+    instruction: You are a helpful assistant.

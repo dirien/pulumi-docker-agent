@@ -1,0 +1,8 @@
+agents:
+  root:
+    model: openai/gpt-4o
+    description: A cost-capped agent.
+    instruction: You are a helpful assistant.
+
+budget:
+  max_cost: 5.00

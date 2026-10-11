@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pulumi" Version="3.114.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Builds the .NET SDK from this repository (run `make build_dotnet` first). Outside the
+         repository, replace this line with: <PackageReference Include="ediri.DockerAgent" Version="0.*" /> -->
+    <ProjectReference Include="../../sdk/dotnet/ediri.DockerAgent.csproj" />
+  </ItemGroup>
+
+</Project>

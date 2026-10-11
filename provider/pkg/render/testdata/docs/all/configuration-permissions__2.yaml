@@ -1,0 +1,23 @@
+agents:
+  root:
+    model: openai/gpt-4o
+    description: Agent with permission controls
+    instruction: You are a helpful assistant.
+
+permissions:
+  # Auto-approve these tools (no confirmation needed)
+  allow:
+    - "read_file"
+    - "read_*" # Glob patterns
+    - "shell:cmd=ls*" # With argument matching
+
+  # Always ask before running these tools, even if an allow pattern would match
+  ask:
+    - "shell:cmd=git push*"
+    - "write_file:path=/home/user/important/*"
+
+  # Block these tools entirely
+  deny:
+    - "shell:cmd=sudo*"
+    - "shell:cmd=rm*-rf*"
+    - "dangerous_tool"

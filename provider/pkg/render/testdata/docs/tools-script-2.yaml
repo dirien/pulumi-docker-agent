@@ -1,0 +1,15 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/tools/script/ (tools-script__2.fragment.yaml): the toolset fragment is put into a minimal agent.
+agents:
+  root:
+    model: openai/gpt-5-mini
+    toolsets:
+      - type: script
+        shell:
+          deploy:
+            cmd: ./scripts/deploy.sh ${env}
+            description: Deploy to an environment
+            args:
+              env:
+                type: string
+                enum: [staging, production]
+            required: [env]

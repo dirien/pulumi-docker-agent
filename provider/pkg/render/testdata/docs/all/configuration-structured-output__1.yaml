@@ -1,0 +1,30 @@
+agents:
+  analyzer:
+    model: openai/gpt-4o
+    description: Code analyzer that outputs structured results
+    instruction: |
+      Analyze the provided code and identify issues.
+      Return your findings in the structured format.
+    structured_output:
+      name: analysis_result
+      description: Code analysis findings
+      strict: true
+      schema:
+        type: object
+        properties:
+          issues:
+            type: array
+            items:
+              type: object
+              properties:
+                severity:
+                  type: string
+                  enum: ["error", "warning", "info"]
+                line:
+                  type: integer
+                message:
+                  type: string
+              required: ["severity", "line", "message"]
+          summary:
+            type: string
+        required: ["issues", "summary"]

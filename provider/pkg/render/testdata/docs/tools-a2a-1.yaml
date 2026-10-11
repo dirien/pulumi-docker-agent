@@ -1,0 +1,13 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/tools/a2a/ (tools-a2a__1.fragment.yaml): the toolset fragment is put into a minimal agent.
+agents:
+  root:
+    model: openai/gpt-5-mini
+    toolsets:
+      - type: a2a
+        url: "http://localhost:8080/a2a"
+        # Optional: custom tool name (defaults to a sanitized form of the URL / agent card name)
+        name: research_agent
+        # Optional: custom HTTP headers (typically for auth)
+        headers:
+          Authorization: "Bearer ${env.A2A_TOKEN}"
+          X-Tenant: "acme"

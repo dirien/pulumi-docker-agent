@@ -1,0 +1,101 @@
+# GoReleaser configuration for the pulumi-docker-agent provider plugin.
+# Docs: https://goreleaser.com/customization/
+#
+# Produces the six plugin archives the Pulumi CLI downloads through
+# pluginDownloadURL github://api.github.com/dirien/pulumi-docker-agent:
+#   pulumi-resource-docker-agent-v<version>-<os>-<arch>.tar.gz
+# with the binary at the archive root (pulumi-resource-docker-agent[.exe]).
+version: 2
+project_name: pulumi-docker-agent
+
+builds:
+  - id: provider
+    binary: pulumi-resource-docker-agent
+    # The provider is its own Go module (provider/go.mod).
+    dir: provider
+    main: ./cmd/pulumi-resource-docker-agent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    ldflags:
+      # MUST match the package that declares `var Version string` (see Makefile LDFLAGS).
+      - -s -w -X github.com/dirien/pulumi-docker-agent/provider.Version={{ .Version }}
+
+archives:
+  - id: archive
+    # Pulumi expects .tar.gz on every OS, including Windows.
+    formats:
+      - tar.gz
+    name_template: "pulumi-resource-docker-agent-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+
+# Keyless (OIDC) cosign signature over the checksums file. Needs `id-token: write`
+# in the release workflow and cosign on PATH (sigstore/cosign-installer).
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+
+# SPDX SBOM per archive, generated with syft (anchore/sbom-action/download-syft).
+sboms:
+  - artifacts: archive
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-SNAPSHOT"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^test:"
+      - "^chore"
+      - "^docs:"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+      - go mod tidy
+  groups:
+    - title: New Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 10
+    - title: Other work
+      order: 999
+
+release:
+  github:
+    owner: dirien
+    name: pulumi-docker-agent
+  # vX.Y.Z-rc.N tags become GitHub pre-releases. The Pulumi Registry only picks up
+  # non-prerelease releases.
+  prerelease: auto
+  footer: |
+    ## Install
+
+    ```bash
+    pulumi plugin install resource docker-agent v{{ .Version }} --server github://api.github.com/dirien/pulumi-docker-agent
+    ```
+
+    SDKs: [`@ediri/pulumi-docker-agent`](https://www.npmjs.com/package/@ediri/pulumi-docker-agent) (npm),
+    [`ediri_docker_agent`](https://pypi.org/project/ediri_docker_agent/) (PyPI),
+    [`ediri.DockerAgent`](https://www.nuget.org/packages/ediri.DockerAgent) (NuGet),
+    `github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent@v{{ .Version }}` (Go).

@@ -1,0 +1,43 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-5-mini
+    instruction: Answer questions about the product. Search the documentation first.
+    toolsets:
+      - type: rag
+        ref: docs
+models:
+  embedder:
+    provider: openai
+    model: text-embedding-3-small
+rag:
+  docs:
+    tool:
+      name: search_docs
+      description: Search the product documentation
+    docs:
+      - ./docs
+      - ./README.md
+    strategies:
+      - type: chunked-embeddings
+        embedding_model: embedder
+        database: ./rag/vectors.db
+        similarity_metric: cosine_similarity
+        vector_dimensions: 1536
+        threshold: 0.5
+        limit: 20
+        chunking:
+          size: 1000
+          overlap: 100
+          respect_word_boundaries: true
+      - type: bm25
+        database: ./rag/bm25.db
+        k1: 1.5
+        b: 0.75
+        limit: 20
+    results:
+      limit: 5
+      fusion:
+        strategy: rrf
+        k: 60
+      deduplicate: true

@@ -1,0 +1,9 @@
+agents:
+  assistant:
+    model: openai/gpt-4o
+    description: Assistant that can open the dashboard
+    instruction: When the user asks to see the dashboard, call open_dashboard.
+    toolsets:
+      - type: open_url
+        name: open_dashboard
+        url: https://example.com/dashboard

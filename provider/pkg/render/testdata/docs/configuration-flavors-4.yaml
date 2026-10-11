@@ -1,0 +1,12 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/flavors/ (configuration-flavors__4.yaml)
+agents:
+  root:
+    toolsets:
+      - type: think
+
+flavors:
+  with-shell:
+    agents:
+      root:
+        toolsets+:
+          - type: shell

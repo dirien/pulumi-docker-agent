@@ -1,0 +1,121 @@
+version: "16"
+metadata:
+  author: Jane Doe <jane@example.com>
+  license: Apache-2.0
+  description: A research team
+  readme: |
+    # Team
+
+    Researches things.
+  version: 1.2.3
+  tags:
+    - research
+    - demo
+agents:
+  zeta:
+    model: fast
+    description: Coordinates the team
+    welcome_message: Hi!
+    instruction: |-
+      Line one.
+      Line two.
+    sub_agents:
+      - alpha
+    handoffs:
+      - alpha
+    fallback:
+      models:
+        - openai/gpt-5-mini
+      retries: 2
+      cooldown: 1m
+    toolsets:
+      - type: think
+      - type: mcp
+        command: npx
+        args:
+          - -y
+          - '@modelcontextprotocol/server-everything'
+        env:
+          A_VAR: ${env.A_VAR}
+          Z_VAR: z
+        tools:
+          - echo
+        config:
+          a:
+            - x
+            - 1.5
+            - true
+          b: 2
+      - type: mcp
+        remote:
+          url: https://mcp.example.com/sse
+          transport_type: sse
+          headers:
+            X-A: a
+            X-B: b
+      - type: fetch
+        headers:
+          User-Agent: agent
+      - type: memory
+        path: ./memory.db
+      - type: todo
+        shared: true
+      - type: openapi
+        name: petstore
+        url: https://api.example.com/openapi.json
+        instruction: Use the pet store.
+      - type: mcp
+        ref: docker:duckduckgo
+    add_date: true
+    add_environment_info: false
+    max_iterations: 20
+    num_history_items: 30
+    skills:
+      - local
+    commands:
+      deploy:
+        instruction: Deploy it
+      fix: Fix the bug
+    structured_output:
+      name: answer
+      schema:
+        properties:
+          text:
+            type: string
+        type: object
+    hooks:
+      session_start:
+        - type: builtin
+          command: add_date
+  alpha:
+    model: anthropic/claude-sonnet-4-5
+    description: Does the work
+models:
+  another:
+    provider: dmr
+    model: ai/qwen3
+  fast:
+    provider: openai
+    model: gpt-5-mini
+    description: Fast model
+    base_url: https://api.openai.com/v1
+    token_key: MY_OPENAI_KEY
+    temperature: 1.0
+    max_tokens: 8192
+    top_p: 0.9
+    parallel_tool_calls: true
+    thinking_budget: low
+    provider_opts:
+      seed: 42
+providers:
+  corp:
+    api_type: openai_chatcompletions
+    base_url: https://llm.corp.example/v1
+    token_key: CORP_KEY
+permissions:
+  allow:
+    - think
+  ask:
+    - shell
+  deny:
+    - mcp:danger:*

@@ -1,0 +1,17 @@
+mcps:
+  github:
+    remote:
+      url: https://api.githubcopilot.com/mcp
+      transport_type: sse
+  playwright:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-playwright"]
+
+agents:
+  root:
+    model: openai/gpt-5
+    toolsets:
+      - type: mcp
+        ref: github        # reuse the definition above
+      - type: mcp
+        ref: playwright

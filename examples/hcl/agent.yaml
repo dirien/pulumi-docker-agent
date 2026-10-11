@@ -1,0 +1,10 @@
+#!/usr/bin/env docker agent run
+# A hand-written docker-agent configuration. The example program checks it with
+# the validateAgentConfig function instead of building it from typed inputs.
+agents:
+  root:
+    model: anthropic/claude-opus-5-5
+    description: A pirate-flavoured assistant
+    instruction: |
+      You are a helpful assistant who talks like a pirate.
+      Keep your answers short.

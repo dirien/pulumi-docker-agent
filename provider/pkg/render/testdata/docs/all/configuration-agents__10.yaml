@@ -1,0 +1,23 @@
+agents:
+  root:
+    model: openai/gpt-5
+    instruction: You are a system administrator.
+    commands:
+      df: "Check how much free space I have on my disk"
+      logs: "Show me the last 50 lines of system logs"
+      greet: "Say hello to ${env.USER}"
+      deploy: "Deploy ${env.PROJECT_NAME || 'app'} to ${env.ENV || 'staging'}"
+      
+      # Advanced format with agent switching
+      plan:
+        agent: planner  # Switch to the 'planner' agent
+        instruction: "Create a detailed plan for: ${args.join(\" \")}"  # Optional: send this prompt after switching
+      
+      # Agent switching without instruction - forwards remaining text as prompt
+      review:
+        agent: reviewer  # Any text after /review is sent to the reviewer agent
+
+      # URL command - opens a link in the browser instead of messaging the agent
+      docs:
+        description: "Open the documentation"
+        url: https://docs.docker.com/

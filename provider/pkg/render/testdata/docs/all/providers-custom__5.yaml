@@ -1,0 +1,5 @@
+agents:
+  root:
+    model: my_gateway/gpt-4o-mini  # uses the provider's defaults
+  researcher:
+    model: my_anthropic/claude-sonnet-4-5  # uses anthropic provider defaults

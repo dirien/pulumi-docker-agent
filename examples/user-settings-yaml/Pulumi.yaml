@@ -1,0 +1,94 @@
+name: docker-agent-user-settings
+runtime: yaml
+description: Writes Docker Agent's user configuration and a .agentsignore file, and renders a configuration for a container image.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. When you copy the
+  # example elsewhere, remove this block and install the released plugin with
+  # `pulumi plugin install resource docker-agent --server github://api.github.com/dirien/pulumi-docker-agent`.
+  providers:
+    - name: docker-agent
+      path: ../../bin
+
+config:
+  # Where the files are written. Relative paths are relative to this directory. To manage your
+  # real configuration, point `settings.path` at ~/.config/cagent/config.yaml and
+  # `project.directory` at your project instead.
+  outputDir:
+    type: string
+    default: out
+
+resources:
+  # Docker Agent's user configuration file, validated with docker-agent's own checks during
+  # `pulumi preview` and written (mode 0600) on `pulumi up`.
+  settings:
+    type: docker-agent:index:UserSettings
+    properties:
+      path: ${outputDir}/cagent/config.yaml
+      settings:
+        theme: auto
+        themeDark: dracula
+        safety: balanced
+        sound: true
+        soundThreshold: 30
+        busySendMode: queue
+        layout:
+          sidebarPosition: left
+          hideUsage: true
+        permissions:
+          allow: ["read_*"]
+          deny: ["shell:cmd=sudo*", "shell:cmd=rm -rf*"]
+        hooks:
+          sessionStart:
+            - type: builtin
+              command: add_date
+        keybindings:
+          - action: commands
+            keys: [f2, ctrl+k]
+      aliases:
+        reviewer:
+          path: docker.io/myorg/reviewer:latest
+          safety: restricted
+        local:
+          path: ./agent.yaml
+          model: anthropic/claude-sonnet-4-5
+      # An OpenAI-compatible endpoint available to every agent, and the default model for `auto`.
+      providers:
+        gateway:
+          baseUrl: https://llm.example.com/v1
+          tokenKey: GATEWAY_API_KEY
+      defaultModel:
+        provider: gateway
+        model: qwen3-coder
+      sandboxAllowlist:
+        - registry.npmjs.org:443
+
+  # A .agentsignore file: the agent's filesystem tools hide and refuse these paths.
+  project:
+    type: docker-agent:index:AgentsIgnore
+    properties:
+      directory: ${outputDir}/project
+      comment: Managed by Pulumi. Keep secrets away from docker-agent.
+      patterns:
+        - .env
+        - .env.*
+        - "*.pem"
+        - "*.key"
+        - "!public.key"
+        - .aws/
+        - build/
+
+  # Without `path`, nothing is written: use the rendered YAML in a Dockerfile, a Docker
+  # Sandboxes kit or a Kubernetes ConfigMap.
+  imageSettings:
+    type: docker-agent:index:UserSettings
+    properties:
+      settings:
+        lean: true
+        safety: restricted
+
+outputs:
+  settingsPath: ${settings.filePath}
+  settingsYaml: ${settings.yaml}
+  agentsIgnorePath: ${project.filePath}
+  agentsIgnore: ${project.content}
+  imageSettingsYaml: ${imageSettings.yaml}

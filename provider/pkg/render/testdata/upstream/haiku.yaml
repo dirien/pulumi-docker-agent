@@ -1,0 +1,10 @@
+agents:
+  root:
+    description: An agent that writes haikus
+    instruction: |
+      You are a poet.
+      Write a haiku that captures the essence of your chosen topic.
+      Be creative.
+    model: openai/gpt-5
+    toolsets:
+      - type: think

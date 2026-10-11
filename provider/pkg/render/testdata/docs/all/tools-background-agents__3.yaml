@@ -1,0 +1,23 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Orchestrator that fans out coding tasks
+    instruction: |
+      Dispatch the frontend and backend tasks in parallel,
+      then collect results and produce a summary.
+    sub_agents:
+      - claude-coder
+      - codex-coder
+    toolsets:
+      - type: background_agents
+
+  claude-coder:
+    description: Frontend specialist (Claude Code)
+    harness:
+      type: claude-code
+      effort: medium
+
+  codex-coder:
+    description: Backend specialist (Codex)
+    harness:
+      type: codex

@@ -1,0 +1,39 @@
+{
+    "compilerOptions": {
+        // Output
+        "outDir": "bin",
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "stripInternal": true,
+        // Environment
+        "target": "ES2022",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "moduleDetection": "force",
+        "types": ["node"],
+        // Type Checking
+        "strict": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "skipLibCheck": true
+    },
+    "files": [
+        "agentArtifact.ts",
+        "agentConfig.ts",
+        "agentRun.ts",
+        "agentsIgnore.ts",
+        "config/index.ts",
+        "config/vars.ts",
+        "getAgent.ts",
+        "index.ts",
+        "provider.ts",
+        "types/enums/index.ts",
+        "types/index.ts",
+        "types/input.ts",
+        "types/output.ts",
+        "userSettings.ts",
+        "utilities.ts",
+        "validateAgentConfig.ts"
+    ]
+}

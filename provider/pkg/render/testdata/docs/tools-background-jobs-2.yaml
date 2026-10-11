@@ -1,0 +1,9 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/tools/background-jobs/ (tools-background-jobs__2.fragment.yaml): the toolset fragment is put into a minimal agent.
+agents:
+  root:
+    model: openai/gpt-5-mini
+    toolsets:
+      - type: background_jobs
+        env:
+          MY_VAR: "value"
+          PATH: "${env.PATH}:/custom/bin"

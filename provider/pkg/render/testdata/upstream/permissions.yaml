@@ -1,0 +1,61 @@
+metadata:
+  readme: |
+    Permissions Example
+
+    This example demonstrates how to use the permissions configuration
+    to control tool approval behavior:
+
+    - deny: Tools matching these patterns are always rejected
+    - allow: Tools matching these patterns are auto-approved
+    - (default): Tools not matching either pattern fall through to the
+      session's safety mode (strict / balanced / restricted / autonomous)
+
+    Evaluation order: Deny (first) -> Allow -> Ask -> safety mode
+
+permissions:
+  # Block dangerous commands (even with --yolo flag)
+  deny:
+    - "shell:cmd=rm *"
+    - "shell:cmd=sudo *"
+    - "shell:cmd=chmod *"
+    - "shell:cmd=sh *"
+    - "shell:cmd=bash *"
+    - "shell:cmd=zsh *"
+    - "shell:cmd=git push --force*"
+    - "shell:cmd=git reset --hard*"
+    - "shell:cmd=git clean -fd*"
+
+  # Auto-approve safe shell commands
+  allow:
+    - "shell:cmd=ls *"
+    - "shell:cmd=cat *"
+    - "shell:cmd=head *"
+    - "shell:cmd=tail *"
+    - "shell:cmd=wc *"
+    - "shell:cmd=find *"
+    - "shell:cmd=grep *"
+    - "shell:cmd=pwd"
+    - "shell:cmd=echo *"
+    - "shell:cmd=which *"
+    - "shell:cmd=type *"
+    - "shell:cmd=file *"
+    - "shell:cmd=stat *"
+    - "shell:cmd=git status*"
+    - "shell:cmd=git log*"
+    - "shell:cmd=git diff*"
+    - "shell:cmd=git show*"
+    - "shell:cmd=git branch*"
+    - "shell:cmd=git remote -v*"
+    - "shell:cmd=go test*"
+    - "shell:cmd=go build*"
+    - "shell:cmd=go fmt*"
+    - "shell:cmd=go vet*"
+    - "shell:cmd=go mod*"
+
+agents:
+  root:
+    model: anthropic/claude-haiku-4-5
+    description: A helpful assistant with controlled tool permissions
+    instruction: You are a helpful assistant with limited shell access.
+    toolsets:
+      - type: shell

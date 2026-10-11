@@ -1,0 +1,10 @@
+agents:
+  root:
+    model: openai/gpt-5
+    description: A helpful assistant that scrubs secrets before they leak
+    instruction: |
+      You are a helpful assistant. If the user accidentally pastes a token,
+      do your best work without echoing the secret back.
+    redact_secrets: true
+    toolsets:
+      - type: shell
