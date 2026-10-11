@@ -1,0 +1,8 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/agents/ (configuration-agents__4.yaml)
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: A helpful coding assistant
+    instruction: You are an expert software developer.
+    add_prompt_files:
+      - AGENTS.md

@@ -1,0 +1,10 @@
+agents:
+  root:
+    model: openai/gpt-5
+    description: Cached assistant
+    instruction: You are a helpful assistant.
+    cache:
+      enabled: true          # required to turn the cache on
+      case_sensitive: false  # default: false ("Hello" == "hello")
+      trim_spaces: true      # default: false ("  hello  " == "hello")
+      path: ./cache.json     # optional: persist to disk; omit for in-memory

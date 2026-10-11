@@ -1,0 +1,12 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/tools/user-prompt/ (tools-user-prompt__1.yaml)
+agents:
+  assistant:
+    model: openai/gpt-4o
+    description: Interactive assistant
+    instruction: |
+      You are a helpful assistant. When you need information
+      from the user, use the user_prompt tool to ask them.
+    toolsets:
+      - type: user_prompt
+      - type: filesystem
+      - type: shell

@@ -1,0 +1,6 @@
+version: 15
+
+agents:
+  root:
+    model: openai/gpt-5
+    # ...

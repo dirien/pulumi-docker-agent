@@ -1,0 +1,9 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/tools/session_plan/ (tools-session_plan__2.fragment.yaml): the toolset fragment is put into a minimal agent.
+agents:
+  root:
+    model: openai/gpt-5-mini
+    # An agent that consumes a plan but should not be able to (re)write or finalize one.
+    toolsets:
+      - type: session_plan
+        tools:
+          - read_session_plan

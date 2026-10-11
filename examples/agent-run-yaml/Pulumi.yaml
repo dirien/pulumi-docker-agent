@@ -1,0 +1,88 @@
+name: docker-agent-agent-run
+runtime: yaml
+description: Runs a Docker Agent during `pulumi up` and exports its structured answer.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. When you copy the
+  # example elsewhere, remove this block and install the released plugin with
+  # `pulumi plugin install resource docker-agent --server github://api.github.com/dirien/pulumi-docker-agent`.
+  providers:
+    - name: docker-agent
+      path: ../../bin
+
+config:
+  # Any OpenAI-compatible chat completions endpoint. The end-to-end test points it at a fake
+  # server, so no real API key is needed there.
+  baseUrl:
+    type: string
+    default: https://api.openai.com/v1
+  model:
+    type: string
+    default: gpt-5-mini
+  # Set it with `pulumi config set --secret apiKey <key>`; it is stored encrypted.
+  apiKey:
+    type: string
+    secret: true
+  # Any input change runs the agent again; bump the revision to ask again without other changes.
+  revision:
+    type: string
+    default: "1"
+
+resources:
+  # The agent: a custom OpenAI-compatible provider, one model and a root agent whose answer
+  # must match a JSON schema.
+  reviewer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      providers:
+        llm:
+          apiType: openai_chatcompletions
+          baseUrl: ${baseUrl}
+          # The name of the environment variable that holds the key where the agent runs.
+          tokenKey: CHANGE_REVIEW_API_KEY
+      models:
+        reviewer:
+          provider: llm
+          model: ${model}
+      agents:
+        - name: root
+          model: reviewer
+          description: Rates the risk of infrastructure changes
+          instruction: >-
+            You review infrastructure change requests. Rate the risk of the change and explain
+            it in one sentence.
+          structuredOutput:
+            name: change_review
+            strict: true
+            schema:
+              type: object
+              properties:
+                risk:
+                  type: string
+                  enum: [low, medium, high]
+                summary:
+                  type: string
+              required: [risk, summary]
+              additionalProperties: false
+
+  # Runs the agent in the provider during `pulumi up` (never during a preview). The agent has no
+  # tools, so nothing runs on this machine except the model calls.
+  review:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${reviewer.yaml}
+      prompt: Upgrade the production PostgreSQL cluster from version 15 to 17 during the Sunday maintenance window.
+      env:
+        CHANGE_REVIEW_API_KEY: ${apiKey}
+      # Only `env` provides credentials: API keys in the environment of the Pulumi CLI are not used.
+      inheritEnvironment: false
+      timeoutSeconds: 120
+      triggers:
+        - ${revision}
+
+outputs:
+  risk: ${review.structuredOutput.risk}
+  summary: ${review.structuredOutput.summary}
+  answer: ${review.output}
+  agentName: ${review.agentName}
+  usage: ${review.usage}
+  toolCalls: ${review.toolCalls}

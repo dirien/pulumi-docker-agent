@@ -1,0 +1,14 @@
+{
+    "name": "docker-agent-docker-serve",
+    "main": "index.ts",
+    "private": true,
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "typescript": "^5.9.3"
+    },
+    "dependencies": {
+        "@ediri/pulumi-docker-agent": "file:../../sdk/nodejs/bin",
+        "@pulumi/docker": "^5.2.0",
+        "@pulumi/pulumi": "^3.268.0"
+    }
+}

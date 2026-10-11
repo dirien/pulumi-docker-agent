@@ -1,0 +1,6 @@
+agents:
+  root:
+    model: openai/gpt-4o
+    toolsets:
+      - type: tasks
+        path: ./project-tasks.json

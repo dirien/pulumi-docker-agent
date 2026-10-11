@@ -1,0 +1,12 @@
+agents:
+  developer:
+    model: anthropic/claude-sonnet-4-5
+    description: Code developer with LSP support
+    instruction: You are a software developer.
+    toolsets:
+      - type: lsp
+        command: gopls
+        args: []
+        file_types: [".go"]
+      - type: filesystem
+      - type: shell

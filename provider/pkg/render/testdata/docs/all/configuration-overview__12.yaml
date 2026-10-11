@@ -1,0 +1,11 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Coordinator.
+    instruction: &house_rules |
+      You are part of the Acme engineering team.
+      Cite the files you looked at and keep changes minimal.
+  reviewer:
+    model: anthropic/claude-sonnet-4-5
+    description: Reviews code changes.
+    instruction: *house_rules        # the same instruction, declared once

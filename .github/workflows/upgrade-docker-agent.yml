@@ -1,0 +1,328 @@
+name: upgrade-docker-agent
+
+# Daily check for a new docker/docker-agent release. When there is one, `make
+# upgrade_docker_agent` bumps the pinned Go module and regenerates the typed config inputs,
+# schema.json and the SDKs, and the result is opened as a pull request whose description is the
+# configuration schema change report.
+#
+# Every step of the upgrade records its result (scripts/upgrade-docker-agent.sh). When any of
+# them fails (`go get`, the generator meeting a schema construct without a rule, a compile break
+# in `make codegen`, failing tests), the pull request is still opened or updated, titled
+# "[needs attention]", labelled `needs-attention`, with the failing step and its output in the
+# description. A failing upgrade therefore never just turns the scheduled run red.
+#
+# Security: the `upgrade` job builds and tests code from the new docker-agent release, so it has
+# a read-only token, no secrets and no persisted credentials; it hands its result to `publish` as
+# a patch artifact. `publish` runs no code from the release: it applies the patch to a fresh
+# checkout, refuses changes outside provider/, sdk/ and CHANGELOG.md, and pushes with git hooks
+# disabled. It uses the GH_TOKEN secret (a bot token) so that the build workflow runs on the pull
+# request; without it, it falls back to GITHUB_TOKEN, which does not trigger workflows.
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: docker-agent release to upgrade to (e.g. v1.151.0); defaults to the latest release
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  PULUMI_SKIP_UPDATE_CHECK: "true"
+  # Local file:// backends used by tests need a passphrase; no Pulumi Cloud login.
+  PULUMI_CONFIG_PASSPHRASE: ci-only
+  TELEMETRY_ENABLED: "false"
+  DOCKER_AGENT_HIDE_TELEMETRY_BANNER: "1"
+  BRANCH_PREFIX: upgrade-docker-agent-to-
+
+jobs:
+  check:
+    name: Check for a new docker-agent release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # look for an existing upgrade pull request
+    outputs:
+      current: ${{ steps.versions.outputs.current }}
+      latest: ${{ steps.versions.outputs.latest }}
+      branch: ${{ steps.existing.outputs.branch }}
+      needed: ${{ steps.existing.outputs.needed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: provider/go.mod
+          cache: false # only `go list -m` runs here
+      - name: Compare the pinned and the latest docker-agent release
+        id: versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DOCKER_AGENT_VERSION: ${{ inputs.version }}
+        run: scripts/upgrade-docker-agent.sh --check
+      - name: Look for an existing upgrade pull request
+        id: existing
+        if: steps.versions.outputs.upgrade == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+        # A pull request in any state (open, closed or merged) means this version was already
+        # proposed. A branch without a pull request means an earlier run pushed but could not
+        # open the pull request (for example a rate limit): run again, and publish re-pushes the
+        # branch and opens the pull request.
+        run: |
+          branch="${BRANCH_PREFIX}${LATEST}"
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+          prs="$(gh pr list --repo "${GITHUB_REPOSITORY}" --head "${branch}" --state all --json number --jq length)"
+          if [ "${prs}" -gt 0 ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Upgrade already proposed::a pull request from ${branch} exists; nothing to do."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "Will propose the upgrade on ${branch}"
+          fi
+
+  upgrade:
+    name: Upgrade docker-agent to ${{ needs.check.outputs.latest }}
+    needs: check
+    if: needs.check.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read # this job runs code from the new release: no write access, no secrets
+    env:
+      LATEST: ${{ needs.check.outputs.latest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # pulumictl derives the version from tags
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: provider/go.mod
+          cache-dependency-path: |
+            provider/go.sum
+            sdk/go.sum
+      - name: Install pulumictl
+        uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8 # v3.0.0
+        with:
+          repo: pulumi/pulumictl
+          tag: v0.0.50
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Upgrade docker-agent, regenerate and test
+        # The script records the result of every step in bin/upgrade-status and the report; it
+        # exits non-zero only when it could not start the upgrade, and then still writes both.
+        run: |
+          set +e
+          make upgrade_docker_agent DOCKER_AGENT_VERSION="${LATEST}" 2>&1 | tee "${RUNNER_TEMP}/upgrade.log"
+          rc="${PIPESTATUS[0]}"
+          set -e
+          mkdir -p bin
+          cp "${RUNNER_TEMP}/upgrade.log" bin/upgrade.log
+          # shellcheck disable=SC2016 # literal Markdown backticks
+          if [ ! -s bin/upgrade-status ]; then
+            echo "script-failed" > bin/upgrade-status
+            echo "make upgrade_docker_agent" > bin/upgrade-failed-step
+            {
+              printf '# docker-agent → %s: upgrade failed\n\n`make upgrade_docker_agent` exited with %s before it wrote a report.\n\n```text\n' "${LATEST}" "${rc}"
+              tail -n 150 bin/upgrade.log
+              printf '```\n'
+            } > bin/upgrade-report.md
+          fi
+          echo "Upgrade status: $(cat bin/upgrade-status) (exit ${rc})"
+      - name: Package the result
+        if: always()
+        # bin/ is gitignored, so the patch holds only the upgrade's changes to tracked and new files.
+        run: |
+          mkdir -p bin
+          git add --all
+          git diff --cached --binary > bin/upgrade.patch
+          git diff --cached --stat
+          [ -s bin/upgrade-status ] || echo "script-failed" > bin/upgrade-status
+          [ -s bin/upgrade-report.md ] || printf '# docker-agent → %s: upgrade failed\n\nThe upgrade job failed before it wrote a report.\n' "${LATEST}" > bin/upgrade-report.md
+          cat bin/upgrade-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: upgrade-docker-agent
+          path: |
+            bin/upgrade.patch
+            bin/upgrade-report.md
+            bin/upgrade-status
+            bin/upgrade-failed-step
+            bin/upgrade*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  publish:
+    name: Open the upgrade pull request
+    needs: [check, upgrade]
+    # Also after a failed or crashed upgrade job: a failure must reach a pull request.
+    if: always() && needs.check.outputs.needed == 'true' && needs.upgrade.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the upgrade branch
+      pull-requests: write # open or update the pull request, close superseded ones
+      issues: write # create the labels
+    env:
+      CURRENT: ${{ needs.check.outputs.current }}
+      LATEST: ${{ needs.check.outputs.latest }}
+      BRANCH: ${{ needs.check.outputs.branch }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      LC_ALL: C.UTF-8 # character-based truncation of the pull request body
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download the upgrade result
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: upgrade-docker-agent
+          path: ${{ runner.temp }}/upgrade
+
+      - name: Apply the upgrade
+        id: apply
+        run: |
+          RESULT="${RUNNER_TEMP}/upgrade"
+          mkdir -p "${RESULT}"
+          status="$(cat "${RESULT}/upgrade-status" 2>/dev/null || echo job-failed)"
+          failed_step="$(cat "${RESULT}/upgrade-failed-step" 2>/dev/null || true)"
+          if [ ! -s "${RESULT}/upgrade-report.md" ]; then
+            printf '# docker-agent %s → %s: upgrade failed\n\nThe upgrade job failed before it produced a result; see %s.\n' \
+              "${CURRENT}" "${LATEST}" "${RUN_URL}" > "${RESULT}/upgrade-report.md"
+            failed_step="${failed_step:-upgrade job}"
+          fi
+          # shellcheck disable=SC2016 # literal Markdown backticks
+          if [ -s "${RESULT}/upgrade.patch" ]; then
+            # Only the paths an upgrade regenerates may change; anything else would be code
+            # from the new release writing into the repository (for example .github/).
+            outside="$(git apply --numstat "${RESULT}/upgrade.patch" | cut -f3 | grep -Ev '^(provider/|sdk/|CHANGELOG\.md$)' || true)"
+            if [ -n "${outside}" ]; then
+              status="patch-rejected"
+              failed_step="apply the upgrade patch"
+              printf '\n## Rejected changes\n\nThe upgrade changed files outside `provider/`, `sdk/` and `CHANGELOG.md`, so nothing was applied:\n\n```text\n%s\n```\n' \
+                "${outside}" >> "${RESULT}/upgrade-report.md"
+            else
+              git apply --index --binary "${RESULT}/upgrade.patch"
+            fi
+          fi
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          echo "failed-step=${failed_step}" >> "$GITHUB_OUTPUT"
+          echo "Upgrade status: ${status}"
+
+      - name: Commit and push the upgrade branch
+        env:
+          STATUS: ${{ steps.apply.outputs.status }}
+          PUSH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+        run: |
+          message="chore(deps): upgrade docker-agent to ${LATEST}"
+          body="Upgrades github.com/docker/docker-agent from ${CURRENT} to ${LATEST} with make upgrade_docker_agent (status: ${STATUS})."
+          # An upgrade that failed before it changed anything still gets a pull request: an
+          # empty commit carries it, and the description explains the failure.
+          git -c core.hooksPath=/dev/null \
+            -c user.name="github-actions[bot]" \
+            -c user.email="41898283+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet --no-verify --allow-empty --message "${message}" --message "${body}"
+          git --no-pager show --stat --oneline HEAD
+          auth="$(printf 'x-access-token:%s' "${PUSH_TOKEN}" | base64 -w0)"
+          echo "::add-mask::${auth}"
+          # --force: the branch belongs to this workflow, and it only re-pushes a branch that has
+          # no pull request (an earlier run pushed but could not open it).
+          git -c core.hooksPath=/dev/null \
+            -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth}" \
+            push --force --no-verify "https://github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
+
+      - name: Open or update the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          STATUS: ${{ steps.apply.outputs.status }}
+          FAILED_STEP: ${{ steps.apply.outputs.failed-step }}
+        run: |
+          RESULT="${RUNNER_TEMP}/upgrade"
+          title="chore(deps): upgrade docker-agent to ${LATEST}"
+          labels="dependencies"
+          gh label create dependencies --force --color 0366d6 \
+            --description "Pull requests that update a dependency file"
+          if [ "${STATUS}" != "ok" ]; then
+            title="[needs attention] ${title}"
+            labels="dependencies,needs-attention"
+            gh label create needs-attention --force --color d93f0b \
+              --description "Automated change that needs a human to finish it"
+          fi
+
+          # shellcheck disable=SC2016 # literal Markdown backticks
+          {
+            if [ "${STATUS}" != "ok" ]; then
+              printf '> [!WARNING]\n> The upgrade needs attention: `%s` failed (status `%s`). ' "${FAILED_STEP}" "${STATUS}"
+              printf 'The failing step and its output are below; push fixes to this branch.\n\n'
+            fi
+            cat "${RESULT}/upgrade-report.md"
+            printf '\n---\n\nGenerated by [upgrade-docker-agent](%s) with `make upgrade_docker_agent DOCKER_AGENT_VERSION=%s`.\n' \
+              "${RUN_URL}" "${LATEST}"
+          } > "${RUNNER_TEMP}/pr-body-full.md"
+
+          # GitHub rejects pull request bodies longer than 65536 characters.
+          body="$(cat "${RUNNER_TEMP}/pr-body-full.md")"
+          max=65536
+          if [ "${#body}" -gt "${max}" ]; then
+            note="$(printf '\n\n_Truncated: the full report is in the workflow run artifacts (%s)._' "${RUN_URL}")"
+            body="${body:0:$((max - ${#note} - 1))}${note}"
+          fi
+          printf '%s\n' "${body}" > "${RUNNER_TEMP}/pr-body.md"
+
+          number="$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "${number}" ]; then
+            gh pr edit "${number}" --title "${title}" --body-file "${RUNNER_TEMP}/pr-body.md" --add-label "${labels}"
+            echo "Updated #${number}"
+          else
+            url="$(gh pr create --base "${GITHUB_REF_NAME}" --head "${BRANCH}" \
+              --title "${title}" --body-file "${RUNNER_TEMP}/pr-body.md" --label "${labels}")"
+            number="${url##*/}"
+            echo "Opened ${url}"
+          fi
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+
+      - name: Close superseded upgrade pull requests
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          NEW_PR: ${{ steps.pr.outputs.number }}
+        run: |
+          gh pr list --state open --limit 100 --json number,headRefName \
+            --jq '.[] | "\(.number) \(.headRefName)"' |
+            while read -r number head; do
+              if [[ "${head}" == "${BRANCH_PREFIX}"* && "${head}" != "${BRANCH}" ]]; then
+                echo "Closing #${number} (${head})"
+                gh pr close "${number}" --delete-branch --comment "Superseded by #${NEW_PR}."
+              fi
+            done

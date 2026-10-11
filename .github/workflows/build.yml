@@ -1,0 +1,263 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PULUMI_SKIP_UPDATE_CHECK: "true"
+  # Local file:// backends used by tests need a passphrase; no Pulumi Cloud login.
+  PULUMI_CONFIG_PASSPHRASE: ci-only
+  # Keep the docker-agent CLI (used by compatibility checks) quiet.
+  TELEMETRY_ENABLED: "false"
+  DOCKER_AGENT_HIDE_TELEMETRY_BANNER: "1"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: provider/go.mod
+          cache-dependency-path: provider/go.sum
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.14.0
+          working-directory: provider
+
+  provider:
+    name: Build, test and codegen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # pulumictl derives the version from tags
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: provider/go.mod
+          cache-dependency-path: |
+            provider/go.sum
+            sdk/go.sum
+      - name: Install pulumictl
+        uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8 # v3.0.0
+        with:
+          repo: pulumi/pulumictl
+          tag: v0.0.50
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Check the generated config types
+        # Regenerates the typed AgentConfig inputs, the vendored agent-schema.json and the
+        # upstream examples from the docker-agent version in provider/go.mod, and fails on any
+        # difference, so a docker-agent bump cannot land without regenerated types.
+        run: make check_config_types
+      - name: Build provider
+        run: make provider
+      - name: Check DockerAgentVersion matches go.mod
+        run: |
+          want="$(cd provider && go list -m -f '{{.Version}}' github.com/docker/docker-agent)"
+          if ! grep -rEq "DockerAgentVersion[[:space:]]*=[[:space:]]*\"${want}\"" provider --include='*.go'; then
+            echo "::error title=docker-agent version drift::provider/go.mod requires github.com/docker/docker-agent ${want}, but the generated DockerAgentVersion constant (provider/pkg/validate/upstream.gen.go) does not match. Run 'make generate_config_types' (or 'make upgrade_docker_agent') and 'make codegen'."
+            exit 1
+          fi
+          echo "docker-agent ${want}: constant and go.mod agree"
+      - name: Unit and integration tests
+        run: make test_provider
+      - name: Regenerate schema and SDKs
+        run: make codegen
+      - name: Fail if the committed schema or SDKs are stale
+        run: |
+          git update-index -q --refresh
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error title=Stale generated code::schema.json and/or sdk/ differ from 'make codegen'. Run 'make codegen' locally and commit the result."
+            git status --porcelain
+            git --no-pager diff --stat
+            git --no-pager diff -- provider/cmd/pulumi-resource-docker-agent/schema.json | head -200
+            exit 1
+          fi
+      - name: Upload provider binary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pulumi-resource-docker-agent
+          path: bin/pulumi-resource-docker-agent
+          if-no-files-found: error
+          retention-days: 3
+
+  sdks:
+    name: Build ${{ matrix.language }} SDK
+    needs: provider
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - nodejs
+          - python
+          - dotnet
+          - go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: provider/go.mod
+          cache-dependency-path: |
+            provider/go.sum
+            sdk/go.sum
+      - name: Install pulumictl
+        uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8 # v3.0.0
+        with:
+          repo: pulumi/pulumictl
+          tag: v0.0.50
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Setup Node
+        if: matrix.language == 'nodejs'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+      - name: Setup Python
+        if: matrix.language == 'python'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Setup .NET
+        if: matrix.language == 'dotnet'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: Build SDK
+        run: make build_${{ matrix.language }}
+      - name: Check worktree clean
+        run: |
+          git update-index -q --refresh
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::make build_${{ matrix.language }} changed tracked files"
+            git status --porcelain
+            git --no-pager diff --stat
+            exit 1
+          fi
+
+  e2e:
+    name: E2E (examples + docker-agent CLI compatibility)
+    needs: provider
+    runs-on: ubuntu-latest
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+        env:
+          # Lets examples exercise deleteBehavior: delete.
+          REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: provider/go.mod
+          cache-dependency-path: |
+            provider/go.sum
+            sdk/go.sum
+            examples/**/go.sum
+      - name: Install pulumictl
+        uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8 # v3.0.0
+        with:
+          repo: pulumi/pulumictl
+          tag: v0.0.50
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: Install the matching docker-agent CLI (compatibility checks)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="$(cd provider && go list -m -f '{{.Version}}' github.com/docker/docker-agent)"
+          mkdir -p "$HOME/.local/bin" "$HOME/.docker/cli-plugins"
+          gh release download "$ver" --repo docker/docker-agent \
+            --pattern docker-agent-linux-amd64 --output "$HOME/.local/bin/docker-agent"
+          chmod +x "$HOME/.local/bin/docker-agent"
+          ln -sf "$HOME/.local/bin/docker-agent" "$HOME/.docker/cli-plugins/docker-agent"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/docker-agent" version
+      - name: Compatibility tests against the real docker-agent CLI
+        # TestCompat skips itself when docker-agent is missing; the step above guarantees it is on PATH.
+        run: make test_compat
+      - name: Wait for the registry
+        run: |
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:5000/v2/ >/dev/null && exit 0
+            sleep 1
+          done
+          echo "::error::registry:2 did not become ready on localhost:5000"
+          exit 1
+      - name: Run examples
+        # Builds the provider and the nodejs, python and dotnet SDKs, then runs up, preview,
+        # refresh and destroy for every program in examples/ (YAML, TypeScript, Python, Go, C#,
+        # HCL and docker-serve-ts) against the registry service. The CLI downloads the HCL
+        # language plugin on first use.
+        # The examples use bin/ through `plugins.providers`, so no plugin install is needed.
+        # docker-agent (installed above) is on PATH, so the tests also pull each artifact
+        # with `docker-agent share pull` and `docker-agent debug config`.
+        env:
+          DOCKER_AGENT_TEST_REGISTRY: localhost:5000
+        run: make test_examples
+
+  goreleaser:
+    name: GoReleaser check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: goreleaser check
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check

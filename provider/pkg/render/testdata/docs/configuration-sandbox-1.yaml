@@ -1,0 +1,12 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/sandbox/ (configuration-sandbox__1.yaml)
+# agent.yaml
+runtime:
+  sandbox: true
+
+agents:
+  root:
+    model: openai/gpt-4o
+    description: A helpful assistant
+    instruction: You are a helpful assistant.
+    toolsets:
+      - type: shell

@@ -1,0 +1,4 @@
+pulumi>=3.268.0,<4.0.0
+# The Python SDK built from this repository by `make build_python`. Outside the
+# repository, replace this line with: ediri_docker_agent>=0.1.0,<1.0.0
+../../sdk/python/bin

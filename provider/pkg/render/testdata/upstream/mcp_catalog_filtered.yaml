@@ -1,0 +1,31 @@
+# An agent that exposes only a curated subset of the Docker MCP Catalog.
+#
+# The mcp_catalog toolset can be narrowed with two optional lists:
+#   - allowed_servers: when non-empty, ONLY these catalog server ids are
+#     searchable and enableable. Every other entry is hidden.
+#   - blocked_servers: removes individual ids from the offered set. It is
+#     applied after allowed_servers, so a server present in both is blocked.
+#
+# Use these to give an agent a focused, predictable menu of servers instead
+# of the full catalog (which contains hundreds of entries).
+
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-6
+    description: Agent restricted to a curated set of remote MCP servers.
+    instruction: |
+      You can discover and activate remote MCP servers on demand, but only
+      a curated subset of the catalog is available to you. Use
+      search_remote_mcp_servers to find one, then enable_remote_mcp_server
+      to activate it.
+    toolsets:
+      - type: mcp_catalog
+        # Only these servers are offered by default.
+        allowed_servers:
+          - docker-docs
+          - microsoft-learn
+          - hugging-face
+          - gitmcp
+        # ...minus any explicitly blocked one (block wins over allow).
+        blocked_servers:
+          - gitmcp

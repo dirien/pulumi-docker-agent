@@ -1,0 +1,9 @@
+# Managed by Pulumi. Keep secrets away from docker-agent.
+
+.env
+.env.*
+*.pem
+*.key
+!public.key
+.aws/
+build/

@@ -1,0 +1,35 @@
+version: "16"
+metadata:
+  author: Pulumi Docker Agent examples
+  license: Apache-2.0
+  description: A research assistant that delegates web searches to a sub-agent
+  version: 1.0.0
+  tags:
+    - research
+    - example
+agents:
+  root:
+    model: claude
+    description: Answers questions and delegates web research
+    instruction: You are a helpful assistant. Delegate questions that need current information to the researcher agent, then summarise its findings.
+    sub_agents:
+      - researcher
+  researcher:
+    model: claude
+    description: Searches the web with DuckDuckGo
+    instruction: Search the web and answer with short summaries that cite their sources.
+    toolsets:
+      - type: mcp
+        ref: docker:duckduckgo
+    add_date: true
+models:
+  claude:
+    provider: anthropic
+    model: claude-opus-5-5
+    token_key: AGENT_ANTHROPIC_API_KEY
+    max_tokens: 32000
+runtime:
+  sandbox: true
+  network_allowlist:
+    - api.anthropic.com
+  safety: balanced

@@ -1,0 +1,14 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/tools/mcp/ (tools-mcp__3.fragment.yaml): the toolset fragment is put into a minimal agent.
+agents:
+  root:
+    model: openai/gpt-5-mini
+    toolsets:
+      - type: mcp
+        remote:
+          url: "https://mcp.linear.app/mcp"
+          transport_type: "streamable"               # or "sse" for legacy servers
+          headers:
+            Authorization: "Bearer ${env.LINEAR_TOKEN}"
+        # Optional: allow OAuth helper requests to reach private/internal IPs.
+        allow_private_ips: false
+        tools: ["search_issues", "create_issue"]

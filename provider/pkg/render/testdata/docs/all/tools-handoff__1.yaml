@@ -1,0 +1,18 @@
+agents:
+  router:
+    model: openai/gpt-4o
+    description: Routes questions to the right specialist
+    instruction: |
+      Classify the user's question and hand off to the most appropriate
+      specialist. If unsure, ask a clarifying question first.
+    handoffs: [billing, support]
+
+  billing:
+    model: openai/gpt-4o
+    description: Billing specialist
+    instruction: Answer billing questions.
+
+  support:
+    model: openai/gpt-4o
+    description: Technical support specialist
+    instruction: Help with technical issues.

@@ -1,0 +1,26 @@
+agents:
+  root:
+    model: openai/gpt-5
+    description: Main assistant
+    instruction: You are a project coordinator.
+    sub_agents: [planner, reviewer]
+    commands:
+      # Switch to planner with a pre-filled prompt
+      plan:
+        agent: planner
+        instruction: "Create a detailed plan for: ${args.join(\" \")}"
+      # Switch to reviewer; any text after /review is forwarded
+      review:
+        agent: reviewer
+      # Simple prompt command (no switching)
+      status: "Summarize what we have accomplished so far"
+
+  planner:
+    model: openai/gpt-5
+    description: Planning specialist
+    instruction: You create detailed project plans.
+
+  reviewer:
+    model: anthropic/claude-sonnet-4-5
+    description: Code review specialist
+    instruction: You review code and suggest improvements.

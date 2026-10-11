@@ -1,0 +1,13 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Search the web
+    instruction: |
+      You search the Web for information using Brave and fetch.
+      Always share your sources.
+    toolsets:
+      - type: fetch
+      - type: mcp
+        ref: docker:brave
+        env:
+          brave.api_key: ${env.BRAVE_API_KEY}

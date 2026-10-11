@@ -1,0 +1,8 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/permissions/ (configuration-permissions__1.yaml)
+# Agent YAML (author-declared defaults)
+runtime:
+  safety: balanced # config-wide default for new sessions
+
+agents:
+  root:
+    safety: strict # overrides runtime.safety for this agent

@@ -1,0 +1,10 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/tools/webhook/ (tools-webhook__7.yaml)
+agents:
+  root:
+    model: openai/gpt-5-mini
+    instruction: If a check fails, notify the team with send_webhook.
+    toolsets:
+      - type: webhook
+        webhook_config:
+          provider: slack
+          url: ${env.SLACK_WEBHOOK_URL}

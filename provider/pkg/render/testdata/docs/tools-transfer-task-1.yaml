@@ -1,0 +1,23 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/tools/transfer-task/ (tools-transfer-task__1.yaml)
+agents:
+  coordinator:
+    model: openai/gpt-4o
+    description: Coordinates work across specialists
+    instruction: Analyze requests and delegate to the right specialist.
+    sub_agents: [developer, researcher]
+
+  developer:
+    model: anthropic/claude-sonnet-4-5
+    description: Expert software developer
+    instruction: Write clean, production-ready code.
+    toolsets:
+      - type: filesystem
+      - type: shell
+
+  researcher:
+    model: openai/gpt-4o
+    description: Web researcher
+    instruction: Search for information online.
+    toolsets:
+      - type: mcp
+        ref: docker:duckduckgo

@@ -1,0 +1,64 @@
+# 1. Version — configuration schema version (optional but recommended)
+version: 15
+
+# 2. Metadata — optional agent metadata for distribution
+metadata:
+  author: my-org
+  description: My helpful agent
+  version: "1.0.0"
+
+# 3. Models — define AI models with their parameters
+models:
+  claude:
+    provider: anthropic
+    model: claude-sonnet-4-5
+    max_tokens: 64000
+
+# 4. Agents — define AI agents with their behavior (at least one is required)
+agents:
+  root:
+    model: claude
+    description: A helpful assistant
+    instruction: You are helpful.
+    toolsets:
+      - type: think
+
+# 5. RAG — define retrieval-augmented generation sources (optional)
+rag:
+  docs:
+    docs: ["./docs"]
+    strategies:
+      - type: chunked-embeddings
+        embedding_model: openai/text-embedding-3-small
+
+# 6. MCPs — reusable MCP server definitions (optional)
+mcps:
+  github:
+    remote:
+      url: https://api.githubcopilot.com/mcp
+      transport_type: sse
+
+# 7. Providers — optional reusable provider definitions
+providers:
+  my_provider:
+    provider: anthropic  # or openai (default), google, amazon-bedrock, etc.
+    token_key: MY_API_KEY
+    max_tokens: 16384
+
+# 8. Permissions — agent-level tool permission rules (optional)
+#    For user-wide global permissions, see ~/.config/cagent/config.yaml
+permissions:
+  allow: ["read_*"]
+  deny: ["shell:cmd=sudo*"]
+
+# 9. Commands & Skills — reusable, named groups shared across agents (optional)
+commands:
+  ci:
+    deploy: "Deploy the application"
+skills:
+  base: [local, git]
+
+# 10. Toolsets — reusable, named toolset definitions shared across agents (optional)
+toolsets:
+  fs:
+    type: filesystem

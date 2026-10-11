@@ -1,0 +1,7 @@
+agents:
+  root:
+    model: openai/gpt-4o
+    description: Test agent
+    instruction: Use the `shell` tool to run the command the user asks you to
+    toolsets:
+      - type: shell

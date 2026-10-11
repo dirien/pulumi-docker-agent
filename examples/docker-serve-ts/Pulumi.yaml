@@ -1,0 +1,17 @@
+name: docker-agent-docker-serve
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+description: Pushes a Docker Agent configuration to a registry and serves it over HTTP with `docker agent serve api` in a container.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. Remove this
+  # block when you copy the example elsewhere; the SDK then downloads the released plugin.
+  providers:
+    - name: docker-agent
+      path: ../../bin
+config:
+  agentImage:
+    type: string
+    default: docker/docker-agent:1.150.0
+    description: The docker-agent image that serves the agent. Pin a version; `latest` tracks main.

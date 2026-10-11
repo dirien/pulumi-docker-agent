@@ -1,0 +1,100 @@
+name: docker-agent-yaml
+runtime: yaml
+description: Builds a two-agent Docker Agent configuration, pushes it to an OCI registry and reads it back.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. When you copy the
+  # example elsewhere, remove this block and install the released plugin with
+  # `pulumi plugin install resource docker-agent --server github://api.github.com/dirien/pulumi-docker-agent`.
+  providers:
+    - name: docker-agent
+      path: ../../bin
+
+config:
+  # The registry to push to. The default is a local registry:2 container.
+  registry:
+    type: string
+    default: localhost:5000
+
+resources:
+  # A typed docker-agent configuration, validated during `pulumi preview`.
+  assistant:
+    type: docker-agent:index:AgentConfig
+    properties:
+      models:
+        claude:
+          provider: anthropic
+          model: claude-opus-5-5
+          maxTokens: 32000
+          # The environment variable that holds the API key where the agent runs.
+          tokenKey: AGENT_ANTHROPIC_API_KEY
+      agents:
+        - name: root
+          model: claude
+          description: Answers questions and delegates web research
+          instruction: >-
+            You are a helpful assistant. Delegate questions that need current
+            information to the researcher agent, then summarise its findings.
+          subAgents:
+            - researcher
+        - name: researcher
+          model: claude
+          description: Searches the web with DuckDuckGo
+          instruction: Search the web and answer with short summaries that cite their sources.
+          addDate: true
+          toolsets:
+            # The DuckDuckGo MCP server from the Docker MCP Catalog.
+            - type: mcp
+              ref: docker:duckduckgo
+      metadata:
+        author: Pulumi Docker Agent examples
+        license: Apache-2.0
+        description: A research assistant that delegates web searches to a sub-agent
+        version: 1.0.0
+        tags:
+          - research
+          - example
+      # Sandbox mode: `docker agent run` runs the agent in a sandbox by default and only lets it
+      # reach the model API.
+      runtime:
+        sandbox: true
+        networkAllowlist:
+          - api.anthropic.com
+        safety: balanced
+
+  # Share the configuration as an OCI artifact, like `docker agent share push`.
+  artifact:
+    type: docker-agent:index:AgentArtifact
+    properties:
+      reference: ${registry}/examples/yaml-agent:v1
+      yaml: ${assistant.yaml}
+      # Remove the artifact from the registry on `pulumi destroy`.
+      deleteBehavior: delete
+
+variables:
+  # Read the shared agent back from the registry, like `docker agent share pull`.
+  pulled:
+    fn::invoke:
+      function: docker-agent:index:getAgent
+      arguments:
+        reference: ${artifact.pinnedReference}
+
+  # Validate a hand-written agent file without pushing it.
+  rawConfig:
+    fn::invoke:
+      function: docker-agent:index:validateAgentConfig
+      arguments:
+        yaml:
+          fn::readFile: ./agent.yaml
+
+outputs:
+  digest: ${artifact.digest}
+  pinnedReference: ${artifact.pinnedReference}
+  runCommand: docker agent run ${artifact.pinnedReference}
+  requiredEnvVars: ${assistant.requiredEnvVars}
+  agentYaml: ${assistant.yaml}
+  pulledYaml: ${pulled.yaml}
+  pulledAgents: ${pulled.agentNames}
+  pulledMetadata: ${pulled.metadata}
+  rawConfigValid: ${rawConfig.valid}
+  rawConfigAgents: ${rawConfig.agentNames}
+  rawConfigErrors: ${rawConfig.errors}

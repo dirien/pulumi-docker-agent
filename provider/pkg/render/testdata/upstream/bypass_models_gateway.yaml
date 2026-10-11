@@ -1,0 +1,46 @@
+# Demonstrates `bypass_models_gateway`, which forces a specific model to
+# connect directly to its provider instead of routing through a models gateway
+# (configured via --models-gateway / DOCKER_AGENT_MODELS_GATEWAY).
+#
+# This is useful when most models should go through a central gateway (for
+# billing, auditing, or shared credentials) but one model must talk to its
+# provider directly — for example a model the gateway does not proxy, or one
+# that needs a dedicated API key.
+#
+# A bypassed model authenticates with the provider's own credentials
+# (OPENAI_API_KEY, ANTHROPIC_API_KEY, or an explicit token_key) rather than the
+# gateway's short-lived token.
+#
+# A custom base_url (on the model or inherited from a named provider
+# definition) implies the bypass automatically — user-chosen endpoints are
+# never routed through the models gateway.
+models:
+  # Routed through the gateway when one is configured.
+  gateway-model:
+    provider: openai
+    model: gpt-5.6-sol
+
+  # Always talks directly to Anthropic, even when a gateway is configured.
+  # Requires ANTHROPIC_API_KEY to be set.
+  direct-model:
+    provider: anthropic
+    model: claude-sonnet-5
+    bypass_models_gateway: true
+
+  # A custom base_url implies the bypass; no flag needed.
+  proxied-model:
+    provider: openai
+    model: gpt-5.6-sol
+    base_url: https://proxy.internal.example.com/v1
+
+agents:
+  root:
+    model: direct-model
+    description: Assistant whose model bypasses the models gateway
+    instruction: You are a helpful assistant.
+    sub_agents: [proxied]
+
+  proxied:
+    model: proxied-model
+    description: Assistant whose custom endpoint implies the gateway bypass
+    instruction: You are a helpful assistant.

@@ -1,0 +1,12 @@
+version: "16"
+metadata:
+  author: Jane Doe <jane@example.com>
+  license: Apache-2.0
+  version: 1.2.3
+  description: Agent with full metadata
+  readme: "# Readme\nSome text"
+  tags: [alpha, beta]
+agents:
+  root:
+    model: openai/gpt-4o-mini
+    instruction: hi

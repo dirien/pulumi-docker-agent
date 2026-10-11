@@ -1,0 +1,14 @@
+name: docker-agent-dotnet
+runtime: dotnet
+description: Builds a two-agent Docker Agent configuration, pushes it to an OCI registry and reads it back.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. Remove this
+  # block when you copy the example elsewhere; the SDK then downloads the released plugin.
+  providers:
+    - name: docker-agent
+      path: ../../bin
+config:
+  registry:
+    type: string
+    default: localhost:5000
+    description: The registry to push to. The default is a local registry:2 container.

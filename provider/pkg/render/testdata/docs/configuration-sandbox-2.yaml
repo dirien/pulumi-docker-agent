@@ -1,0 +1,16 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/configuration/sandbox/ (configuration-sandbox__2.fragment.yaml, configuration-sandbox__3.yaml):
+# the runtime fragment with the agent of the next example. runtime.safety is documented on
+# https://docs.docker.com/ai/docker-agent/configuration/permissions/.
+runtime:
+  sandbox: true
+  network_allowlist:
+    - api.example.com
+    - registry.npmjs.org
+  safety: restricted
+agents:
+  root:
+    model: openai/gpt-4o
+    description: Agent with sandboxed shell
+    instruction: You are a helpful assistant.
+    toolsets:
+      - type: shell

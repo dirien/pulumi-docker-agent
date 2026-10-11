@@ -1,0 +1,8 @@
+agents:
+  root:
+    toolsets:
+      - type: memory
+        path: "~/notes/${env.PROJECT}/memory.db"
+      - type: mcp
+        command: my-server
+        working_dir: "${env.HOME}/work"

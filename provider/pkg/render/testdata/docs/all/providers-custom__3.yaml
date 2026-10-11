@@ -1,0 +1,15 @@
+providers:
+  my_google:
+    provider: google
+    temperature: 0.3
+
+models:
+  gemini:
+    provider: my_google
+    model: gemini-2.5-flash
+    # Inherits temperature: 0.3
+
+agents:
+  root:
+    model: gemini
+    instruction: You are a helpful assistant.

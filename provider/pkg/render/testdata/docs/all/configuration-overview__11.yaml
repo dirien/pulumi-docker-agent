@@ -1,0 +1,27 @@
+providers:
+  # OpenAI-compatible custom endpoint
+  azure:
+    api_type: openai_chatcompletions
+    base_url: https://my-resource.openai.azure.com/openai/deployments/gpt-4o
+    token_key: AZURE_OPENAI_API_KEY
+
+  # Anthropic with shared model defaults
+  team_anthropic:
+    provider: anthropic
+    token_key: TEAM_ANTHROPIC_KEY
+    max_tokens: 32768
+    thinking_budget: 16384
+
+models:
+  azure_gpt:
+    provider: azure
+    model: gpt-4o
+
+  claude:
+    provider: team_anthropic
+    model: claude-sonnet-4-5
+    # Inherits max_tokens, thinking_budget from provider
+
+agents:
+  root:
+    model: claude

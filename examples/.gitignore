@@ -1,0 +1,18 @@
+# Dependencies and build outputs of the example programs
+node_modules/
+package-lock.json
+yarn.lock
+venv/
+__pycache__/
+*.pyc
+bin/
+obj/
+*.tsbuildinfo
+
+# HCL: `pulumi install` / `pulumi package add` write sdks/<package>/hcl.sdk.json. User projects
+# commit it (it records versions and download URLs); this example deliberately does not, because
+# it would make `pulumi install` download the released plugin instead of using ../../bin.
+/hcl/sdks/
+
+# Files written by user-settings-yaml with the default outputDir.
+/user-settings-yaml/out/

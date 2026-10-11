@@ -1,0 +1,6 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/overview/ (configuration-overview__1.yaml)
+agents:
+  root:
+    model: openai/gpt-5
+    description: A helpful assistant
+    instruction: You are a helpful assistant.

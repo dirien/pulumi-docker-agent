@@ -1,0 +1,10 @@
+agents:
+  root:
+    model: openai/gpt-4o-mini
+    description: A time-boxed agent.
+    instruction: You are a helpful assistant.
+    toolsets:
+      - type: shell
+
+budget:
+  max_time: 15m

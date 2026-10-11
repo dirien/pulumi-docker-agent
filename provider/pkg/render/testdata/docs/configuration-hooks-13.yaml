@@ -1,0 +1,24 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/hooks/ (configuration-hooks__13.yaml)
+agents:
+  coder:
+    model: qwen3-large
+    handoffs: [reviewer]
+    hooks:
+      on_agent_switch:
+        - type: builtin
+          command: unload
+  reviewer:
+    model: qwen3-coder
+    handoffs: [coder]
+    hooks:
+      on_agent_switch:
+        - type: builtin
+          command: unload
+
+models:
+  qwen3-large:
+    provider: dmr
+    model: ai/qwen3-large
+  qwen3-coder:
+    provider: dmr
+    model: ai/qwen3-coder

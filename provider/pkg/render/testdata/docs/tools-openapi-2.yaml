@@ -1,0 +1,10 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/tools/openapi/ (tools-openapi__2.fragment.yaml): the toolset fragment is put into a minimal agent.
+agents:
+  root:
+    model: openai/gpt-5-mini
+    toolsets:
+      - type: openapi
+        url: "https://api.example.com/openapi.json"
+        headers:
+          Authorization: "Bearer ${env.API_TOKEN}"
+          X-Custom-Header: "my-value"

@@ -1,0 +1,37 @@
+agents:
+  github_assistant:
+    model: openai/gpt-4o
+    description: Assistant that can query GitHub
+    instruction: You can look up GitHub repositories and users.
+    toolsets:
+      - type: api
+        api_config:
+          name: get_repo
+          method: GET
+          endpoint: "https://api.github.com/repos/${owner}/${repo}"
+          instruction: Get information about a GitHub repository
+          args:
+            owner:
+              type: string
+              description: Repository owner (user or org)
+            repo:
+              type: string
+              description: Repository name
+          required: ["owner", "repo"]
+          headers:
+            Accept: "application/vnd.github.v3+json"
+            Authorization: "Bearer ${env.GITHUB_TOKEN}"
+
+      - type: api
+        api_config:
+          name: get_user
+          method: GET
+          endpoint: "https://api.github.com/users/${username}"
+          instruction: Get information about a GitHub user
+          args:
+            username:
+              type: string
+              description: GitHub username
+          required: ["username"]
+          headers:
+            Accept: "application/vnd.github.v3+json"

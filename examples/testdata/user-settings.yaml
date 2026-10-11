@@ -1,0 +1,40 @@
+version: v1
+default_model: gateway/qwen3-coder
+aliases:
+  local:
+    path: ./agent.yaml
+    model: anthropic/claude-sonnet-4-5
+  reviewer:
+    path: docker.io/myorg/reviewer:latest
+    safety: restricted
+providers:
+  gateway:
+    base_url: https://llm.example.com/v1
+    token_key: GATEWAY_API_KEY
+settings:
+  theme: auto
+  theme_dark: dracula
+  safety: balanced
+  sound: true
+  sound_threshold: 30
+  permissions:
+    allow:
+    - read_*
+    deny:
+    - shell:cmd=sudo*
+    - shell:cmd=rm -rf*
+  hooks:
+    session_start:
+    - type: builtin
+      command: add_date
+  keybindings:
+  - action: commands
+    keys:
+    - f2
+    - ctrl+k
+  layout:
+    sidebar_position: left
+    hide_usage: true
+  busy_send_mode: queue
+sandbox_allowlist:
+- registry.npmjs.org:443

@@ -1,0 +1,68 @@
+metadata:
+  readme: |
+    This example demonstrates a Tic-Tac-Toe game between two agents, "player_blue" and "player_red", 
+    organized by a root Game Master agent.
+    The game master manages the game state, enforces the rules, and declares the winner or a draw.
+    Each player agent makes moves based on the current state of the board.
+
+    The Game master talks to both players over A2A.
+
+    To run the demo:
+    docker agent serve a2a --listen 127.0.0.1:8080 ./examples/tic-tac-toe.yaml --agent player_blue
+    docker agent serve a2a --listen 127.0.0.1:8081 ./examples/tic-tac-toe.yaml --agent player_red
+    docker agent run --yolo ./examples/tic-tac-toe.yaml 'Go!'
+
+agents:
+  # Game Master
+  root:
+    model: anthropic/claude-opus-4-5
+    description: A Tic-Tac-Toe game organizer
+    instruction: |
+      <identity>
+      You are a Tic-Tac-Toe game organizer. Your goal is to make your two subagents play Tic-Tac-Toe against each other.
+      You keep track of the game state, enforce the rules, and declare the winner or a draw at the end of the game.
+      You communicate with your two subagents, "player_blue" and "player_red", to get their moves and update the game board accordingly.
+      </identity>
+
+      <game>
+      On each player's first turn, you inform them of their assigned mark: "X" for player_blue and "O" for player_red.
+      </game>
+
+      <preparation>
+      Before the game, you must prepare an html page that visually represents the Tic-Tac-Toe board.
+      - Make it retro and super flashy!
+      - Serve this page on a local web server that you runs as a background job. (Stop it at the end of the game.)
+      - Always work in /tmp
+      - IMPORTANT: Make sure you can ping the page before starting the game. We don't want users to miss the game!
+      - The page shows the user the current state of the board and is updated live with javascript and live-reload.
+      - On each turn, you update the page to reflect the current state of the board. It MUST auto-refresh with you update the state/
+      - IMPORTANT: You must open a browser on this URL before the players start to play, for the user to follow the game.
+      - (The url can't be on port 8080 or 8081, as those are used by the players' agents.)
+      </preparation>
+    add_environment_info: true
+    toolsets:
+      - type: shell
+      - type: background_jobs
+      - type: filesystem
+      - type: a2a
+        url: http://localhost:8080/
+      - type: a2a
+        url: http://localhost:8081/
+
+  # BLUE Player
+  player_blue:
+    model: openai/gpt-4.1-nano
+    description: A Tic-Tac-Toe player
+    instruction: |
+      You know how to play Tic-Tac-Toe. You will be playing against another agent in a game organized by a third agent.
+      When it's your turn, you will receive the current state of the board and you need to choose your move by specifying
+      the row and column (0-indexed) where you want to place your mark (X or O).
+
+  # RED Player
+  player_red:
+    model: anthropic/claude-haiku-4-5
+    description: A Tic-Tac-Toe player
+    instruction: |
+      You know how to play Tic-Tac-Toe. You will be playing against another agent in a game organized by a third agent.
+      When it's your turn, you will receive the current state of the board and you need to choose your move by specifying
+      the row and column (0-indexed) where you want to place your mark (X or O).

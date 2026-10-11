@@ -1,0 +1,19 @@
+providers:
+  fast_openai:
+    base_url: https://api.openai.com/v1
+    token_key: OPENAI_API_KEY
+    temperature: 0.3
+    max_tokens: 8192
+
+  smart_anthropic:
+    provider: anthropic
+    token_key: ANTHROPIC_API_KEY
+    max_tokens: 64000
+    thinking_budget: high
+
+agents:
+  root:
+    model: smart_anthropic/claude-sonnet-4-5
+    sub_agents: [helper]
+  helper:
+    model: fast_openai/gpt-4o-mini

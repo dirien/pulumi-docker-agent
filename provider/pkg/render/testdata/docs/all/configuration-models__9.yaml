@@ -1,0 +1,12 @@
+models:
+  smart:
+    first_available:
+      - anthropic/claude-sonnet-4-6
+      - openai/gpt-5
+      - google/gemini-3.5-flash
+      - dmr/ai/qwen3 # local fallback; no API key required
+
+agents:
+  root:
+    model: smart
+    instruction: You are a helpful assistant.

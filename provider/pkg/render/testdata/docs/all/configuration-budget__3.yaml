@@ -1,0 +1,17 @@
+models:
+  local:
+    provider: openai
+    model: my-model
+    base_url: http://localhost:8000/v1
+    cost:
+      input: 0.15
+      output: 0.60
+
+agents:
+  root:
+    model: local
+    description: A locally-served agent with real cost accounting.
+    instruction: You are a helpful assistant.
+
+budget:
+  max_cost: 0.50

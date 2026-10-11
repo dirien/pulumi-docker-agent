@@ -1,0 +1,90 @@
+version: 2
+
+updates:
+  # Provider module.
+  - package-ecosystem: gomod
+    directory: /provider
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - go
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      # docker-agent is upgraded by .github/workflows/upgrade-docker-agent.yml (`make
+      # upgrade_docker_agent`), which also regenerates the typed AgentConfig inputs from the new
+      # agent-schema.json, the version and toolset constants, schema.json and the SDKs, runs the
+      # tests and puts a schema change report in the pull request. A bare go.mod bump would skip
+      # all of that (and fail the check_config_types CI step).
+      - dependency-name: github.com/docker/docker-agent
+    groups:
+      pulumi:
+        patterns:
+          - github.com/pulumi/*
+      go-containerregistry:
+        patterns:
+          - github.com/google/go-containerregistry
+      go-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - github.com/docker/docker-agent
+          - github.com/pulumi/*
+          - github.com/google/go-containerregistry
+        update-types:
+          - minor
+          - patch
+
+  # Generated Go SDK module and the Go example modules.
+  - package-ecosystem: gomod
+    directories:
+      - /sdk
+      - /examples
+      - /examples/go
+    schedule:
+      interval: weekly
+      day: sunday
+      time: "08:00"
+      timezone: Europe/Berlin
+    labels:
+      - dependencies
+      - go
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      # examples/go builds against ../../sdk through a replace directive.
+      - dependency-name: github.com/dirien/pulumi-docker-agent/sdk
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+      time: "08:00"
+      timezone: Europe/Berlin
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # No npm or pip entries for examples/nodejs, examples/docker-serve-ts and examples/python:
+  # they install the SDKs built from this repository (file:../../sdk/nodejs/bin and
+  # ../../sdk/python/bin, both gitignored build outputs), which Dependabot cannot resolve
+  # ("path dependencies not reachable"). Their other dependencies use open version ranges
+  # without lockfiles, so every install already gets the latest compatible releases.

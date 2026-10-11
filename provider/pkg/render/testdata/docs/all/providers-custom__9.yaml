@@ -1,0 +1,24 @@
+providers:
+  team_anthropic:
+    provider: anthropic
+    token_key: TEAM_ANTHROPIC_KEY
+    max_tokens: 32768
+    thinking_budget: high
+    temperature: 0.5
+
+models:
+  architect:
+    provider: team_anthropic
+    model: claude-sonnet-4-5
+
+  reviewer:
+    provider: team_anthropic
+    model: claude-haiku-4-5
+    thinking_budget: low  # faster reviews
+
+agents:
+  root:
+    model: architect
+    sub_agents: [code_reviewer]
+  code_reviewer:
+    model: reviewer

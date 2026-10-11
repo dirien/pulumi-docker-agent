@@ -1,0 +1,9 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/tools/session_context/ (tools-session_context__2.fragment.yaml): the toolset fragment is put into a minimal agent.
+agents:
+  root:
+    model: openai/gpt-5-mini
+    # An agent that may browse but never pull a full transcript into context.
+    toolsets:
+      - type: session_context
+        tools:
+          - list_sessions

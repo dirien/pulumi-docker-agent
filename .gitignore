@@ -1,0 +1,34 @@
+# Build outputs
+/bin/
+/dist/
+/nuget/
+coverage.out
+
+# SDK build outputs (the generated SDK sources are committed)
+**/node_modules/
+**/obj/
+sdk/nodejs/bin/
+sdk/nodejs/yarn.lock
+sdk/python/bin/
+sdk/python/venv/
+sdk/python/README.md
+sdk/python/**/__pycache__/
+sdk/python/*.egg-info/
+sdk/dotnet/bin/
+sdk/dotnet/version.txt
+sdk/java/build/
+sdk/java/.gradle/
+
+# Local Pulumi state and stack config of examples
+Pulumi.*.yaml
+.pulumi/
+.state/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Claude Code session files
+.claude/

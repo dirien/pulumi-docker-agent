@@ -1,0 +1,14 @@
+# Wrapped fragment from https://docs.docker.com/ai/docker-agent/tools/filesystem/ (tools-filesystem__2.fragment.yaml): the toolset fragment is put into a minimal agent.
+agents:
+  root:
+    model: openai/gpt-5-mini
+    toolsets:
+      - type: filesystem
+        # Restrict every operation to the working directory and the user's
+        # home folder, then carve credentials out of the home folder.
+        allow_list:
+          - "."
+          - "~"
+        deny_list:
+          - "~/.ssh"
+          - "~/.aws"

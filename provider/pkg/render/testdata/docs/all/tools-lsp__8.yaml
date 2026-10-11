@@ -1,0 +1,18 @@
+agents:
+  polyglot:
+    model: anthropic/claude-sonnet-4-5
+    description: Multi-language developer
+    instruction: You are a full-stack developer.
+    toolsets:
+      - type: lsp
+        command: gopls
+        file_types: [".go"]
+      - type: lsp
+        command: typescript-language-server
+        args: ["--stdio"]
+        file_types: [".ts", ".tsx", ".js", ".jsx"]
+      - type: lsp
+        command: pylsp
+        file_types: [".py"]
+      - type: filesystem
+      - type: shell

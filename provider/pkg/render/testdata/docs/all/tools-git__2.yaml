@@ -1,0 +1,10 @@
+agents:
+  root:
+    model: openai/gpt-5-mini
+    description: A code review assistant
+    instruction: |
+      Review the working changes: check git_status, then git_show the latest
+      commit, and summarize what changed.
+    toolsets:
+      - type: git
+      - type: filesystem

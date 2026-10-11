@@ -1,0 +1,89 @@
+# Run the demo command with:
+# docker agent run thinking_budget.yaml -c demo
+
+agents:
+  root:
+    model: gpt-5-mini-min # <- try with gpt-5-mini-high, gpt-5-6-max, or gpt-5-6-none
+    # model: claude-4-6-sonnet-min # <- try with claude-4-6-sonnet-high or claude-opus-4-8-adaptive
+    # model: gemini-2-5-flash-dynamic-thinking # <- try with -no-thinking, -low or -high variants
+    description: a helpful assistant that thinks
+    instruction: you are a helpful assistant who can also use tools, but only if you need to
+    commands:
+      demo: "hey i need python code for a mandelbrot fractal"
+    toolsets:
+      - type: shell
+
+models:
+  gpt-5-mini-min:
+    provider: openai
+    model: gpt-5-mini
+    thinking_budget: minimal # <- openai supports "none", "minimal", "low", "medium", "high", "xhigh", "max" (xhigh needs gpt-5.2+; none/max need gpt-5.6+; minimal is dropped on gpt-5.6+)
+
+  gpt-5-mini-high:
+    provider: openai
+    model: gpt-5-mini
+    thinking_budget: high
+
+  gpt-5-6-max:
+    provider: openai
+    model: gpt-5.6
+    thinking_budget: max # <- gpt-5.6+ only; the top-most OpenAI effort tier
+
+  gpt-5-6-none:
+    provider: openai
+    model: gpt-5.6
+    thinking_budget: none # <- gpt-5.6+ has a real "none" effort, honored on the wire instead of just disabling thinking locally
+
+  claude-4-6-sonnet-min:
+    provider: anthropic
+    model: claude-sonnet-4-6
+    thinking_budget: 1024 # <- explicit token budget (1024-32768) for older models
+
+  claude-4-6-sonnet-high:
+    provider: anthropic
+    model: claude-sonnet-4-6
+    thinking_budget: 32768 # <- explicit token budget (32768 is the Anthropic suggested maximum)
+    provider_opts:
+      interleaved_thinking: true # <- enables interleaved thinking, aka tool calling during model reasoning
+
+  claude-opus-4-8-adaptive:
+    provider: anthropic
+    model: claude-opus-4-8
+    thinking_budget: adaptive # <- lets the model decide when and how much to think (recommended for 4.6+)
+
+  claude-opus-4-8-low:
+    provider: anthropic
+    model: claude-opus-4-8
+    thinking_budget: low # <- adaptive thinking with low effort: "low", "medium", "high", "xhigh", "max" (same as adaptive/<effort>)
+
+  claude-opus-4-8-summarized:
+    provider: anthropic
+    model: claude-opus-4-8 # <- Opus 4.7 hides thinking by default; use the same flag with any recent Claude model
+    thinking_budget: adaptive
+    provider_opts:
+      thinking_display: summarized # <- "summarized" or "omitted" on 4.6+ models; "display" is pre-4.6 only (Opus 4.7 defaults to omitted)
+
+  gemini-2-5-flash-dynamic-thinking:
+    provider: google
+    model: gemini-2.5-flash
+    thinking_budget: -1 # <- google only, dynamic thinking
+
+  gemini-2-5-flash-no-thinking:
+    provider: google
+    model: gemini-2.5-flash
+    thinking_budget: 0 # <- google only, no thinking
+
+  gemini-2-5-flash-low:
+    provider: google
+    model: gemini-2.5-flash
+    thinking_budget: 1024
+
+  gemini-2-5-flash-high:
+    provider: google
+    model: gemini-2.5-flash
+    thinking_budget: 24576 # <- google's maximum thinking budget for all models except Gemini 2.5 Pro (max 32768)
+
+  bedrock-opus-4-8-adaptive:
+    provider: amazon-bedrock
+    model: global.anthropic.claude-opus-4-8
+    thinking_budget: adaptive/high # <- Opus 4.6+ reject token budgets on Bedrock too; token values are auto-converted to adaptive

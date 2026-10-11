@@ -1,0 +1,15 @@
+agents:
+  root:
+    model: claude
+    instruction: You are a helpful assistant.
+
+models:
+  claude:
+    provider: anthropic
+    model: claude-sonnet-4-5
+
+flavors:
+  cheap:
+    models:
+      claude:
+        model: claude-3-5-haiku-latest

@@ -1,0 +1,21 @@
+agents:
+  # Agent-level readonly: every toolset is restricted to read-only tools.
+  inspector:
+    model: anthropic/claude-sonnet-4-5
+    description: Read-only inspector that can explore but never modify.
+    instruction: Explore the project. Do not make changes.
+    readonly: true
+    toolsets:
+      - type: filesystem
+      - type: shell
+
+  # Toolset-level readonly: only the filesystem toolset is restricted;
+  # the shell toolset keeps all of its tools.
+  mixed:
+    model: anthropic/claude-sonnet-4-5
+    description: Read-only file access, full shell access.
+    instruction: You can read files and run any shell command.
+    toolsets:
+      - type: filesystem
+        readonly: true
+      - type: shell

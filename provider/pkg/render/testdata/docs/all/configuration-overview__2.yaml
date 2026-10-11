@@ -1,0 +1,10 @@
+agents:
+  root:
+    description: "Assistant for ${env.USER || 'guest'}"
+    commands:
+      deploy: "Deploy ${env.PROJECT_NAME || 'app'} to ${env.ENV || 'staging'}"
+    toolsets:
+      - type: openapi
+        url: https://api.example.com
+        headers:
+          Authorization: "Bearer ${env.INTERNAL_TOKEN}"

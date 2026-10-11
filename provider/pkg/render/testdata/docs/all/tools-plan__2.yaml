@@ -1,0 +1,29 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Coordinator
+    instruction: |
+      Route work between the architect and the builder.
+    handoffs: [architect, builder]
+
+  architect:
+    model: anthropic/claude-sonnet-4-5
+    description: Drafts high-level plans
+    instruction: |
+      Use list_plans and read_plan to inspect existing plans, then write_plan
+      to create or revise one. Always read before writing. When done, hand off
+      to the builder.
+    toolsets:
+      - type: plan
+    handoffs: [builder]
+
+  builder:
+    model: openai/gpt-4o
+    description: Adds implementation steps to plans
+    instruction: |
+      Read the architect's plan with read_plan, then use write_plan to append
+      concrete implementation steps. Always read before writing. When done,
+      hand off back to root.
+    toolsets:
+      - type: plan
+    handoffs: [root]

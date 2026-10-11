@@ -1,0 +1,45 @@
+agents:
+  root:
+    model: openai/gpt-4o
+    description: An agent with hooks
+    instruction: You are a helpful assistant.
+    hooks:
+      # Run before specific tools
+      pre_tool_use:
+        - matcher: "shell|edit_file"
+          hooks:
+            - type: command
+              command: "./scripts/validate-command.sh"
+              timeout: 30
+
+      # Run after all tool calls
+      post_tool_use:
+        - matcher: "*"
+          hooks:
+            - type: command
+              command: "./scripts/log-tool-call.sh"
+
+      # Run when session starts
+      session_start:
+        - type: command
+          command: "./scripts/setup-env.sh"
+
+      # Run when session ends
+      session_end:
+        - type: command
+          command: "./scripts/cleanup.sh"
+
+      # Run when agent is waiting for user input
+      on_user_input:
+        - type: command
+          command: "./scripts/notify.sh"
+
+      # Run when the model finishes responding
+      stop:
+        - type: command
+          command: "./scripts/log-response.sh"
+
+      # Run on agent errors and warnings
+      notification:
+        - type: command
+          command: "./scripts/alert.sh"

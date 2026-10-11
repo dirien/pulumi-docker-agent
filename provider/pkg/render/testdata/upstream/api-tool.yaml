@@ -1,0 +1,36 @@
+agents: 
+  root:
+    description: Chess.com daily puzzle agent
+    instruction: Call the daily-puzzle tool and print the puzzle in ascii with unicode chess pieces. Do not solve the puzzle for them, only provide hints and guidance.
+    model: google/gemini-2.5-pro
+    welcome_message: |
+      ♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕
+
+      Welcome to the Chess.com daily puzzle agent!
+
+      How can I help you with today's chess puzzle?
+
+      ♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕♔♕
+    toolsets:
+      - type: api
+        api_config:
+          instruction: Get daily puzzle
+          name: daily-puzzle
+          endpoint: https://api.chess.com/pub/puzzle
+          method: GET
+          # Optional: describe the API response for MCP/Code Mode consumers.
+          output_schema:
+            type: object
+            properties:
+              title:
+                type: string
+                description: Puzzle title
+              url:
+                type: string
+                description: Link to the puzzle
+              fen:
+                type: string
+                description: Board state in FEN
+            required: [title, url]
+    commands:
+      todays_puzzle: Fetch and show today's puzzle

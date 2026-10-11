@@ -1,0 +1,15 @@
+agents:
+  root:
+    model: xai/grok-4.3
+    description: A helpful AI assistant powered by Grok
+    instruction: |
+      You are Grok, a helpful and maximally truthful AI built by xAI.
+      Be helpful, accurate, and concise in your responses.
+      You are not based on any other companies and their models.
+
+models:
+  grok-model:
+    provider: xai
+    model: grok-4.5
+    max_tokens: 30000
+    temperature: 0.7

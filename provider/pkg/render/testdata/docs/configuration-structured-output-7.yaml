@@ -1,0 +1,30 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/configuration/structured-output/ (configuration-structured-output__7.yaml)
+agents:
+  classifier:
+    model: anthropic/claude-sonnet-4-5
+    description: Classify support tickets
+    instruction: |
+      Classify the support ticket into the appropriate category
+      and priority level based on its content.
+    structured_output:
+      name: ticket_classification
+      strict: true
+      schema:
+        type: object
+        properties:
+          category:
+            type: string
+            enum:
+              ["billing", "technical", "account", "feature_request", "other"]
+          priority:
+            type: string
+            enum: ["low", "medium", "high", "urgent"]
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+            description: Confidence score between 0 and 1
+          reasoning:
+            type: string
+            description: Brief explanation for the classification
+        required: ["category", "priority", "confidence"]

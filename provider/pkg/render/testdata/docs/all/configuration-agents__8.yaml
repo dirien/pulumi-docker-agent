@@ -1,0 +1,10 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Multi-purpose assistant
+    instruction: You have access to many tools.
+    toolsets:
+      - type: mcp
+        ref: docker:github-official
+        defer: true
+      - type: filesystem

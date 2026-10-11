@@ -1,0 +1,47 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Full-featured developer assistant
+    instruction: You are an expert developer.
+    toolsets:
+      # Built-in tools
+      - type: filesystem
+      - type: shell
+      - type: think
+      - type: todo
+      - type: memory
+        path: ./dev.db
+      - type: user_prompt
+      # LSP for code intelligence
+      - type: lsp
+        command: gopls
+        file_types: [".go"]
+      # Custom scripts
+      - type: script
+        shell:
+          run_tests:
+            description: Run the test suite
+            cmd: task test
+          lint:
+            description: Run the linter
+            cmd: task lint
+      # Custom API tool
+      - type: api
+        api_config:
+          name: get_status
+          method: GET
+          endpoint: "https://api.example.com/status"
+          instruction: Check service health
+      # Docker MCP tools
+      - type: mcp
+        ref: docker:github-official
+        tools: ["list_issues", "create_issue"]
+      - type: mcp
+        ref: docker:duckduckgo
+      # Remote MCP
+      - type: mcp
+        remote:
+          url: "https://internal-api.example.com/mcp"
+          transport_type: "streamable"
+          headers:
+            Authorization: "Bearer ${env.INTERNAL_TOKEN}"

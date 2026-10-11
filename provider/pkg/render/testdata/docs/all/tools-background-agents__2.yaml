@@ -1,0 +1,17 @@
+agents:
+  coordinator:
+    model: openai/gpt-4o
+    description: Orchestrates parallel research
+    instruction: Fan out research tasks and synthesize results.
+    sub_agents: [researcher]
+    toolsets:
+      - type: background_agents
+      - type: think
+
+  researcher:
+    model: openai/gpt-4o
+    description: Web researcher
+    instruction: Research topics thoroughly.
+    toolsets:
+      - type: mcp
+        ref: docker:duckduckgo

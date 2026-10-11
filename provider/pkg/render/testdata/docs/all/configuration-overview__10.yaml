@@ -1,0 +1,17 @@
+commands:
+  ci:                       # a named command group
+    deploy: "Deploy the application"
+    test: "Run the test suite"
+skills:
+  base: [local, git]        # a named skill group
+
+agents:
+  root:
+    model: openai/gpt-5
+    use_commands: [ci]        # reuse the "ci" command group
+    use_skills: [base]        # reuse the "base" skill group
+    commands:
+      lint: "Run the linter"  # inline command, merged in (wins on conflict)
+  reviewer:
+    model: openai/gpt-5
+    use_commands: [ci]        # same group, reused without duplication

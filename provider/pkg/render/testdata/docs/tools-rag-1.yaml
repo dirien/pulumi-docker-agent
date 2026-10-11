@@ -1,0 +1,20 @@
+# Verbatim from https://docs.docker.com/ai/docker-agent/tools/rag/ (tools-rag__1.yaml)
+rag:
+  my_docs:
+    tool:
+      description: "Technical documentation"
+    docs: [./documents, ./some-doc.md]
+    strategies:
+      - type: chunked-embeddings
+        embedding_model: openai/text-embedding-3-small
+        database: ./docs.db
+        vector_dimensions: 1536
+
+agents:
+  root:
+    model: openai/gpt-4o
+    instruction: |
+      You have access to a knowledge base. Use it to answer questions.
+    toolsets:
+      - type: rag
+        ref: my_docs

@@ -1,0 +1,9 @@
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: A system administrator assistant.
+    instruction: You are a system administrator.
+    commands:
+      df: "Check how much free space I have on my disk"
+      logs: "Show me the last 50 lines of system logs"
+      greet: "Say hello to ${env.USER}"
