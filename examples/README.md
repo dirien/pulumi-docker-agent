@@ -63,8 +63,9 @@ program, file backend, `stack.outputs()`, destroy) and exits with 1 when the age
 [`testdata/agent-run-claude-code/`](testdata/agent-run-claude-code),
 [`testdata/agent-run-upgrade/`](testdata/agent-run-upgrade),
 [`testdata/agent-run-provider-upgrade/`](testdata/agent-run-provider-upgrade) and
-[`testdata/agent-run-provider-config/`](testdata/agent-run-provider-config) are fixtures of the Claude Code, upgrade
-and provider settings tests below.
+[`testdata/agent-run-provider-config/`](testdata/agent-run-provider-config) and
+[`testdata/null-values-ts/`](testdata/null-values-ts) are fixtures of the Claude Code, upgrade, provider settings and
+null value tests below.
 
 [`docker-agent-examples/`](docker-agent-examples) has every example configuration that docker-agent ships as a
 Pulumi program in TypeScript and in Python: one `AgentConfig` per example, with typed inputs and the comments of
@@ -161,6 +162,7 @@ The other tests in this directory:
 | [`harness_test.go`](harness_test.go) | `TestExampleAgentRunClaudeCode` (above), and the failure paths of a Claude Code `AgentRun` with `testdata/agent-run-claude-code` and the fake `claude`: redaction of the token (`TestAgentRunClaudeCodeRedaction`), an expired login (`TestAgentRunClaudeCodeFailure`), a timeout that stops the CLI with SIGTERM before SIGKILL (`TestAgentRunClaudeCodeTimeout`), and a failing delete prompt with the `DOCKER_AGENT_SKIP_DELETE_PROMPTS` escape hatch (`TestAgentRunClaudeCodeDeleteEscapeHatch`). Linux and macOS only. |
 | [`upgrade_test.go`](upgrade_test.go) | Provider version upgrades, the way SDK programs do them: the programs pin the version of each resource (`options.version`), so the default provider changes, and the versions are plugins in a `PULUMI_HOME` of the test's own. `TestAgentRunUpgradeFromV011E2E` deploys `testdata/agent-run-upgrade` with the released v0.1.1 provider (downloaded from its GitHub release), upgrades to the version of the provider in `bin/` and expects `pulumi preview --expect-no-changes` to pass, no changes in refresh and up, and no new run. `TestAgentRunProviderUpgradeE2E` upgrades `testdata/agent-run-provider-upgrade` (a `deletePrompt` in a `workingDir`) between two versions of `bin/` and expects neither a rerun nor the delete prompt until `pulumi destroy`. Set `DOCKER_AGENT_TEST_SKIP_UPGRADE=1` to skip `TestAgentRunUpgradeFromV011E2E` offline. |
 | [`provider_config_test.go`](provider_config_test.go) | Provider settings changes on `testdata/agent-run-provider-config` (an `AgentArtifact` and an `AgentRun` with a `deletePrompt`), with a proxy in front of the registry that needs basic authentication: `TestProviderSettingsUpdateInPlaceE2E` rotates the `registryAuth` password and runs one command with `DOCKER_AGENT_SKIP_VALIDATION=true`, `TestProviderSettingsAddRegistryAuthE2E` adds `registryAuth` together with an artifact that needs it. Both expect the provider to be updated in place (same ID, no resource replaced, no new run) and check in the gRPC log that Pulumi configured it with the new settings. |
+| [`null_values_test.go`](null_values_test.go) | `TestNullMapValuesE2E` deploys `testdata/null-values-ts`, a TypeScript program that passes `null` as map values of an `AgentConfig` toolset and an `AgentRun`, and expects them to be absent keys (the provider used to crash on them). |
 
 ```bash
 make test_examples                                   # builds everything, starts a throwaway registry:2

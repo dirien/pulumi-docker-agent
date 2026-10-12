@@ -617,7 +617,7 @@ func useLocalSDK(t *testing.T, lang, dir, root string) {
 		sdk := filepath.Join(root, "sdk", "python", "bin")
 		requireFile(t, filepath.Join(sdk, "pyproject.toml"), "make build_python")
 		replaceInFile(t, filepath.Join(dir, "requirements.txt"), "../../sdk/python/bin", sdk)
-	case "docker-agent-examples/typescript":
+	case "docker-agent-examples/typescript", "testdata/null-values-ts":
 		sdk := filepath.Join(root, "sdk", "nodejs", "bin")
 		requireFile(t, filepath.Join(sdk, "package.json"), "make build_nodejs")
 		replaceInFile(t, filepath.Join(dir, "package.json"), "file:../../../sdk/nodejs/bin", "file:"+filepath.ToSlash(sdk))

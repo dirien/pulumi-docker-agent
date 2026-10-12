@@ -1,0 +1,8 @@
+name: docker-agent-null-values-ts
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+description: >-
+  A test fixture for examples/null_values_test.go: a TypeScript program that passes null as map
+  values (the SDK sends them as null), which Pulumi treats as absent keys.

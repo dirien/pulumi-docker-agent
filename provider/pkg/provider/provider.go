@@ -46,7 +46,7 @@ func Provider() p.Provider {
 	}
 	prov = withImportedProviderConfig(withAgentConfigRead(withUserSettingsSecrets(withFrameworkKeysDiffConfig(prov))))
 	prov = withUnknownInputs(withLocalFilePreview(withPreviewOutputs(withConfigVersionDiff(prov))))
-	return withConfigUpdatesInPlace(withShutdownWatch(withCommandScopedState(prov)))
+	return withNullInputs(withConfigUpdatesInPlace(withShutdownWatch(withCommandScopedState(prov))))
 }
 
 // withFrameworkKeysDiffConfig makes the inferred DiffConfig compare the same keys on both
