@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-12
+
+### Fixed
+
+- The npm package `@ediri/pulumi-docker-agent` is published. The v0.1.0 release workflow failed to build it, so npm starts at 0.1.1; the other SDKs and the plugins are unchanged apart from the version.
+
 ## [0.1.0] - 2026-10-12
 
 Initial release of the native Pulumi provider for [Docker Agent](https://docs.docker.com/ai/docker-agent/), built with `pulumi-go-provider` and pinned to `github.com/docker/docker-agent` v1.150.0 (configuration version `"16"`).
@@ -76,5 +82,6 @@ Initial release of the native Pulumi provider for [Docker Agent](https://docs.do
 - Pull requests and docker-agent upgrade pull requests get a schema-tools SDK breaking-change report and the `breaking-sdk-change` label.
 - Provider and converter plugin archives for Linux, macOS and Windows on amd64 and arm64, with checksums, a cosign signature bundle and SBOMs. The release workflow can publish the Java SDK to Maven Central; that is off for this release (`PUBLISH_JAVA: "false"`), so the Java SDK is generated locally with `pulumi package add`.
 
-[Unreleased]: https://github.com/dirien/pulumi-docker-agent/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/dirien/pulumi-docker-agent/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/dirien/pulumi-docker-agent/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/dirien/pulumi-docker-agent/releases/tag/v0.1.0
