@@ -6,6 +6,8 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.EvaluatorDecision;
+import io.github.dirien.dockeragent.enums.EvaluatorFallback;
 import java.lang.Double;
 import java.lang.String;
 import java.util.Map;
@@ -25,13 +27,13 @@ public final class UserHookEvaluatorPolicyArgs extends com.pulumi.resources.Reso
      * 
      */
     @Import(name="decisions", required=true)
-    private Output<Map<String,String>> decisions;
+    private Output<Map<String,EvaluatorDecision>> decisions;
 
     /**
      * @return Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
      * 
      */
-    public Output<Map<String,String>> decisions() {
+    public Output<Map<String,EvaluatorDecision>> decisions() {
         return this.decisions;
     }
 
@@ -40,13 +42,13 @@ public final class UserHookEvaluatorPolicyArgs extends com.pulumi.resources.Reso
      * 
      */
     @Import(name="fallback", required=true)
-    private Output<String> fallback;
+    private Output<EvaluatorFallback> fallback;
 
     /**
      * @return The decision when the assessment is uncertain: `ask` or `deny`.
      * 
      */
-    public Output<String> fallback() {
+    public Output<EvaluatorFallback> fallback() {
         return this.fallback;
     }
 
@@ -97,7 +99,7 @@ public final class UserHookEvaluatorPolicyArgs extends com.pulumi.resources.Reso
          * @return builder
          * 
          */
-        public Builder decisions(Output<Map<String,String>> decisions) {
+        public Builder decisions(Output<Map<String,EvaluatorDecision>> decisions) {
             $.decisions = decisions;
             return this;
         }
@@ -108,7 +110,7 @@ public final class UserHookEvaluatorPolicyArgs extends com.pulumi.resources.Reso
          * @return builder
          * 
          */
-        public Builder decisions(Map<String,String> decisions) {
+        public Builder decisions(Map<String,EvaluatorDecision> decisions) {
             return decisions(Output.of(decisions));
         }
 
@@ -118,7 +120,7 @@ public final class UserHookEvaluatorPolicyArgs extends com.pulumi.resources.Reso
          * @return builder
          * 
          */
-        public Builder fallback(Output<String> fallback) {
+        public Builder fallback(Output<EvaluatorFallback> fallback) {
             $.fallback = fallback;
             return this;
         }
@@ -129,7 +131,7 @@ public final class UserHookEvaluatorPolicyArgs extends com.pulumi.resources.Reso
          * @return builder
          * 
          */
-        public Builder fallback(String fallback) {
+        public Builder fallback(EvaluatorFallback fallback) {
             return fallback(Output.of(fallback));
         }
 

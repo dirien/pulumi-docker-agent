@@ -122,7 +122,7 @@ func TestAgentRunSchema(t *testing.T) {
 	assert.Equal(t, []string{"prompt"}, res.RequiredInputs)
 	assert.Equal(t, true, res.InputProperties["env"]["secret"])
 	for _, in := range []string{"yaml", "reference", "agent", "prompt", "env", "inheritEnvironment", "workingDir",
-		"toolApproval", "timeoutSeconds", "triggers", "outputSecret", "allowHookApprovals"} {
+		"toolApproval", "timeoutSeconds", "triggers", "outputSecret", "allowHookApprovals", "logging"} {
 		assert.Contains(t, res.InputProperties, in)
 	}
 	for _, out := range []string{"output", "structuredOutput", "agentName", "usage", "toolCalls", "ranAt"} {
@@ -133,6 +133,10 @@ func TestAgentRunSchema(t *testing.T) {
 	enum := schema.Types["docker-agent:index:ToolApproval"]
 	require.NotNil(t, enum)
 	assert.Len(t, enum["enum"], 2)
+	assert.Equal(t, "status", res.InputProperties["logging"]["default"])
+	logging := schema.Types["docker-agent:index:Logging"]
+	require.NotNil(t, logging)
+	assert.Len(t, logging["enum"], 4)
 }
 
 func TestAgentRunCheck(t *testing.T) {
@@ -503,7 +507,7 @@ func TestAgentRunStateOnlyChanges(t *testing.T) {
 	require.NoError(t, err)
 	ranAt := created.Properties.Get("ranAt").AsString()
 
-	for _, change := range []map[string]any{{"outputSecret": true}, {"timeoutSeconds": 30}} {
+	for _, change := range []map[string]any{{"outputSecret": true}, {"timeoutSeconds": 30}, {"logging": "full"}} {
 		next := runCheck(t, s, runInputs(srv, "", change))
 		diff, err := s.Diff(p.DiffRequest{ID: created.ID, Urn: u, State: created.Properties, Inputs: next.Inputs, OldInputs: first.Inputs})
 		require.NoError(t, err)

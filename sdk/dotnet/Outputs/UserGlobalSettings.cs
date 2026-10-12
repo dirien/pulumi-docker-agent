@@ -20,7 +20,7 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         /// </summary>
-        public readonly string? BusySendMode;
+        public readonly ediri.DockerAgent.BusySendMode? BusySendMode;
         /// <summary>
         /// Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
         /// </summary>
@@ -44,7 +44,7 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
         /// </summary>
-        public readonly string? InterruptConfirmation;
+        public readonly ediri.DockerAgent.InterruptConfirmation? InterruptConfirmation;
         /// <summary>
         /// Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
         /// </summary>
@@ -72,7 +72,7 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
         /// </summary>
-        public readonly string? Safety;
+        public readonly ediri.DockerAgent.SafetyMode? Safety;
         /// <summary>
         /// Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).
         /// </summary>
@@ -120,7 +120,7 @@ namespace ediri.DockerAgent.Outputs
 
         [OutputConstructor]
         private UserGlobalSettings(
-            string? busySendMode,
+            ediri.DockerAgent.BusySendMode? busySendMode,
 
             bool? cacheStablePrompts,
 
@@ -132,7 +132,7 @@ namespace ediri.DockerAgent.Outputs
 
             Outputs.UserHooks? hooks,
 
-            string? interruptConfirmation,
+            ediri.DockerAgent.InterruptConfirmation? interruptConfirmation,
 
             ImmutableArray<Outputs.UserKeybinding> keybindings,
 
@@ -146,7 +146,7 @@ namespace ediri.DockerAgent.Outputs
 
             bool? restoreTabs,
 
-            string? safety,
+            ediri.DockerAgent.SafetyMode? safety,
 
             bool? showBanner,
 

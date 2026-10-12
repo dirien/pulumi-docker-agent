@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -289,6 +290,10 @@ func TestExampleAgentRun(t *testing.T) {
 	assert.Equal(t, "root", stringOutput(t, up.Outputs, "agentName"))
 	assert.Equal(t, map[string]any{"inputTokens": 10.0, "outputTokens": 5.0, "cost": 0.0}, outputValue(t, up.Outputs, "usage"))
 	assert.Empty(t, outputValue(t, up.Outputs, "toolCalls"))
+	// `logging: status` (the default) ends the run with a summary, which never quotes the key.
+	assert.Contains(t, up.StdOut, "agent run finished in ")
+	assert.Contains(t, up.StdOut, "root answered after 0 tool calls; 10 input and 5 output tokens")
+	assert.NotContains(t, up.StdOut+up.StdErr, apiKey)
 
 	reqs := llm.received()
 	require.Len(t, reqs, 1, "up runs the agent once")
@@ -319,6 +324,96 @@ func TestExampleAgentRun(t *testing.T) {
 	t.Logf("[%s] destroy: %s", lang, time.Since(step).Round(time.Millisecond))
 	assert.Len(t, llm.received(), 2, "destroy runs nothing")
 	t.Logf("[%s] total: %s", lang, time.Since(start).Round(time.Millisecond))
+}
+
+// TestDockerAgentExamplesTypeScript and TestDockerAgentExamplesPython run the generated
+// programs of examples/docker-agent-examples, which build every example configuration of
+// docker-agent as an AgentConfig with typed inputs (`make generate_config_types` writes them).
+// They need no registry.
+func TestDockerAgentExamplesTypeScript(t *testing.T) { runDockerAgentExamples(t, "typescript") }
+func TestDockerAgentExamplesPython(t *testing.T)     { runDockerAgentExamples(t, "python") }
+
+// runDockerAgentExamples type-checks the TypeScript project (strict, so a wrong input name
+// fails), runs preview and up, and checks that the stack output `configs` has exactly the
+// examples of docker-agent-examples/testdata and that each rendered YAML is byte-identical to
+// its golden file. A second preview must show no changes; then the stack is destroyed.
+func runDockerAgentExamples(t *testing.T, lang string) {
+	t.Parallel()
+	root := repoRoot(t)
+	program := "docker-agent-examples/" + lang
+	golden := dockerAgentExampleGoldens(t)
+
+	start := time.Now()
+	pt := pulumitest.NewPulumiTest(t, program,
+		opttest.LocalProviderPath(providerName, filepath.Join(root, "bin")),
+		opttest.SkipInstall(),
+		opttest.SkipStackCreate(),
+		opttest.RequireYarnLinks(false),
+	)
+	useLocalSDK(t, program, pt.WorkingDir(), root)
+	pt.NewStack(t, "")
+	installDependencies(t, pt.WorkingDir())
+	t.Logf("[%s] setup (copy, stack, install): %s", program, time.Since(start).Round(time.Millisecond))
+
+	if lang == "typescript" {
+		step := time.Now()
+		cmd := exec.Command("npx", "--no-install", "tsc", "--noEmit", "-p", ".")
+		cmd.Dir = pt.WorkingDir()
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "tsc --noEmit:\n%s", out)
+		t.Logf("[%s] tsc --noEmit: %s", program, time.Since(step).Round(time.Millisecond))
+	}
+
+	step := time.Now()
+	pt.Preview(t)
+	t.Logf("[%s] preview: %s", program, time.Since(step).Round(time.Millisecond))
+
+	step = time.Now()
+	up := pt.Up(t)
+	t.Logf("[%s] up: %s", program, time.Since(step).Round(time.Millisecond))
+	// One AgentConfig per example, plus the stack.
+	assert.Equal(t, len(golden)+1, (*up.Summary.ResourceChanges)["create"])
+
+	configs, ok := outputValue(t, up.Outputs, "configs").(map[string]any)
+	require.True(t, ok, "configs is not an object: %#v", up.Outputs["configs"].Value)
+	assert.ElementsMatch(t, sortedKeys(golden), sortedKeys(configs), "the examples in configs and testdata differ")
+	for name, want := range golden {
+		got, ok := configs[name].(string)
+		if assert.True(t, ok, "configs[%q] is missing or not a string", name) {
+			assert.Equal(t, want, got, "%s renders different YAML than docker-agent-examples/testdata/%s.yaml", name, name)
+		}
+	}
+
+	step = time.Now()
+	assertpreview.HasNoChanges(t, pt.Preview(t))
+	t.Logf("[%s] preview: %s", program, time.Since(step).Round(time.Millisecond))
+
+	step = time.Now()
+	pt.Destroy(t)
+	t.Logf("[%s] destroy: %s", program, time.Since(step).Round(time.Millisecond))
+	t.Logf("[%s] total: %s", program, time.Since(start).Round(time.Millisecond))
+}
+
+// dockerAgentExampleGoldens reads docker-agent-examples/testdata: example name -> YAML.
+func dockerAgentExampleGoldens(t *testing.T) map[string]string {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join("docker-agent-examples", "testdata", "*.yaml"))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(files), 200, "run make generate_config_types")
+	out := map[string]string{}
+	for _, f := range files {
+		out[strings.TrimSuffix(filepath.Base(f), ".yaml")] = readFixture(t, f)
+	}
+	return out
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // secretSig marks a secret value in an exported Pulumi state.
@@ -411,6 +506,14 @@ func useLocalSDK(t *testing.T, lang, dir, root string) {
 		sdk := filepath.Join(root, "sdk", "python", "bin")
 		requireFile(t, filepath.Join(sdk, "pyproject.toml"), "make build_python")
 		replaceInFile(t, filepath.Join(dir, "requirements.txt"), "../../sdk/python/bin", sdk)
+	case "docker-agent-examples/typescript":
+		sdk := filepath.Join(root, "sdk", "nodejs", "bin")
+		requireFile(t, filepath.Join(sdk, "package.json"), "make build_nodejs")
+		replaceInFile(t, filepath.Join(dir, "package.json"), "file:../../../sdk/nodejs/bin", "file:"+filepath.ToSlash(sdk))
+	case "docker-agent-examples/python":
+		sdk := filepath.Join(root, "sdk", "python", "bin")
+		requireFile(t, filepath.Join(sdk, "pyproject.toml"), "make build_python")
+		replaceInFile(t, filepath.Join(dir, "requirements.txt"), "../../../sdk/python/bin", sdk)
 	case "dotnet":
 		sdk := filepath.Join(root, "sdk", "dotnet")
 		requireFile(t, filepath.Join(sdk, "version.txt"), "make build_dotnet")

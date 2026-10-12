@@ -34,16 +34,88 @@ namespace ediri.DockerAgent
     /// 
     /// If the project already has a `.agentsignore` with different content, the preview fails instead of replacing it.
     /// Copy its patterns into `patterns`, or set `overwrite: true`. Either way the existing file is moved to
-    /// `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a
-    /// backup, deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+    /// `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+    /// resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+    /// Set the `retainOnDelete` resource option to keep the file.
     /// 
     /// ## Example Usage
+    /// ### Hide secrets from the agent
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // Writes /home/me/src/my-service/.agentsignore.
+    ///     var ignore = new DockerAgent.AgentsIgnore("ignore", new()
+    ///     {
+    ///         Directory = "/home/me/src/my-service",
+    ///         Comment = "Managed by Pulumi. Keep secrets away from docker-agent.",
+    ///         Patterns = new[]
+    ///         {
+    ///             ".env",
+    ///             ".env.*",
+    ///             "*.pem",
+    ///             "*.key",
+    ///             "!public.key",
+    ///             ".aws/",
+    ///             "build/",
+    ///         },
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["agentsIgnore"] = ignore.Content,
+    ///         ["filePath"] = ignore.FilePath,
+    ///     };
+    /// });
+    /// ```
+    /// ### Render the file for a container image
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // No `directory`: nothing is written, the file is only rendered.
+    ///     var rendered = new DockerAgent.AgentsIgnore("rendered", new()
+    ///     {
+    ///         Patterns = new[]
+    ///         {
+    ///             ".git/",
+    ///             "node_modules/",
+    ///             "**/*.pem",
+    ///         },
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["agentsIgnore"] = rendered.Content,
+    ///     };
+    /// });
+    /// ```
+    /// 
+    /// ## Import
+    /// 
+    /// An existing `.agentsignore` can be imported with its project directory (or the
+    /// file's path) as ID: the comment block at the top of the file becomes `comment` and every other line a
+    /// pattern (comments between patterns are not imported). The file is adopted as for `UserSettings`: the import
+    /// takes no backup, `overwrite` is not needed, and deleting the resource leaves the file in place. The resource
+    /// ID is the file's absolute path.
+    /// 
+    /// ```sh
+    /// $ pulumi import docker-agent:index:AgentsIgnore project ./my-service
+    /// ```
     /// </summary>
     [DockerAgentResourceType("docker-agent:index:AgentsIgnore")]
     public partial class AgentsIgnore : global::Pulumi.CustomResource
     {
         /// <summary>
-        /// Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+        /// Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
         /// </summary>
         [Output("backupPath")]
         public Output<string?> BackupPath { get; private set; } = null!;

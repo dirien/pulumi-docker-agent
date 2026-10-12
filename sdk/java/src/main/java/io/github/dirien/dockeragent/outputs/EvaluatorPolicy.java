@@ -5,6 +5,8 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.EvaluatorDecision;
+import io.github.dirien.dockeragent.enums.EvaluatorFallback;
 import java.lang.Double;
 import java.lang.Object;
 import java.lang.String;
@@ -15,20 +17,20 @@ import javax.annotation.Nullable;
 @CustomType
 public final class EvaluatorPolicy {
     /**
-     * @return Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+     * @return Choice keys (or true/false for booleans) mapped to guard decisions.
      * 
      */
-    private Map<String,String> decisions;
+    private Map<String,EvaluatorDecision> decisions;
     /**
      * @return Additional fields that are not modelled by this provider version, merged verbatim into this object&#39;s YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
      * 
      */
     private @Nullable Map<String,Object> extra;
     /**
-     * @return Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+     * @return Decision for uncertainty or unmapped outcomes; provider failures always block.
      * 
      */
-    private String fallback;
+    private EvaluatorFallback fallback;
     /**
      * @return Minimum selected-outcome probability to apply its mapping; not the confidence metric.
      * 
@@ -37,10 +39,10 @@ public final class EvaluatorPolicy {
 
     private EvaluatorPolicy() {}
     /**
-     * @return Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+     * @return Choice keys (or true/false for booleans) mapped to guard decisions.
      * 
      */
-    public Map<String,String> decisions() {
+    public Map<String,EvaluatorDecision> decisions() {
         return this.decisions;
     }
     /**
@@ -51,10 +53,10 @@ public final class EvaluatorPolicy {
         return this.extra == null ? Map.of() : this.extra;
     }
     /**
-     * @return Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+     * @return Decision for uncertainty or unmapped outcomes; provider failures always block.
      * 
      */
-    public String fallback() {
+    public EvaluatorFallback fallback() {
         return this.fallback;
     }
     /**
@@ -74,9 +76,9 @@ public final class EvaluatorPolicy {
     }
     @CustomType.Builder
     public static final class Builder {
-        private Map<String,String> decisions;
+        private Map<String,EvaluatorDecision> decisions;
         private @Nullable Map<String,Object> extra;
-        private String fallback;
+        private EvaluatorFallback fallback;
         private Double minProbability;
         public Builder() {}
         public Builder(EvaluatorPolicy defaults) {
@@ -88,7 +90,7 @@ public final class EvaluatorPolicy {
         }
 
         @CustomType.Setter
-        public Builder decisions(Map<String,String> decisions) {
+        public Builder decisions(Map<String,EvaluatorDecision> decisions) {
             if (decisions == null) {
               throw new MissingRequiredPropertyException("EvaluatorPolicy", "decisions");
             }
@@ -102,7 +104,7 @@ public final class EvaluatorPolicy {
             return this;
         }
         @CustomType.Setter
-        public Builder fallback(String fallback) {
+        public Builder fallback(EvaluatorFallback fallback) {
             if (fallback == null) {
               throw new MissingRequiredPropertyException("EvaluatorPolicy", "fallback");
             }

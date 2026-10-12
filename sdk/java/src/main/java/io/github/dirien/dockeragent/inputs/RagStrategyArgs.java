@@ -6,6 +6,7 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.RagStrategyType;
 import io.github.dirien.dockeragent.inputs.RagChunkingArgs;
 import java.lang.Boolean;
 import java.lang.Double;
@@ -283,17 +284,17 @@ public final class RagStrategyArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+     * Retrieval strategy type.
      * 
      */
     @Import(name="type", required=true)
-    private Output<String> type;
+    private Output<RagStrategyType> type;
 
     /**
-     * @return Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+     * @return Retrieval strategy type.
      * 
      */
-    public Output<String> type() {
+    public Output<RagStrategyType> type() {
         return this.type;
     }
 
@@ -722,23 +723,23 @@ public final class RagStrategyArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param type Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+         * @param type Retrieval strategy type.
          * 
          * @return builder
          * 
          */
-        public Builder type(Output<String> type) {
+        public Builder type(Output<RagStrategyType> type) {
             $.type = type;
             return this;
         }
 
         /**
-         * @param type Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+         * @param type Retrieval strategy type.
          * 
          * @return builder
          * 
          */
-        public Builder type(String type) {
+        public Builder type(RagStrategyType type) {
             return type(Output.of(type));
         }
 

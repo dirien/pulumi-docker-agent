@@ -61,7 +61,7 @@ Remove the `plugins` block from `Pulumi.yaml`, pin the provider version in `requ
 published on GitHub, so install it once:
 
 ```bash
-pulumi plugin install resource docker-agent 0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi plugin install resource docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
 pulumi install
 ```
 

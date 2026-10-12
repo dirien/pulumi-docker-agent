@@ -85,9 +85,58 @@ func Ancestors(path string) []string {
 	return append(out, path)
 }
 
+// EnumClassifier tells whether the value at a schema path (in the package's path notation)
+// is a Pulumi enum of the provider, and its type name.
+type EnumClassifier func(path string) (enumType string, ok bool)
+
+// Enums classifies the Pulumi enums of the previous (Old) and the new (New) schema. Either may
+// be nil when it is unknown, for example because the generator rejects the new schema.
+type Enums struct {
+	Old, New EnumClassifier
+}
+
+// EnumBreak is a change that breaks programs written against the previous SDKs: values removed
+// from a Pulumi enum (a renamed value shows up as removed and added), or a string input that
+// became a Pulumi enum. The constants of a Pulumi enum are typed in Go, .NET and Java, and the
+// TypeScript type is a union of the literals.
+type EnumBreak struct {
+	Path           string
+	Enum           string // the enum type: the previous one, or the new one for NewEnum
+	Removed, Added []string
+	NewEnum        bool // the input was a plain string before
+}
+
+// SDKBreaking returns the enum changes that break programs written against the previous SDKs,
+// sorted by path. It returns nil when enums is nil.
+func (d *Diff) SDKBreaking(enums *Enums) []EnumBreak {
+	if enums == nil {
+		return nil
+	}
+	var out []EnumBreak
+	for _, c := range d.EnumChanges {
+		oldEnum, wasEnum := classifyEnum(enums.Old, c.Path)
+		newEnum, isEnum := classifyEnum(enums.New, c.Path)
+		switch {
+		case wasEnum && len(c.Removed) > 0:
+			out = append(out, EnumBreak{Path: c.Path, Enum: oldEnum, Removed: c.Removed, Added: c.Added})
+		case !wasEnum && isEnum && enums.Old != nil:
+			out = append(out, EnumBreak{Path: c.Path, Enum: newEnum, Added: c.Added, NewEnum: true})
+		}
+	}
+	return out
+}
+
+func classifyEnum(classify EnumClassifier, path string) (string, bool) {
+	if classify == nil {
+		return "", false
+	}
+	return classify(path)
+}
+
 // Markdown renders the diff as a report titled
-// "# docker-agent <from> → <to>: configuration schema changes". classify may be nil.
-func (d *Diff) Markdown(from, to string, classify Classifier) string {
+// "# docker-agent <from> → <to>: configuration schema changes". classify and enums may be nil;
+// without enums the report has no "SDK-breaking changes" section.
+func (d *Diff) Markdown(from, to string, classify Classifier, enums *Enums) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# docker-agent %s → %s: configuration schema changes\n\n", from, to)
 
@@ -118,6 +167,10 @@ func (d *Diff) Markdown(from, to string, classify Classifier) string {
 			}
 		}
 		b.WriteString("\n")
+	}
+
+	if enums != nil {
+		writeSDKBreaking(&b, d.SDKBreaking(enums), enums)
 	}
 
 	b.WriteString("## Config version\n\n")
@@ -229,6 +282,30 @@ func (d *Diff) Markdown(from, to string, classify Classifier) string {
 		}
 	}
 	return b.String()
+}
+
+func writeSDKBreaking(b *strings.Builder, breaks []EnumBreak, enums *Enums) {
+	b.WriteString("## SDK-breaking changes\n\n")
+	switch {
+	case enums.Old == nil:
+		b.WriteString("Not checked (the Pulumi enums of the previous schema are unknown).\n\n")
+		return
+	case len(breaks) == 0:
+		b.WriteString("None: no Pulumi enum lost a value, and no string input became an enum.\n\n")
+		return
+	}
+	b.WriteString("These changes break Go, .NET and Java programs that use the removed constants or pass a " +
+		"string to a new enum, and TypeScript programs that pass a removed literal. A renamed value shows up " +
+		"as removed and added. Call them out in the release notes.\n\n")
+	b.WriteString("| Path | Pulumi enum | Removed values | Added values |\n|---|---|---|---|\n")
+	for _, e := range breaks {
+		enum := tcode(e.Enum)
+		if e.NewEnum {
+			enum += " (new: the input was a string)"
+		}
+		fmt.Fprintf(b, "| %s | %s | %s | %s |\n", tcode(e.Path), enum, tcodeList(e.Removed), tcodeList(e.Added))
+	}
+	b.WriteString("\n")
 }
 
 func writeDefinitions(b *strings.Builder, title string, defs []Definition) {

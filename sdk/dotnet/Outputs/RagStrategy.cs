@@ -86,9 +86,9 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly double? Threshold;
         /// <summary>
-        /// Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+        /// Retrieval strategy type.
         /// </summary>
-        public readonly string Type;
+        public readonly ediri.DockerAgent.RagStrategyType Type;
         /// <summary>
         /// Vector dimensions for embeddings (chunked-embeddings only). Must match your embedding model's output dimensions and is required for chunked-embeddings strategies.
         /// </summary>
@@ -130,7 +130,7 @@ namespace ediri.DockerAgent.Outputs
 
             double? threshold,
 
-            string type,
+            ediri.DockerAgent.RagStrategyType type,
 
             int? vectorDimensions)
         {

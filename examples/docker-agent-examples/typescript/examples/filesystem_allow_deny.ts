@@ -1,0 +1,81 @@
+// Generated from docker-agent v1.150.0 examples/filesystem_allow_deny.yaml by `make generate_config_types`. Do not edit.
+//
+// Demonstrates allow_list / deny_list for the filesystem tool.
+//
+// By default the filesystem toolset is unrestricted: relative paths resolve
+// from the working directory, but the tools will happily read or write
+// absolute paths (or `..` traversals) anywhere the agent process can reach.
+// That is fine for local development but a footgun when running an agent on
+// someone else's behalf.
+//
+// Configure `allow_list` to limit operations to a fixed set of roots, and/or
+// `deny_list` to carve specific subtrees out. Tokens are expanded as follows:
+//
+//   "."         -> the agent's working directory
+//   "~"         -> the user's home directory
+//   "~/foo"     -> $HOME/foo
+//   "${env.VAR}" -> environment variable (canonical; "$VAR" / "${VAR}" also work)
+//   absolute    -> used as-is
+//   relative    -> joined with the working directory
+//
+// Symlinks are resolved before the containment check, so a symlink inside an
+// allowed root cannot be used to escape it.
+//
+// Switch agents with `-a <name>` to try each variant.
+
+import * as dockeragent from "@ediri/pulumi-docker-agent";
+
+export const config = new dockeragent.AgentConfig("filesystem_allow_deny", {
+    agents: [
+        // Strict variant: only the working directory and the user's home are
+        // reachable, and the SSH/AWS credential directories are explicitly off-limits
+        // even though they live under the home directory.
+        {
+            name: "root",
+            model: "anthropic/claude-sonnet-4-5",
+            description: "A filesystem agent restricted to its working directory and home folder.",
+            instruction: `\
+You may read and write files under the current working directory and
+under the user's home directory, except for the credentials folders
+(~/.ssh, ~/.aws). If asked to touch a path outside that scope, refuse
+and explain why.
+`,
+            toolsets: [
+                {
+                    type: "filesystem",
+                    allowList: [".", "~"],
+                    denyList: ["~/.ssh", "~/.aws", "~/.docker"],
+                },
+            ],
+        },
+
+        // Workspace-only variant: the agent can only see its own working tree.
+        {
+            name: "workspace_only",
+            model: "anthropic/claude-sonnet-4-5",
+            description: "A filesystem agent that cannot leave its working directory.",
+            instruction: `\
+You may only read and write files inside the current working directory.
+Refuse any request that would require touching files elsewhere on the
+filesystem.
+`,
+            toolsets: [{ type: "filesystem", allowList: ["."] }],
+        },
+
+        // Deny-only variant: keeps the default permissive behaviour but explicitly
+        // forbids a few sensitive directories.
+        {
+            name: "guarded",
+            model: "anthropic/claude-sonnet-4-5",
+            description: "A filesystem agent with a small set of off-limits directories.",
+            instruction: `\
+You have broad filesystem access, but a few directories are off-limits.
+If a request is rejected, do not retry and explain the situation to the
+user.
+`,
+            toolsets: [{ type: "filesystem", denyList: ["~/.ssh", "~/.aws", "/etc"] }],
+        },
+    ],
+});
+
+export const yaml = config.yaml;

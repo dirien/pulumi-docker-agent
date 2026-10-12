@@ -20,11 +20,11 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
         /// </summary>
-        public readonly ImmutableDictionary<string, string> Decisions;
+        public readonly ImmutableDictionary<string, ediri.DockerAgent.EvaluatorDecision> Decisions;
         /// <summary>
         /// The decision when the assessment is uncertain: `ask` or `deny`.
         /// </summary>
-        public readonly string Fallback;
+        public readonly ediri.DockerAgent.EvaluatorFallback Fallback;
         /// <summary>
         /// The lowest probability (greater than 0, at most 1) at which a decision applies.
         /// </summary>
@@ -32,9 +32,9 @@ namespace ediri.DockerAgent.Outputs
 
         [OutputConstructor]
         private UserHookEvaluatorPolicy(
-            ImmutableDictionary<string, string> decisions,
+            ImmutableDictionary<string, ediri.DockerAgent.EvaluatorDecision> decisions,
 
-            string fallback,
+            ediri.DockerAgent.EvaluatorFallback fallback,
 
             double minProbability)
         {

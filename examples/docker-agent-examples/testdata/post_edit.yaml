@@ -1,0 +1,11 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o
+    description: A Go developer agent with post-edit formatting
+    instruction: You are a Go developer assistant.
+    toolsets:
+      - type: filesystem
+        post_edit:
+          - path: '*.go'
+            cmd: gofmt -w $path

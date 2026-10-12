@@ -27,7 +27,222 @@ namespace ediri.DockerAgent
     /// docker-agent releases newer than the one this provider pins. `instructionFile` needs `skipValidation`
     /// because validation happens in memory; read the file in your program and pass its contents as `instruction`.
     /// 
+    /// Closed value sets, such as the `safety` modes or a hook's `type`, are enums. A value that this
+    /// provider version does not list fails on its property during preview unless `skipValidation` is set; in
+    /// C# and Java, whose enums cannot hold other values, set such a value through the object's `extra` map
+    /// (for example `runtime.extra`), which replaces the typed key.
+    /// 
+    /// The preview reports every independent problem at once, each attached to the input that caused it, for example
+    /// `property agents[0].subAgents ... has a problem: invalid docker-agent configuration: agent 'root' references non-existent sub-agent 'missing'`.
+    /// docker-agent stops at the first problem; the provider removes the faulty value and validates again to find the
+    /// rest. A problem with a whole definition (a model, provider or toolset) is reported alone. The provider also warns
+    /// about `headers` and `env` values that look like literal credentials: they end up in `yaml`
+    /// and in every artifact made from it, so use a `${env.NAME}` placeholder that docker-agent resolves at run
+    /// time instead.
+    /// 
     /// ## Example Usage
+    /// ### A single agent with tools
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // A typed docker-agent configuration, validated during `pulumi preview`.
+    ///     var assistant = new DockerAgent.AgentConfig("assistant", new()
+    ///     {
+    ///         Metadata = new DockerAgent.Inputs.MetadataArgs
+    ///         {
+    ///             Author = "platform-team",
+    ///             License = "Apache-2.0",
+    ///         },
+    ///         Agents = new[]
+    ///         {
+    ///             new DockerAgent.Inputs.AgentArgs
+    ///             {
+    ///                 Name = "root",
+    ///                 Model = "openai/gpt-5-mini",
+    ///                 Description = "A helpful assistant",
+    ///                 Instruction = "You are a helpful assistant. Answer briefly.",
+    ///                 Toolsets = new[]
+    ///                 {
+    ///                     new DockerAgent.Inputs.ToolsetArgs
+    ///                     {
+    ///                         Type = "think",
+    ///                     },
+    ///                     new DockerAgent.Inputs.ToolsetArgs
+    ///                     {
+    ///                         Type = "mcp",
+    ///                         Ref = "docker:duckduckgo",
+    ///                     },
+    ///                 },
+    ///             },
+    ///         },
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["agentYaml"] = assistant.Yaml,
+    ///         ["requiredEnvVars"] = assistant.RequiredEnvVars,
+    ///     };
+    /// });
+    /// ```
+    /// ### A team with a named model
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // `root` delegates research questions to the `researcher` sub-agent.
+    ///     var team = new DockerAgent.AgentConfig("team", new()
+    ///     {
+    ///         Models =
+    ///         {
+    ///             { "fast", new DockerAgent.Inputs.ModelDefArgs
+    ///             {
+    ///                 Provider = "anthropic",
+    ///                 Model = "claude-haiku-4-5",
+    ///                 MaxTokens = 8192,
+    ///             } },
+    ///         },
+    ///         Agents = new[]
+    ///         {
+    ///             new DockerAgent.Inputs.AgentArgs
+    ///             {
+    ///                 Name = "root",
+    ///                 Model = "fast",
+    ///                 Instruction = "Coordinate the team and delegate research questions.",
+    ///                 SubAgents = new[]
+    ///                 {
+    ///                     "researcher",
+    ///                 },
+    ///             },
+    ///             new DockerAgent.Inputs.AgentArgs
+    ///             {
+    ///                 Name = "researcher",
+    ///                 Model = "openai/gpt-5-mini",
+    ///                 Description = "Searches the web",
+    ///                 Instruction = "Research the question and report sources.",
+    ///                 Toolsets = new[]
+    ///                 {
+    ///                     new DockerAgent.Inputs.ToolsetArgs
+    ///                     {
+    ///                         Type = "fetch",
+    ///                     },
+    ///                 },
+    ///                 MaxConsecutiveToolCalls = 10,
+    ///             },
+    ///         },
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["agentNames"] = team.AgentNames,
+    ///         ["defaultAgent"] = team.DefaultAgent,
+    ///     };
+    /// });
+    /// ```
+    /// ### Sandbox mode, a safety mode, hooks and a budget
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // Runs in a sandbox by default, with the fail-closed `restricted` safety mode.
+    ///     var sandboxed = new DockerAgent.AgentConfig("sandboxed", new()
+    ///     {
+    ///         Runtime = new DockerAgent.Inputs.RuntimeDefaultsArgs
+    ///         {
+    ///             Sandbox = true,
+    ///             Safety = DockerAgent.SafetyMode.Restricted,
+    ///             NetworkAllowlist = new[]
+    ///             {
+    ///                 "api.github.com",
+    ///                 "registry.npmjs.org:443",
+    ///             },
+    ///         },
+    ///         Permissions = new DockerAgent.Inputs.PermissionsArgs
+    ///         {
+    ///             Deny = new[]
+    ///             {
+    ///                 "shell:cmd=sudo*",
+    ///             },
+    ///         },
+    ///         Agents = new[]
+    ///         {
+    ///             new DockerAgent.Inputs.AgentArgs
+    ///             {
+    ///                 Name = "root",
+    ///                 Model = "anthropic/claude-sonnet-4-5",
+    ///                 Instruction = "Run the test suite and fix the failing tests.",
+    ///                 Toolsets = new[]
+    ///                 {
+    ///                     new DockerAgent.Inputs.ToolsetArgs
+    ///                     {
+    ///                         Type = "shell",
+    ///                     },
+    ///                     new DockerAgent.Inputs.ToolsetArgs
+    ///                     {
+    ///                         Type = "filesystem",
+    ///                     },
+    ///                 },
+    ///                 Hooks = new DockerAgent.Inputs.HooksArgs
+    ///                 {
+    ///                     SessionStart = new[]
+    ///                     {
+    ///                         new DockerAgent.Inputs.HookDefinitionArgs
+    ///                         {
+    ///                             Type = DockerAgent.HookType.Builtin,
+    ///                             Command = "add_environment_info",
+    ///                         },
+    ///                     },
+    ///                 },
+    ///                 SimpleCommands =
+    ///                 {
+    ///                     { "test", "Run the tests and summarise the failures" },
+    ///                 },
+    ///             },
+    ///         },
+    ///         Budget = new DockerAgent.Inputs.BudgetArgs
+    ///         {
+    ///             MaxCost = 5.0,
+    ///             MaxTime = "30m",
+    ///         },
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["agentYaml"] = sandboxed.Yaml,
+    ///     };
+    /// });
+    /// ```
+    /// 
+    /// ## Import
+    /// 
+    /// An existing docker-agent configuration can be imported, and `pulumi import` generates its typed
+    /// inputs in your program's language. The ID is `file://&lt;path&gt;`, a path ending in `.yaml`, `.yml` or
+    /// `.hcl` (relative to the project directory), or `oci://&lt;registry&gt;/&lt;repository&gt;:&lt;tag&gt;` (or
+    /// `@sha256:&lt;digest&gt;`) for a shared agent, read with the provider's registry credentials. Only configurations
+    /// that pass validation are imported; set the provider's `skipValidation` to import one that needs a newer
+    /// docker-agent (the resource then gets `skipValidation: true`). Keys without a typed input go to
+    /// `extra`, `instruction_file` contents become `instruction`, and comments, key order and YAML
+    /// anchors are not kept. The imported resource's ID is its name; it keeps no link to the file or artifact.
+    /// 
+    /// ```sh
+    /// $ pulumi import docker-agent:index:AgentConfig assistant ./agent.yaml
+    /// ```
+    /// 
+    /// ```sh
+    /// $ pulumi import docker-agent:index:AgentConfig shared oci://ghcr.io/my-org/agents/assistant:v1
+    /// ```
     /// </summary>
     [DockerAgentResourceType("docker-agent:index:AgentConfig")]
     public partial class AgentConfig : global::Pulumi.CustomResource
@@ -153,7 +368,7 @@ namespace ediri.DockerAgent
         public Output<ImmutableDictionary<string, Outputs.SkillSet>?> Skills { get; private set; } = null!;
 
         /// <summary>
-        /// Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        /// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
         /// </summary>
         [Output("skipValidation")]
         public Output<bool?> SkipValidation { get; private set; } = null!;
@@ -379,7 +594,7 @@ namespace ediri.DockerAgent
         }
 
         /// <summary>
-        /// Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        /// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
         /// </summary>
         [Input("skipValidation")]
         public Input<bool>? SkipValidation { get; set; }

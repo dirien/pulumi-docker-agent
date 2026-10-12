@@ -6,6 +6,8 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.EvaluatorDecision;
+import io.github.dirien.dockeragent.enums.EvaluatorFallback;
 import java.lang.Double;
 import java.lang.Object;
 import java.lang.String;
@@ -24,17 +26,17 @@ public final class EvaluatorPolicyArgs extends com.pulumi.resources.ResourceArgs
     public static final EvaluatorPolicyArgs Empty = new EvaluatorPolicyArgs();
 
     /**
-     * Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+     * Choice keys (or true/false for booleans) mapped to guard decisions.
      * 
      */
     @Import(name="decisions", required=true)
-    private Output<Map<String,String>> decisions;
+    private Output<Map<String,EvaluatorDecision>> decisions;
 
     /**
-     * @return Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+     * @return Choice keys (or true/false for booleans) mapped to guard decisions.
      * 
      */
-    public Output<Map<String,String>> decisions() {
+    public Output<Map<String,EvaluatorDecision>> decisions() {
         return this.decisions;
     }
 
@@ -54,17 +56,17 @@ public final class EvaluatorPolicyArgs extends com.pulumi.resources.ResourceArgs
     }
 
     /**
-     * Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+     * Decision for uncertainty or unmapped outcomes; provider failures always block.
      * 
      */
     @Import(name="fallback", required=true)
-    private Output<String> fallback;
+    private Output<EvaluatorFallback> fallback;
 
     /**
-     * @return Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+     * @return Decision for uncertainty or unmapped outcomes; provider failures always block.
      * 
      */
-    public Output<String> fallback() {
+    public Output<EvaluatorFallback> fallback() {
         return this.fallback;
     }
 
@@ -111,23 +113,23 @@ public final class EvaluatorPolicyArgs extends com.pulumi.resources.ResourceArgs
         }
 
         /**
-         * @param decisions Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+         * @param decisions Choice keys (or true/false for booleans) mapped to guard decisions.
          * 
          * @return builder
          * 
          */
-        public Builder decisions(Output<Map<String,String>> decisions) {
+        public Builder decisions(Output<Map<String,EvaluatorDecision>> decisions) {
             $.decisions = decisions;
             return this;
         }
 
         /**
-         * @param decisions Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+         * @param decisions Choice keys (or true/false for booleans) mapped to guard decisions.
          * 
          * @return builder
          * 
          */
-        public Builder decisions(Map<String,String> decisions) {
+        public Builder decisions(Map<String,EvaluatorDecision> decisions) {
             return decisions(Output.of(decisions));
         }
 
@@ -153,23 +155,23 @@ public final class EvaluatorPolicyArgs extends com.pulumi.resources.ResourceArgs
         }
 
         /**
-         * @param fallback Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+         * @param fallback Decision for uncertainty or unmapped outcomes; provider failures always block.
          * 
          * @return builder
          * 
          */
-        public Builder fallback(Output<String> fallback) {
+        public Builder fallback(Output<EvaluatorFallback> fallback) {
             $.fallback = fallback;
             return this;
         }
 
         /**
-         * @param fallback Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+         * @param fallback Decision for uncertainty or unmapped outcomes; provider failures always block.
          * 
          * @return builder
          * 
          */
-        public Builder fallback(String fallback) {
+        public Builder fallback(EvaluatorFallback fallback) {
             return fallback(Output.of(fallback));
         }
 

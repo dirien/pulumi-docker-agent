@@ -1,0 +1,34 @@
+version: "16"
+agents:
+  root:
+    model: model
+    description: Lead developer
+    instruction: |
+      You are the lead developer. Coordinate the team.
+    sub_agents:
+      - reviewer
+    toolsets:
+      - type: think
+    use_toolsets:
+      - fs
+      - docs
+  reviewer:
+    model: model
+    description: Code reviewer
+    instruction: |
+      You review code changes.
+    use_toolsets:
+      - fs
+models:
+  model:
+    provider: anthropic
+    model: claude-sonnet-5
+    max_tokens: 64000
+toolsets:
+  docs:
+    type: fetch
+    allowed_domains:
+      - docker.com
+      - docs.docker.com
+  fs:
+    type: filesystem

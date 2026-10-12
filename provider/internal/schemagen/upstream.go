@@ -9,9 +9,12 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -59,7 +62,11 @@ func goListModule(providerDir string) (module, error) {
 }
 
 // syncUpstream copies the pinned schema and the upstream example configurations from the
-// module cache into the provider tree.
+// module cache into the provider tree: every `*.yaml` and `*.hcl` file under examples/,
+// subdirectories included, the Markdown files next to them (`instruction_file`, the HCL
+// `file()` helper), and the text files the HCL `file()` helper reads. The paths of the other
+// example files (Go programs, Dockerfiles, RAG documents, ...) are listed in otherFilesList,
+// so the example generator can say why they are not converted.
 func syncUpstream(m module, schemaOut, examplesOut string) error {
 	data, err := os.ReadFile(filepath.Join(m.Dir, "agent-schema.json"))
 	if err != nil {
@@ -72,36 +79,117 @@ func syncUpstream(m module, schemaOut, examplesOut string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(examplesOut, 0o755); err != nil {
+	if err := os.RemoveAll(examplesOut); err != nil {
 		return err
 	}
-	old, err := filepath.Glob(filepath.Join(examplesOut, "*.yaml"))
+	src, err := os.OpenRoot(filepath.Join(m.Dir, "examples"))
 	if err != nil {
 		return err
 	}
-	for _, f := range old {
-		if err := os.Remove(f); err != nil {
+	defer src.Close() //nolint:errcheck // read-only
+	var others []string
+	err = fs.WalkDir(src.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
 			return err
 		}
-	}
-	examples, err := filepath.Glob(filepath.Join(m.Dir, "examples", "*.yaml"))
-	if err != nil {
-		return err
-	}
-	for _, src := range examples {
-		b, err := os.ReadFile(src)
+		if !vendoredExample(rel) {
+			others = append(others, rel)
+			return nil
+		}
+		b, err := src.ReadFile(rel)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(examplesOut, filepath.Base(src)), b, 0o644); err != nil { //nolint:gosec // testdata
+		out := filepath.Join(examplesOut, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return err
 		}
+		return os.WriteFile(out, b, 0o644) //nolint:gosec // testdata
+	})
+	if err != nil {
+		return err
 	}
-	readme := fmt.Sprintf("These are the example configurations of %s %s (examples/*.yaml),\n"+
-		"copied by `make generate_config_types`. Do not edit them: TestRoundTripUpstreamExamples\n"+
-		"decodes each one into the typed inputs, renders it again and compares what docker-agent loads.\n",
-		dockerAgentModule, m.Version)
+	// The text files HCL examples read with file(), which the example generator copies next to
+	// the programs.
+	reads, err := hclReads(src.FS(), others)
+	if err != nil {
+		return err
+	}
+	for _, rel := range reads {
+		b, err := src.ReadFile(rel)
+		if err != nil {
+			return err
+		}
+		out := filepath.Join(examplesOut, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(out, b, 0o644); err != nil { //nolint:gosec // testdata
+			return err
+		}
+		others = slices.DeleteFunc(others, func(o string) bool { return o == rel })
+	}
+	slices.Sort(others)
+	list := "# The example files of " + dockerAgentModule + " " + m.Version + " that are not copied here.\n" +
+		strings.Join(others, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(examplesOut, otherFilesList), []byte(list), 0o644); err != nil { //nolint:gosec // testdata
+		return err
+	}
+	readme := fmt.Sprintf("These are the example configurations of %s %s (examples/**/*.yaml and *.hcl,\n"+
+		"with the Markdown files they read), copied by `make generate_config_types`. %s lists the\n"+
+		"other example files. Do not edit them: TestRoundTripUpstreamExamples decodes each configuration\n"+
+		"into the typed inputs, renders it again and compares what docker-agent loads, and\n"+
+		"provider/internal/examplegen turns each one into the Pulumi programs in\n"+
+		"examples/docker-agent-examples.\n",
+		dockerAgentModule, m.Version, otherFilesList)
 	return os.WriteFile(filepath.Join(examplesOut, "README.md"), []byte(readme), 0o644) //nolint:gosec // testdata
+}
+
+// hclFileCall matches the literal path argument of the HCL `file()` helper.
+var hclFileCall = regexp.MustCompile(`\bfile\(\s*"([^"\\$]+)"`)
+
+// hclReads returns the files among others (not vendored) that an HCL example of fsys reads with
+// `file()`: text files (.txt) below the example's directory, slash-separated and relative to
+// fsys. Other files are left to the example generator, which rejects them.
+func hclReads(fsys fs.FS, others []string) ([]string, error) {
+	var out []string
+	err := fs.WalkDir(fsys, ".", func(rel string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || path.Ext(rel) != ".hcl" {
+			return err
+		}
+		b, err := fs.ReadFile(fsys, rel)
+		if err != nil {
+			return err
+		}
+		for _, m := range hclFileCall.FindAllStringSubmatch(string(b), -1) {
+			local := path.Clean(m[1])
+			read := path.Join(path.Dir(rel), local)
+			if path.Ext(read) == ".txt" && fs.ValidPath(local) && fs.ValidPath(read) && read != otherFilesList &&
+				slices.Contains(others, read) && !slices.Contains(out, read) {
+				out = append(out, read)
+			}
+		}
+		return nil
+	})
+	slices.Sort(out)
+	return out, err
+}
+
+// otherFilesList is the file in the vendored examples directory that lists the upstream
+// example files that are not copied.
+const otherFilesList = "other-files.txt"
+
+// vendoredExample reports whether the upstream example file rel (slash-separated, relative to
+// examples/) is copied: the configurations and the Markdown files next to them, but not the
+// READMEs.
+func vendoredExample(rel string) bool {
+	switch path.Ext(rel) {
+	case ".yaml", ".hcl":
+		return true
+	case ".md":
+		return path.Base(rel) != "README.md"
+	}
+	return false
 }
 
 // mapLiteralKeys returns the sorted string keys of the map literal in function fn of a Go

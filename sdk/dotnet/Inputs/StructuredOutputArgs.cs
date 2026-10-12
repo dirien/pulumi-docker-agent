@@ -35,10 +35,10 @@ namespace ediri.DockerAgent.Inputs
         }
 
         /// <summary>
-        /// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+        /// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
         /// </summary>
         [Input("mode")]
-        public Input<string>? Mode { get; set; }
+        public Input<ediri.DockerAgent.StructuredOutputMode>? Mode { get; set; }
 
         /// <summary>
         /// Name of the response format schema

@@ -6,6 +6,8 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.HarnessEffort;
+import io.github.dirien.dockeragent.enums.HarnessType;
 import java.lang.Boolean;
 import java.lang.Object;
 import java.lang.String;
@@ -39,17 +41,17 @@ public final class HarnessArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+     * Claude Code effort level forwarded as --effort.
      * 
      */
     @Import(name="effort")
-    private @Nullable Output<String> effort;
+    private @Nullable Output<HarnessEffort> effort;
 
     /**
-     * @return Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+     * @return Claude Code effort level forwarded as --effort.
      * 
      */
-    public Optional<Output<String>> effort() {
+    public Optional<Output<HarnessEffort>> effort() {
         return Optional.ofNullable(this.effort);
     }
 
@@ -99,17 +101,17 @@ public final class HarnessArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+     * External coding harness provider to use.
      * 
      */
     @Import(name="type", required=true)
-    private Output<String> type;
+    private Output<HarnessType> type;
 
     /**
-     * @return External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+     * @return External coding harness provider to use.
      * 
      */
-    public Output<String> type() {
+    public Output<HarnessType> type() {
         return this.type;
     }
 
@@ -164,23 +166,23 @@ public final class HarnessArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param effort Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+         * @param effort Claude Code effort level forwarded as --effort.
          * 
          * @return builder
          * 
          */
-        public Builder effort(@Nullable Output<String> effort) {
+        public Builder effort(@Nullable Output<HarnessEffort> effort) {
             $.effort = effort;
             return this;
         }
 
         /**
-         * @param effort Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+         * @param effort Claude Code effort level forwarded as --effort.
          * 
          * @return builder
          * 
          */
-        public Builder effort(String effort) {
+        public Builder effort(HarnessEffort effort) {
             return effort(Output.of(effort));
         }
 
@@ -248,23 +250,23 @@ public final class HarnessArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param type External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+         * @param type External coding harness provider to use.
          * 
          * @return builder
          * 
          */
-        public Builder type(Output<String> type) {
+        public Builder type(Output<HarnessType> type) {
             $.type = type;
             return this;
         }
 
         /**
-         * @param type External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+         * @param type External coding harness provider to use.
          * 
          * @return builder
          * 
          */
-        public Builder type(String type) {
+        public Builder type(HarnessType type) {
             return type(Output.of(type));
         }
 

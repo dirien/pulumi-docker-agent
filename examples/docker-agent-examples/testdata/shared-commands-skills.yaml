@@ -1,0 +1,42 @@
+version: "16"
+agents:
+  root:
+    model: model
+    description: Lead developer
+    instruction: |
+      You are the lead developer. Coordinate the team.
+    sub_agents:
+      - docs-writer
+    use_skills:
+      - base
+    commands:
+      lint: Run the linter
+    use_commands:
+      - ci
+  docs-writer:
+    model: model
+    description: Documentation writer
+    instruction: |
+      You write and maintain the project documentation.
+    use_skills:
+      - base
+    use_commands:
+      - ci
+      - docs
+models:
+  model:
+    provider: anthropic
+    model: claude-sonnet-5
+    max_tokens: 64000
+commands:
+  ci:
+    deploy: Deploy the application
+    test: Run the test suite
+  docs:
+    build-docs:
+      description: Build the documentation site
+      instruction: Build the docs and report any broken links.
+skills:
+  base:
+    - local
+    - git

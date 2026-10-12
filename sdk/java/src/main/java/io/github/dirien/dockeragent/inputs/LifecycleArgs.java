@@ -5,6 +5,8 @@ package io.github.dirien.dockeragent.inputs;
 
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
+import io.github.dirien.dockeragent.enums.LifecycleProfile;
+import io.github.dirien.dockeragent.enums.RestartPolicy;
 import io.github.dirien.dockeragent.inputs.LifecycleBackoffArgs;
 import java.lang.Boolean;
 import java.lang.Integer;
@@ -85,17 +87,17 @@ public final class LifecycleArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+     * Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart.
      * 
      */
     @Import(name="profile")
-    private @Nullable Output<String> profile;
+    private @Nullable Output<LifecycleProfile> profile;
 
     /**
-     * @return Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+     * @return Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart.
      * 
      */
-    public Optional<Output<String>> profile() {
+    public Optional<Output<LifecycleProfile>> profile() {
         return Optional.ofNullable(this.profile);
     }
 
@@ -115,17 +117,17 @@ public final class LifecycleArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+     * How the supervisor reacts to an unexpected disconnect.
      * 
      */
     @Import(name="restart")
-    private @Nullable Output<String> restart;
+    private @Nullable Output<RestartPolicy> restart;
 
     /**
-     * @return How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+     * @return How the supervisor reacts to an unexpected disconnect.
      * 
      */
-    public Optional<Output<String>> restart() {
+    public Optional<Output<RestartPolicy>> restart() {
         return Optional.ofNullable(this.restart);
     }
 
@@ -260,23 +262,23 @@ public final class LifecycleArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param profile Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+         * @param profile Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart.
          * 
          * @return builder
          * 
          */
-        public Builder profile(@Nullable Output<String> profile) {
+        public Builder profile(@Nullable Output<LifecycleProfile> profile) {
             $.profile = profile;
             return this;
         }
 
         /**
-         * @param profile Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+         * @param profile Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart.
          * 
          * @return builder
          * 
          */
-        public Builder profile(String profile) {
+        public Builder profile(LifecycleProfile profile) {
             return profile(Output.of(profile));
         }
 
@@ -302,23 +304,23 @@ public final class LifecycleArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param restart How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+         * @param restart How the supervisor reacts to an unexpected disconnect.
          * 
          * @return builder
          * 
          */
-        public Builder restart(@Nullable Output<String> restart) {
+        public Builder restart(@Nullable Output<RestartPolicy> restart) {
             $.restart = restart;
             return this;
         }
 
         /**
-         * @param restart How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+         * @param restart How the supervisor reacts to an unexpected disconnect.
          * 
          * @return builder
          * 
          */
-        public Builder restart(String restart) {
+        public Builder restart(RestartPolicy restart) {
             return restart(Output.of(restart));
         }
 

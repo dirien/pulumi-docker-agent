@@ -1,0 +1,24 @@
+version: "16"
+agents:
+  root:
+    model: opus-bounded
+    description: a helpful assistant with a bounded task token budget
+    instruction: Stay within the configured task token budget.
+    toolsets:
+      - type: shell
+    commands:
+      demo: design and sketch a small Python CLI that fetches weather data
+models:
+  opus-bounded:
+    provider: anthropic-opus-47
+    model: claude-opus-5
+    thinking_budget: adaptive
+    task_budget: 128000
+  opus-bounded-tight:
+    provider: anthropic-opus-47
+    model: claude-opus-5
+    task_budget: 64000
+providers:
+  anthropic-opus-47:
+    provider: anthropic
+    token_key: ANTHROPIC_API_KEY

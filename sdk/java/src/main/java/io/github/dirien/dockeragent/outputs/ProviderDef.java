@@ -4,6 +4,7 @@
 package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
+import io.github.dirien.dockeragent.enums.ApiType;
 import io.github.dirien.dockeragent.outputs.ModelAuth;
 import java.lang.Boolean;
 import java.lang.Double;
@@ -18,10 +19,10 @@ import javax.annotation.Nullable;
 @CustomType
 public final class ProviderDef {
     /**
-     * @return The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+     * @return The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
      * 
      */
-    private @Nullable String apiType;
+    private @Nullable ApiType apiType;
     /**
      * @return Non-API-key authentication scheme. When set, the provider&#39;s regular API-key path is bypassed.
      * 
@@ -115,10 +116,10 @@ public final class ProviderDef {
 
     private ProviderDef() {}
     /**
-     * @return The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+     * @return The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
      * 
      */
-    public Optional<String> apiType() {
+    public Optional<ApiType> apiType() {
         return Optional.ofNullable(this.apiType);
     }
     /**
@@ -257,7 +258,7 @@ public final class ProviderDef {
     }
     @CustomType.Builder
     public static final class Builder {
-        private @Nullable String apiType;
+        private @Nullable ApiType apiType;
         private @Nullable ModelAuth auth;
         private @Nullable String baseUrl;
         private @Nullable String compactionModel;
@@ -301,7 +302,7 @@ public final class ProviderDef {
         }
 
         @CustomType.Setter
-        public Builder apiType(@Nullable String apiType) {
+        public Builder apiType(@Nullable ApiType apiType) {
 
             this.apiType = apiType;
             return this;

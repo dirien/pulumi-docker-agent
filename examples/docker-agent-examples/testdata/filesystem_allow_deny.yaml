@@ -1,0 +1,43 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: A filesystem agent restricted to its working directory and home folder.
+    instruction: |
+      You may read and write files under the current working directory and
+      under the user's home directory, except for the credentials folders
+      (~/.ssh, ~/.aws). If asked to touch a path outside that scope, refuse
+      and explain why.
+    toolsets:
+      - type: filesystem
+        allow_list:
+          - .
+          - "~"
+        deny_list:
+          - ~/.ssh
+          - ~/.aws
+          - ~/.docker
+  workspace_only:
+    model: anthropic/claude-sonnet-4-5
+    description: A filesystem agent that cannot leave its working directory.
+    instruction: |
+      You may only read and write files inside the current working directory.
+      Refuse any request that would require touching files elsewhere on the
+      filesystem.
+    toolsets:
+      - type: filesystem
+        allow_list:
+          - .
+  guarded:
+    model: anthropic/claude-sonnet-4-5
+    description: A filesystem agent with a small set of off-limits directories.
+    instruction: |
+      You have broad filesystem access, but a few directories are off-limits.
+      If a request is rejected, do not retry and explain the situation to the
+      user.
+    toolsets:
+      - type: filesystem
+        deny_list:
+          - ~/.ssh
+          - ~/.aws
+          - /etc

@@ -5,6 +5,8 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.HookErrorPolicy;
+import io.github.dirien.dockeragent.enums.HookType;
 import io.github.dirien.dockeragent.outputs.EvaluatorPolicy;
 import io.github.dirien.dockeragent.outputs.RoutingPolicy;
 import java.lang.Boolean;
@@ -60,10 +62,10 @@ public final class HookDefinition {
      */
     private @Nullable String name;
     /**
-     * @return Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. &#39;warn&#39; reports and continues (default), &#39;ignore&#39; continues silently, and &#39;block&#39; denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
+     * @return Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. &#39;warn&#39; reports and continues (default), &#39;ignore&#39; continues silently, and &#39;block&#39; denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
      * 
      */
-    private @Nullable String onError;
+    private @Nullable HookErrorPolicy onError;
     /**
      * @return User-message template rendered for each invocation of a type=model hook. Parsed as a Go text/template with the hook Input as the data context: {{ .ToolName }}, {{ .ToolInput }}, {{ .StopResponse }}, etc. Required for type=model.
      * 
@@ -95,10 +97,10 @@ public final class HookDefinition {
      */
     private @Nullable Integer timeout;
     /**
-     * @return Type of hook. &#39;command&#39; executes a shell command; &#39;builtin&#39; invokes a named in-process Go function registered by the runtime; &#39;model&#39; asks an LLM and translates its reply into the hook&#39;s native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: &#39;add_context&#39; (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), &#39;add_date&#39; (turn_start: today&#39;s date), &#39;add_environment_info&#39; (session_start: cwd, git, OS, arch), &#39;add_prompt_files&#39; (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include &#39;--depth=&lt;N&gt;&#39; to additionally list, by path only, the same filenames found up to N levels below the working directory), &#39;add_git_status&#39; (turn_start: `git status --short --branch`), &#39;add_git_diff&#39; (turn_start: `git diff --stat`, or full diff with args=[&#39;full&#39;]), &#39;add_directory_listing&#39; (session_start: top-level entries of cwd), &#39;add_user_info&#39; (session_start: current OS user and hostname), &#39;add_recent_commits&#39; (session_start: `git log --oneline -n N`, default N=10, override via args=[&#39;&lt;N&gt;&#39;]), &#39;max_iterations&#39; (before_llm_call: hard stop after N model calls; args=[&#39;&lt;N&gt;&#39;] required), &#39;redact_secrets&#39; (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level &#39;redact_secrets: true&#39; flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), &#39;transform_json&#39; (tool_response_transform: keeps the top-level JSON fields named in args), &#39;limit_large_tool_results&#39; (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), &#39;safer_shell&#39; (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), &#39;http_post&#39; (any event: POSTs args[1] to the URL in args[0]), &#39;snapshot&#39; (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), &#39;unload&#39; (on_agent_switch: POSTs `{&#34;model&#34;: &#34;&lt;id&gt;&#34;}` to the previous agent&#39;s DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent&#39;s model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent&#39;s hooks.on_agent_switch list). &#39;evaluator&#39; assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
+     * @return Type of hook. &#39;command&#39; executes a shell command; &#39;builtin&#39; invokes a named in-process Go function registered by the runtime; &#39;model&#39; asks an LLM and translates its reply into the hook&#39;s native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: &#39;add_context&#39; (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), &#39;add_date&#39; (turn_start: today&#39;s date), &#39;add_environment_info&#39; (session_start: cwd, git, OS, arch), &#39;add_prompt_files&#39; (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include &#39;--depth=&lt;N&gt;&#39; to additionally list, by path only, the same filenames found up to N levels below the working directory), &#39;add_git_status&#39; (turn_start: `git status --short --branch`), &#39;add_git_diff&#39; (turn_start: `git diff --stat`, or full diff with args=[&#39;full&#39;]), &#39;add_directory_listing&#39; (session_start: top-level entries of cwd), &#39;add_user_info&#39; (session_start: current OS user and hostname), &#39;add_recent_commits&#39; (session_start: `git log --oneline -n N`, default N=10, override via args=[&#39;&lt;N&gt;&#39;]), &#39;max_iterations&#39; (before_llm_call: hard stop after N model calls; args=[&#39;&lt;N&gt;&#39;] required), &#39;redact_secrets&#39; (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level &#39;redact_secrets: true&#39; flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), &#39;transform_json&#39; (tool_response_transform: keeps the top-level JSON fields named in args), &#39;limit_large_tool_results&#39; (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), &#39;safer_shell&#39; (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), &#39;http_post&#39; (any event: POSTs args[1] to the URL in args[0]), &#39;snapshot&#39; (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), &#39;unload&#39; (on_agent_switch: POSTs `{&#34;model&#34;: &#34;&lt;id&gt;&#34;}` to the previous agent&#39;s DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent&#39;s model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent&#39;s hooks.on_agent_switch list). &#39;evaluator&#39; assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
      * 
      */
-    private String type;
+    private HookType type;
     /**
      * @return Working directory for this hook. Accepts ~, $VAR, ${VAR} and ${env.VAR}. Relative paths are resolved from the agent working directory.
      * 
@@ -163,10 +165,10 @@ public final class HookDefinition {
         return Optional.ofNullable(this.name);
     }
     /**
-     * @return Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. &#39;warn&#39; reports and continues (default), &#39;ignore&#39; continues silently, and &#39;block&#39; denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
+     * @return Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. &#39;warn&#39; reports and continues (default), &#39;ignore&#39; continues silently, and &#39;block&#39; denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
      * 
      */
-    public Optional<String> onError() {
+    public Optional<HookErrorPolicy> onError() {
         return Optional.ofNullable(this.onError);
     }
     /**
@@ -212,10 +214,10 @@ public final class HookDefinition {
         return Optional.ofNullable(this.timeout);
     }
     /**
-     * @return Type of hook. &#39;command&#39; executes a shell command; &#39;builtin&#39; invokes a named in-process Go function registered by the runtime; &#39;model&#39; asks an LLM and translates its reply into the hook&#39;s native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: &#39;add_context&#39; (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), &#39;add_date&#39; (turn_start: today&#39;s date), &#39;add_environment_info&#39; (session_start: cwd, git, OS, arch), &#39;add_prompt_files&#39; (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include &#39;--depth=&lt;N&gt;&#39; to additionally list, by path only, the same filenames found up to N levels below the working directory), &#39;add_git_status&#39; (turn_start: `git status --short --branch`), &#39;add_git_diff&#39; (turn_start: `git diff --stat`, or full diff with args=[&#39;full&#39;]), &#39;add_directory_listing&#39; (session_start: top-level entries of cwd), &#39;add_user_info&#39; (session_start: current OS user and hostname), &#39;add_recent_commits&#39; (session_start: `git log --oneline -n N`, default N=10, override via args=[&#39;&lt;N&gt;&#39;]), &#39;max_iterations&#39; (before_llm_call: hard stop after N model calls; args=[&#39;&lt;N&gt;&#39;] required), &#39;redact_secrets&#39; (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level &#39;redact_secrets: true&#39; flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), &#39;transform_json&#39; (tool_response_transform: keeps the top-level JSON fields named in args), &#39;limit_large_tool_results&#39; (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), &#39;safer_shell&#39; (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), &#39;http_post&#39; (any event: POSTs args[1] to the URL in args[0]), &#39;snapshot&#39; (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), &#39;unload&#39; (on_agent_switch: POSTs `{&#34;model&#34;: &#34;&lt;id&gt;&#34;}` to the previous agent&#39;s DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent&#39;s model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent&#39;s hooks.on_agent_switch list). &#39;evaluator&#39; assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
+     * @return Type of hook. &#39;command&#39; executes a shell command; &#39;builtin&#39; invokes a named in-process Go function registered by the runtime; &#39;model&#39; asks an LLM and translates its reply into the hook&#39;s native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: &#39;add_context&#39; (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), &#39;add_date&#39; (turn_start: today&#39;s date), &#39;add_environment_info&#39; (session_start: cwd, git, OS, arch), &#39;add_prompt_files&#39; (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include &#39;--depth=&lt;N&gt;&#39; to additionally list, by path only, the same filenames found up to N levels below the working directory), &#39;add_git_status&#39; (turn_start: `git status --short --branch`), &#39;add_git_diff&#39; (turn_start: `git diff --stat`, or full diff with args=[&#39;full&#39;]), &#39;add_directory_listing&#39; (session_start: top-level entries of cwd), &#39;add_user_info&#39; (session_start: current OS user and hostname), &#39;add_recent_commits&#39; (session_start: `git log --oneline -n N`, default N=10, override via args=[&#39;&lt;N&gt;&#39;]), &#39;max_iterations&#39; (before_llm_call: hard stop after N model calls; args=[&#39;&lt;N&gt;&#39;] required), &#39;redact_secrets&#39; (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level &#39;redact_secrets: true&#39; flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), &#39;transform_json&#39; (tool_response_transform: keeps the top-level JSON fields named in args), &#39;limit_large_tool_results&#39; (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), &#39;safer_shell&#39; (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), &#39;http_post&#39; (any event: POSTs args[1] to the URL in args[0]), &#39;snapshot&#39; (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), &#39;unload&#39; (on_agent_switch: POSTs `{&#34;model&#34;: &#34;&lt;id&gt;&#34;}` to the previous agent&#39;s DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent&#39;s model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent&#39;s hooks.on_agent_switch list). &#39;evaluator&#39; assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
      * 
      */
-    public String type() {
+    public HookType type() {
         return this.type;
     }
     /**
@@ -243,14 +245,14 @@ public final class HookDefinition {
         private @Nullable Map<String,Object> extra;
         private @Nullable String model;
         private @Nullable String name;
-        private @Nullable String onError;
+        private @Nullable HookErrorPolicy onError;
         private @Nullable String prompt;
         private @Nullable RoutingPolicy routingPolicy;
         private @Nullable String schema;
         private @Nullable Boolean strictOutput;
         private @Nullable String systemPrompt;
         private @Nullable Integer timeout;
-        private String type;
+        private HookType type;
         private @Nullable String workingDir;
         public Builder() {}
         public Builder(HookDefinition defaults) {
@@ -326,7 +328,7 @@ public final class HookDefinition {
             return this;
         }
         @CustomType.Setter
-        public Builder onError(@Nullable String onError) {
+        public Builder onError(@Nullable HookErrorPolicy onError) {
 
             this.onError = onError;
             return this;
@@ -368,7 +370,7 @@ public final class HookDefinition {
             return this;
         }
         @CustomType.Setter
-        public Builder type(String type) {
+        public Builder type(HookType type) {
             if (type == null) {
               throw new MissingRequiredPropertyException("HookDefinition", "type");
             }

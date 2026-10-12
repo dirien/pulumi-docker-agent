@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  root:
+    model: together_model
+    description: Assistant using Together AI
+    instruction: |
+      You are a helpful assistant.
+    toolsets:
+      - type: filesystem
+      - type: shell
+      - type: think
+models:
+  together_model:
+    provider: togetherai
+    model: meta-llama/Llama-3.3-70B-Instruct-Turbo

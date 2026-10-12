@@ -38,7 +38,7 @@ namespace ediri.DockerAgent.Inputs
         /// The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
         /// </summary>
         [Input("safety")]
-        public Input<string>? Safety { get; set; }
+        public Input<ediri.DockerAgent.SafetyMode>? Safety { get; set; }
 
         /// <summary>
         /// Run the alias inside a Docker sandbox by default.

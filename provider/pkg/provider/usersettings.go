@@ -37,117 +37,24 @@ example from a dotfile manager) is kept: the file it points to is written.
 If a file already exists at the path when the resource is created, the preview fails when its content differs
 from the rendered file, so existing aliases and settings are never replaced silently. Copy what you want to keep
 into the inputs, or set ` + "`overwrite: true`" + `. Either way the existing file is moved to
-` + "`<file>.pulumi-backup`" + ` (output ` + "`backupPath`" + `), and deleting the resource moves it back; without a backup,
-deleting the resource removes the file. Set the ` + "`retainOnDelete`" + ` resource option to keep the file.
+` + "`<file>.pulumi-backup`" + ` (output ` + "`backupPath`" + `), and deleting the resource moves it back. Deleting the
+resource removes a file that the provider created, and leaves a file adopted with ` + "`pulumi import`" + ` in place.
+Set the ` + "`retainOnDelete`" + ` resource option to keep the file.
 
 The resource owns the whole file. Changes docker-agent makes itself (` + "`docker agent alias add`" + `, the TUI's
 ` + "`/settings`" + ` dialog, ` + "`docker agent sandbox allow`" + `) show up as drift and are reverted by the next
-` + "`pulumi up --refresh`" + `, so manage those settings here instead.
+` + "`pulumi up --refresh`" + `, so manage those settings here instead.`
 
-{{% examples %}}
-## Example Usage
-{{% example %}}
-### Write the user configuration
-
-` + "```typescript" + `
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-const settings = new dockeragent.UserSettings("settings", {
-    path: "~/.config/cagent/config.yaml",
-    settings: {
-        theme: "auto",
-        themeDark: "dracula",
-        safety: "balanced",
-        sound: true,
-        layout: { sidebarPosition: "left", hideUsage: true },
-        permissions: { deny: ["shell:cmd=sudo*"], allow: ["read_*"] },
-        keybindings: [{ action: "commands", keys: ["f2", "ctrl+k"] }],
-    },
-    aliases: {
-        reviewer: { path: "docker.io/myorg/reviewer:latest", safety: "restricted" },
-    },
-});
-
-export const configSha256 = settings.sha256;
-` + "```" + `
-` + "```python" + `
-import pulumi
-import ediri_docker_agent as dockeragent
-
-settings = dockeragent.UserSettings("settings",
-    path="~/.config/cagent/config.yaml",
-    settings={
-        "theme": "auto",
-        "theme_dark": "dracula",
-        "safety": "balanced",
-        "sound": True,
-        "layout": {"sidebar_position": "left", "hide_usage": True},
-        "permissions": {"deny": ["shell:cmd=sudo*"], "allow": ["read_*"]},
-        "keybindings": [{"action": "commands", "keys": ["f2", "ctrl+k"]}],
-    },
-    aliases={
-        "reviewer": {"path": "docker.io/myorg/reviewer:latest", "safety": "restricted"},
-    })
-
-pulumi.export("configSha256", settings.sha256)
-` + "```" + `
-` + "```yaml" + `
-resources:
-  settings:
-    type: docker-agent:index:UserSettings
-    properties:
-      path: ~/.config/cagent/config.yaml
-      settings:
-        theme: auto
-        themeDark: dracula
-        safety: balanced
-        sound: true
-        layout:
-          sidebarPosition: left
-          hideUsage: true
-        permissions:
-          deny: ["shell:cmd=sudo*"]
-          allow: ["read_*"]
-        keybindings:
-          - action: commands
-            keys: [f2, ctrl+k]
-      aliases:
-        reviewer:
-          path: docker.io/myorg/reviewer:latest
-          safety: restricted
-outputs:
-  configSha256: ${settings.sha256}
-` + "```" + `
-{{% /example %}}
-{{% example %}}
-### Render only, with a global provider and hooks
-
-` + "```typescript" + `
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-// No path: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
-const rendered = new dockeragent.UserSettings("image-settings", {
-    providers: {
-        gateway: { baseUrl: "https://llm.example.com/v1", tokenKey: "GATEWAY_API_KEY" },
-    },
-    defaultModel: { provider: "gateway", model: "qwen3-coder" },
-    sandboxAllowlist: ["registry.npmjs.org:443"],
-    settings: {
-        hooks: {
-            sessionStart: [{ type: "command", command: "~/.config/cagent/hooks/session-start.sh" }],
-            preToolUse: [{ matcher: "shell", hooks: [{ type: "builtin", command: "redact_secrets" }] }],
-        },
-    },
-});
-
-export const userConfigYaml = rendered.yaml;
-` + "```" + `
-{{% /example %}}
-{{% /examples %}}`
+var userSettingsImportDoc = `An existing user configuration can be imported with its path (or ` + "`file://<path>`" + `)
+as ID. It is read with docker-agent's own types, and ` + "`pulumi import`" + ` generates the typed inputs,
+` + "`path`" + ` included. The file is adopted: the import writes nothing and takes no backup, ` + "`overwrite`" + ` is
+not needed, and deleting the resource leaves the file in place (with the content Pulumi last wrote) instead of
+removing it. The resource ID is the file's absolute path.` +
+	importCommand("docker-agent:index:UserSettings", "settings", "~/.config/cagent/config.yaml")
 
 // Annotate describes the resource.
 func (r *UserSettings) Annotate(a infer.Annotator) {
-	a.Describe(&r, userSettingsDoc)
+	a.Describe(&r, describe(userSettingsDoc, userSettingsExamples, userSettingsImportDoc))
 }
 
 // UserSettingsArgs are the inputs of UserSettings. The `yaml` tags name the docker-agent
@@ -216,12 +123,14 @@ func (s *UserSettingsState) Annotate(an infer.Annotator) {
 	an.Describe(&s.SHA256, "The hex-encoded SHA-256 of `yaml`.")
 	an.Describe(&s.FilePath, "The absolute path of the written file. Unset when `path` is unset.")
 	an.Describe(&s.BackupPath, "Where the file that already existed at `path` was moved when the resource took "+
-		"it over. Deleting the resource moves it back. Unset when there was no file.")
+		"it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.")
 }
 
 // Check validates the inputs and, when they are all known, the rendered document.
 func (*UserSettings) Check(ctx context.Context, req infer.CheckRequest) (infer.CheckResponse[UserSettingsArgs], error) {
-	args, failures, err := infer.DefaultCheck[UserSettingsArgs](ctx, req.NewInputs)
+	args, failures, err := checkInputs(ctx, req.NewInputs, func(a UserSettingsArgs) bool {
+		return skipValidation(ctx, a.SkipValidation)
+	})
 	if err != nil || len(failures) > 0 {
 		return infer.CheckResponse[UserSettingsArgs]{Inputs: args, Failures: failures}, err
 	}
@@ -237,7 +146,8 @@ func (*UserSettings) Check(ctx context.Context, req infer.CheckRequest) (infer.C
 	cfgYAML, cfgErrs, warnings := checkUserSettings(args, !skipValidation(ctx, args.SkipValidation))
 	for _, e := range cfgErrs {
 		failures = append(failures, p.CheckFailure{
-			Reason: "invalid docker-agent user settings: " + validate.Redact(e, secrets),
+			Property: userSettingsProperty(e),
+			Reason:   "invalid docker-agent user settings: " + validate.Redact(e, secrets),
 		})
 	}
 	logWarnings(ctx, warnings, secrets)
@@ -319,7 +229,7 @@ func (*UserSettings) Create(
 	if err != nil {
 		return infer.CreateResponse[UserSettingsState]{}, err
 	}
-	backup, warning, err := target.apply(state.YAML, isTrue(req.Inputs.Overwrite), "", "")
+	backup, warning, err := target.apply(state.YAML, isTrue(req.Inputs.Overwrite), "", "", false)
 	if err != nil {
 		return infer.CreateResponse[UserSettingsState]{}, err
 	}
@@ -340,8 +250,9 @@ func (*UserSettings) Update(
 	if err != nil {
 		return infer.UpdateResponse[UserSettingsState]{}, err
 	}
+	oldPath := derefStr(req.State.FilePath)
 	backup, warning, err := target.apply(state.YAML, isTrue(req.Inputs.Overwrite),
-		derefStr(req.State.FilePath), derefStr(req.State.BackupPath))
+		oldPath, derefStr(req.State.BackupPath), adoptedFile(req.ID, oldPath))
 	if err != nil {
 		return infer.UpdateResponse[UserSettingsState]{}, err
 	}
@@ -350,13 +261,14 @@ func (*UserSettings) Update(
 	return infer.UpdateResponse[UserSettingsState]{Output: state}, nil
 }
 
-// Read detects drift between the state and the file.
+// Read detects drift between the state and the file. Without a state, it imports (adopts)
+// the existing file named by the ID.
 func (*UserSettings) Read(
-	_ context.Context, req infer.ReadRequest[UserSettingsArgs, UserSettingsState],
+	ctx context.Context, req infer.ReadRequest[UserSettingsArgs, UserSettingsState],
 ) (infer.ReadResponse[UserSettingsArgs, UserSettingsState], error) {
 	state := req.State
 	if state.SHA256 == "" {
-		return infer.ReadResponse[UserSettingsArgs, UserSettingsState]{}, errImportUnsupported
+		return importUserSettings(ctx, req.ID)
 	}
 	if path := derefStr(state.FilePath); path != "" {
 		content, changed, gone, err := refreshContent(path, state.YAML)
@@ -374,11 +286,9 @@ func (*UserSettings) Read(
 }
 
 // Delete moves the backup of the file that existed before back, or removes the managed
-// file.
+// file. An adopted file (imported with `pulumi import`) is left in place.
 func (*UserSettings) Delete(ctx context.Context, req infer.DeleteRequest[UserSettingsState]) (infer.DeleteResponse, error) {
-	warning, err := release(derefStr(req.State.FilePath), derefStr(req.State.BackupPath))
-	logWarning(ctx, warning)
-	return infer.DeleteResponse{}, err
+	return infer.DeleteResponse{}, releaseFile(ctx, req.ID, derefStr(req.State.FilePath), derefStr(req.State.BackupPath))
 }
 
 // Diff compares the inputs and detects drift: a refreshed file whose content differs from

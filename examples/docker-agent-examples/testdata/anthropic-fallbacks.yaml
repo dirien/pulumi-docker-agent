@@ -1,0 +1,13 @@
+version: "16"
+agents:
+  root:
+    model: fable
+    description: Assistant on Claude Fable 5 with a server-side fallback model
+    instruction: You are a helpful assistant.
+models:
+  fable:
+    provider: anthropic
+    model: claude-fable-5-1
+    provider_opts:
+      fallbacks:
+        - claude-opus-4-8

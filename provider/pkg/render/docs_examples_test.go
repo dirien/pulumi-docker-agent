@@ -31,10 +31,10 @@ func TestDocsExamplesRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Skipf("the docs example does not load with docker-agent v1.150.0: %v", err)
 			}
-			doc, untyped, err := decodeYAML(orig)
+			dec, err := DecodeYAML(orig)
 			require.NoError(t, err)
-			assert.Empty(t, untyped, "keys without a typed input")
-			rendered, err := Render(doc)
+			assert.Empty(t, dec.Untyped, "keys without a typed input")
+			rendered, err := Render(dec.Document)
 			require.NoError(t, err)
 			got, err := loadJSON(t, name, []byte(rendered))
 			require.NoError(t, err, "the rendered configuration does not load:\n%s", rendered)
@@ -138,8 +138,8 @@ var docsCases = []docsCase{
 		},
 	}},
 	{page: "configuration/permissions/", file: "configuration-permissions-1.yaml", doc: Document{
-		Runtime: &RuntimeDefaults{Safety: ptr("balanced")},
-		Agents:  []Agent{{Name: "root", Safety: ptr("strict")}},
+		Runtime: &RuntimeDefaults{Safety: ptr(SafetyModeBalanced)},
+		Agents:  []Agent{{Name: "root", Safety: ptr(SafetyModeStrict)}},
 	}},
 	{page: "configuration/budget/", file: "configuration-budget-1.yaml", doc: Document{
 		Agents: []Agent{{Name: "root", Model: ptr("openai/gpt-4o-mini"), Description: ptr("An agent on a short leash."),
@@ -155,7 +155,7 @@ var docsCases = []docsCase{
 		Runtime: &RuntimeDefaults{
 			Sandbox:          ptr(true),
 			NetworkAllowlist: []string{"api.example.com", "registry.npmjs.org"},
-			Safety:           ptr("restricted"),
+			Safety:           ptr(SafetyModeRestricted),
 		},
 		Agents: []Agent{{Name: "root", Model: ptr("openai/gpt-4o"), Description: ptr("Agent with sandboxed shell"),
 			Instruction: ptr("You are a helpful assistant."), Toolsets: []Toolset{{Type: "shell"}}}},
@@ -382,9 +382,9 @@ func TestDocsExamplesTyped(t *testing.T) {
 			want, err := loadJSON(t, tc.file, orig)
 			require.NoError(t, err, "the docs example does not load")
 
-			_, untyped, err := decodeYAML(orig)
+			dec, err := DecodeYAML(orig)
 			require.NoError(t, err)
-			assert.Empty(t, untyped, "keys of the docs example without a typed input")
+			assert.Empty(t, dec.Untyped, "keys of the docs example without a typed input")
 
 			rendered, err := Render(tc.doc)
 			require.NoError(t, err)

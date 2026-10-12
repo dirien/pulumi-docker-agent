@@ -1,0 +1,48 @@
+# Example Usage of validateAgentConfig. See agentconfig-examples.yaml for the format.
+---
+description: Validate an agent file
+files:
+  agent.yaml: |
+    agents:
+      root:
+        model: openai/gpt-5-mini
+        instruction: You are a helpful assistant.
+        toolsets:
+          - type: think
+name: validate-file
+runtime: yaml
+variables:
+  # An agent file kept as raw YAML next to the program.
+  agentFile:
+    fn::readFile: ./agent.yaml
+  # Never fails on an invalid document: check `valid` and `errors`.
+  result:
+    fn::invoke:
+      function: docker-agent:index:validateAgentConfig
+      arguments:
+        yaml: ${agentFile}
+outputs:
+  valid: ${result.valid}
+  errors: ${result.errors}
+  requiredEnvVars: ${result.requiredEnvVars}
+---
+description: Validate a shared agent before running it
+skipPreview: the example reads from docker.io
+name: validate-shared
+runtime: yaml
+variables:
+  shared:
+    fn::invoke:
+      function: docker-agent:index:getAgent
+      arguments:
+        reference: docker.io/my-org/assistant:latest
+  # Checks the pulled configuration against the docker-agent version of the provider.
+  check:
+    fn::invoke:
+      function: docker-agent:index:validateAgentConfig
+      arguments:
+        yaml: ${shared.yaml}
+outputs:
+  valid: ${check.valid}
+  errors: ${check.errors}
+  agentNames: ${check.agentNames}

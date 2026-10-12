@@ -79,7 +79,7 @@ type Agent struct {
 	Hooks                   *Hooks             `pulumi:"hooks,optional" yaml:"hooks"`
 	CodeModeTools           *bool              `pulumi:"codeModeTools,optional" yaml:"code_mode_tools"`
 	Readonly                *bool              `pulumi:"readonly,optional" yaml:"readonly"`
-	Safety                  *string            `pulumi:"safety,optional" yaml:"safety"`
+	Safety                  *SafetyMode        `pulumi:"safety,optional" yaml:"safety"`
 	RedactSecrets           *bool              `pulumi:"redactSecrets,optional" yaml:"redact_secrets"`
 	Budgets                 []string           `pulumi:"budgets,optional" yaml:"budgets"`
 	MaxConsecutiveToolCalls *int               `pulumi:"maxConsecutiveToolCalls,optional" yaml:"max_consecutive_tool_calls"`
@@ -126,7 +126,7 @@ func (x *Agent) Annotate(a infer.Annotator) {
 	a.Describe(&x.Hooks, "Lifecycle hooks for executing shell commands at various points in the agent's execution")
 	a.Describe(&x.CodeModeTools, "Enable Code Mode for tools")
 	a.Describe(&x.Readonly, "When true, makes every one of this agent's toolsets read-only: only tools whose annotations carry a read-only hint are listed and callable, and all other (mutating) tools are filtered out. Equivalent to setting 'readonly: true' on each toolset. A sub-agent or handoff agent is made read-only by setting this flag on that agent's own definition.")
-	a.Describe(&x.Safety, "Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.")
+	a.Describe(&x.Safety, "Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.")
 	a.Describe(&x.RedactSecrets, "Enabled by default. When true (the default), the runtime auto-installs the redact_secrets builtin on all three of tool_input_transform (scrubs detected secrets from tool arguments before approval), before_llm_call (scrubs the messages sent to the LLM), and tool_response_transform (scrubs tool output before it reaches event consumers, the persisted session, the post_tool_use hook input, or the next LLM call). Set to false to opt out. The same hook entries can be authored directly in YAML for finer-grained control — see the hooks.tool_response_transform / hooks.before_llm_call / hooks.tool_input_transform sections. Detection uses the portcullis ruleset (GitHub PATs, AWS keys, Stripe / Slack / GitLab tokens, JWTs, private keys, etc.). Each detected span is replaced with the literal '[REDACTED]'.")
 	a.Describe(&x.Budgets, "Names of top-level 'budgets' entries this agent spends against. Every listed budget must be defined under the top-level 'budgets' key. An agent may list several, in which case all apply and the first to be exhausted stops the run. Agents sharing a budget name share one pot, so a fan-out cannot multiply the ceiling.")
 	a.Describe(&x.MaxConsecutiveToolCalls, "Maximum consecutive identical tool calls before the agent is terminated. Prevents degenerate loops. 0 uses the default of 5.")
@@ -184,7 +184,7 @@ type ApiConfig struct {
 	Name         string            `pulumi:"name" yaml:"name"`
 	Instruction  *string           `pulumi:"instruction,optional" yaml:"instruction"`
 	Endpoint     string            `pulumi:"endpoint" yaml:"endpoint"`
-	Method       string            `pulumi:"method" yaml:"method"`
+	Method       HttpMethod        `pulumi:"method" yaml:"method"`
 	Headers      map[string]string `pulumi:"headers,optional" yaml:"headers"`
 	Args         map[string]ApiArg `pulumi:"args,optional" yaml:"args"`
 	Required     []string          `pulumi:"required,optional" yaml:"required"`
@@ -198,7 +198,7 @@ func (x *ApiConfig) Annotate(a infer.Annotator) {
 	a.Describe(&x.Name, "Name of the API tool")
 	a.Describe(&x.Instruction, "Instructions for using the API tool")
 	a.Describe(&x.Endpoint, "API endpoint URL")
-	a.Describe(&x.Method, "HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.")
+	a.Describe(&x.Method, "HTTP method.")
 	a.Describe(&x.Headers, "HTTP headers for the request")
 	a.Describe(&x.Args, "Arguments schema for the API call")
 	a.Describe(&x.Required, "Required argument names")
@@ -292,7 +292,7 @@ type Evaluator struct {
 	Provider            string            `pulumi:"provider" yaml:"provider"`
 	Model               string            `pulumi:"model" yaml:"model"`
 	Instructions        string            `pulumi:"instructions" yaml:"instructions"`
-	Type                string            `pulumi:"type" yaml:"type"`
+	Type                EvaluatorType     `pulumi:"type" yaml:"type"`
 	BaseURL             *string           `pulumi:"baseUrl,optional" yaml:"base_url"`
 	Endpoint            *string           `pulumi:"endpoint,optional" yaml:"endpoint"`
 	TokenKey            *string           `pulumi:"tokenKey,optional" yaml:"token_key"`
@@ -310,7 +310,7 @@ func (x *Evaluator) Annotate(a infer.Annotator) {
 	a.Describe(&x.Provider, "Evaluator backend (typesafe or openai Decisions), or a named provider.")
 	a.Describe(&x.Model, "The evaluator model of the provider.")
 	a.Describe(&x.Instructions, "The instructions the evaluator assesses the input with.")
-	a.Describe(&x.Type, "The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.")
+	a.Describe(&x.Type, "The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.")
 	a.Describe(&x.BaseURL, "API base URL. TypeSafe defaults to https://api.typesafe.ai with /v1/systemone; OpenAI defaults to https://api.openai.com/v1 with /decisions.")
 	a.Describe(&x.Endpoint, "Exact HTTP(S) evaluator URL, overriding base_url and its default path. No credentials, query, or fragment.")
 	a.Describe(&x.TokenKey, "API key environment variable for direct calls (TYPESAFE_API_KEY or OPENAI_API_KEY). Never put the secret itself in the configuration.")
@@ -325,18 +325,18 @@ func (x *Evaluator) Annotate(a infer.Annotator) {
 // EvaluatorPolicy is generated from `EvaluatorPolicy`. Maps an evaluator's decisions to tool
 // approval outcomes (`allow`, `ask`, `deny`) for `tool_guard` hooks.
 type EvaluatorPolicy struct {
-	Decisions      map[string]string `pulumi:"decisions" yaml:"decisions"`
-	MinProbability float64           `pulumi:"minProbability" yaml:"min_probability"`
-	Fallback       string            `pulumi:"fallback" yaml:"fallback"`
-	Extra          map[string]any    `pulumi:"extra,optional" yaml:"-" render:"extra"`
+	Decisions      map[string]EvaluatorDecision `pulumi:"decisions" yaml:"decisions"`
+	MinProbability float64                      `pulumi:"minProbability" yaml:"min_probability"`
+	Fallback       EvaluatorFallback            `pulumi:"fallback" yaml:"fallback"`
+	Extra          map[string]any               `pulumi:"extra,optional" yaml:"-" render:"extra"`
 }
 
 // Annotate describes EvaluatorPolicy for the Pulumi schema.
 func (x *EvaluatorPolicy) Annotate(a infer.Annotator) {
 	a.Describe(&x, "Maps an evaluator's decisions to tool approval outcomes (`allow`, `ask`, `deny`) for `tool_guard` hooks.")
-	a.Describe(&x.Decisions, "Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.")
+	a.Describe(&x.Decisions, "Choice keys (or true/false for booleans) mapped to guard decisions.")
 	a.Describe(&x.MinProbability, "Minimum selected-outcome probability to apply its mapping; not the confidence metric.")
-	a.Describe(&x.Fallback, "Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.")
+	a.Describe(&x.Fallback, "Decision for uncertainty or unmapped outcomes; provider failures always block.")
 	a.Describe(&x.Extra, "Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.")
 }
 
@@ -361,9 +361,9 @@ func (x *Fallback) Annotate(a infer.Annotator) {
 // Harness is generated from `HarnessConfig`. Configuration for running an agent through an external
 // coding-agent CLI via github.com/rumpl/harness
 type Harness struct {
-	Type     string         `pulumi:"type" yaml:"type"`
+	Type     HarnessType    `pulumi:"type" yaml:"type"`
 	Model    *string        `pulumi:"model,optional" yaml:"model"`
-	Effort   *string        `pulumi:"effort,optional" yaml:"effort"`
+	Effort   *HarnessEffort `pulumi:"effort,optional" yaml:"effort"`
 	Agent    *string        `pulumi:"agent,optional" yaml:"agent"`
 	Thinking *bool          `pulumi:"thinking,optional" yaml:"thinking"`
 	Extra    map[string]any `pulumi:"extra,optional" yaml:"-" render:"extra"`
@@ -372,9 +372,9 @@ type Harness struct {
 // Annotate describes Harness for the Pulumi schema.
 func (x *Harness) Annotate(a infer.Annotator) {
 	a.Describe(&x, "Configuration for running an agent through an external coding-agent CLI via github.com/rumpl/harness")
-	a.Describe(&x.Type, "External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.")
+	a.Describe(&x.Type, "External coding harness provider to use.")
 	a.Describe(&x.Model, "Optional model name passed to the external harness. When omitted, the external CLI uses its own default model.")
-	a.Describe(&x.Effort, "Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.")
+	a.Describe(&x.Effort, "Claude Code effort level forwarded as --effort.")
 	a.Describe(&x.Agent, "opencode agent name forwarded as --agent")
 	a.Describe(&x.Thinking, "Enable opencode thinking output")
 	a.Describe(&x.Extra, "Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.")
@@ -382,7 +382,7 @@ func (x *Harness) Annotate(a infer.Annotator) {
 
 // HookDefinition is generated from `HookDefinition`. Definition of a lifecycle hook
 type HookDefinition struct {
-	Type            string            `pulumi:"type" yaml:"type"`
+	Type            HookType          `pulumi:"type" yaml:"type"`
 	Name            *string           `pulumi:"name,optional" yaml:"name"`
 	SystemPrompt    *string           `pulumi:"systemPrompt,optional" yaml:"system_prompt"`
 	Command         *string           `pulumi:"command,optional" yaml:"command"`
@@ -390,7 +390,7 @@ type HookDefinition struct {
 	Timeout         *int              `pulumi:"timeout,optional" yaml:"timeout"`
 	Env             map[string]string `pulumi:"env,optional" yaml:"env"`
 	WorkingDir      *string           `pulumi:"workingDir,optional" yaml:"working_dir"`
-	OnError         *string           `pulumi:"onError,optional" yaml:"on_error"`
+	OnError         *HookErrorPolicy  `pulumi:"onError,optional" yaml:"on_error"`
 	StrictOutput    *bool             `pulumi:"strictOutput,optional" yaml:"strict_output"`
 	Model           *string           `pulumi:"model,optional" yaml:"model"`
 	Prompt          *string           `pulumi:"prompt,optional" yaml:"prompt"`
@@ -404,7 +404,7 @@ type HookDefinition struct {
 // Annotate describes HookDefinition for the Pulumi schema.
 func (x *HookDefinition) Annotate(a infer.Annotator) {
 	a.Describe(&x, "Definition of a lifecycle hook")
-	a.Describe(&x.Type, "Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{\"model\": \"<id>\"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.")
+	a.Describe(&x.Type, "Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{\"model\": \"<id>\"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).")
 	a.Describe(&x.Name, "Optional friendly hook name used in logs and runtime hook events.")
 	a.Describe(&x.SystemPrompt, "Literal system message for a model hook. Overrides the default; not templated.")
 	a.Describe(&x.Command, "Shell command (type=command) or builtin name (type=builtin) to invoke. Command hooks receive JSON input via stdin with tool/session information. Ignored when type=model.")
@@ -412,7 +412,7 @@ func (x *HookDefinition) Annotate(a infer.Annotator) {
 	a.Describe(&x.Timeout, "Execution timeout in seconds (default: 60)")
 	a.Describe(&x.Env, "Environment variables to add or override for this hook only. Values expand the plain ${env.VAR} form from the OS environment; any other $ is kept literal.")
 	a.Describe(&x.WorkingDir, "Working directory for this hook. Accepts ~, $VAR, ${VAR} and ${env.VAR}. Relative paths are resolved from the agent working directory.")
-	a.Describe(&x.OnError, "Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.")
+	a.Describe(&x.OnError, "Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.")
 	a.Describe(&x.StrictOutput, "Require a single JSON output object (or empty stdout), reject unknown fields and outputs unsupported by the hook event. Failures follow on_error; pre_tool_use and tool_guard fail closed. Defaults to `false`.")
 	a.Describe(&x.Model, "Model spec ('provider/model', e.g. 'openai/gpt-4o-mini') invoked by type=model hooks. Required for that type, ignored otherwise.")
 	a.Describe(&x.Prompt, "User-message template rendered for each invocation of a type=model hook. Parsed as a Go text/template with the hook Input as the data context: {{ .ToolName }}, {{ .ToolInput }}, {{ .StopResponse }}, etc. Required for type=model.")
@@ -572,11 +572,11 @@ func (x *InlineSkill) Annotate(a infer.Annotator) {
 // process (MCP server, remote MCP, LSP server). All fields are optional; pick a profile that
 // matches your taste and override individual knobs as needed.
 type Lifecycle struct {
-	Profile        *string           `pulumi:"profile,optional" yaml:"profile"`
+	Profile        *LifecycleProfile `pulumi:"profile,optional" yaml:"profile"`
 	Required       *bool             `pulumi:"required,optional" yaml:"required"`
 	StartupTimeout *string           `pulumi:"startupTimeout,optional" yaml:"startup_timeout"`
 	CallTimeout    *string           `pulumi:"callTimeout,optional" yaml:"call_timeout"`
-	Restart        *string           `pulumi:"restart,optional" yaml:"restart"`
+	Restart        *RestartPolicy    `pulumi:"restart,optional" yaml:"restart"`
 	MaxRestarts    *int              `pulumi:"maxRestarts,optional" yaml:"max_restarts"`
 	Backoff        *LifecycleBackoff `pulumi:"backoff,optional" yaml:"backoff"`
 	Extra          map[string]any    `pulumi:"extra,optional" yaml:"-" render:"extra"`
@@ -585,11 +585,11 @@ type Lifecycle struct {
 // Annotate describes Lifecycle for the Pulumi schema.
 func (x *Lifecycle) Annotate(a infer.Annotator) {
 	a.Describe(&x, "Controls how the agent supervises a long-running toolset process (MCP server, remote MCP, LSP server). All fields are optional; pick a profile that matches your taste and override individual knobs as needed.")
-	a.Describe(&x.Profile, "Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.")
+	a.Describe(&x.Profile, "Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.")
 	a.Describe(&x.Required, "Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.")
 	a.Describe(&x.StartupTimeout, "Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. '30s', '2m'). 0 means no timeout.")
 	a.Describe(&x.CallTimeout, "Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).")
-	a.Describe(&x.Restart, "How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.")
+	a.Describe(&x.Restart, "How the supervisor reacts to an unexpected disconnect.")
 	a.Describe(&x.MaxRestarts, "Maximum number of consecutive restart attempts after a disconnect. 0 = use profile default (5). -1 = unlimited.")
 	a.Describe(&x.Backoff, "Exponential backoff between restart attempts.")
 	a.Describe(&x.Extra, "Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.")
@@ -844,7 +844,7 @@ func (x *PostEdit) Annotate(a infer.Annotator) {
 // type (openai, anthropic, google, amazon-bedrock, etc.).
 type ProviderDef struct {
 	Provider             *string        `pulumi:"provider,optional" yaml:"provider"`
-	APIType              *string        `pulumi:"apiType,optional" yaml:"api_type"`
+	APIType              *ApiType       `pulumi:"apiType,optional" yaml:"api_type"`
 	BaseURL              *string        `pulumi:"baseUrl,optional" yaml:"base_url"`
 	TokenKey             *string        `pulumi:"tokenKey,optional" yaml:"token_key"`
 	UnloadAPI            *string        `pulumi:"unloadApi,optional" yaml:"unload_api"`
@@ -868,7 +868,7 @@ type ProviderDef struct {
 func (x *ProviderDef) Annotate(a infer.Annotator) {
 	a.Describe(&x, "Configuration for a model provider. Defines reusable defaults that models can inherit by referencing the provider name. Supports any provider type (openai, anthropic, google, amazon-bedrock, etc.).")
 	a.Describe(&x.Provider, "The underlying provider type. Defaults to \"openai\" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).")
-	a.Describe(&x.APIType, "The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.")
+	a.Describe(&x.APIType, "The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.")
 	a.Describe(&x.BaseURL, "Base URL for the provider's API endpoint. Required for OpenAI-compatible providers, optional for native providers. Accepts ${env.VAR} / ${VAR} references, substituted from the environment when a model using this provider is loaded.")
 	a.Describe(&x.TokenKey, "Environment variable name containing the API token. If not set, requests will use the default token for the provider type. Never put the secret itself in the configuration.")
 	a.Describe(&x.UnloadAPI, "Optional path (or absolute URL) to the provider's model-unload endpoint. POSTed with `{\"model\": \"<id>\"}` when the agent wires the `unload` builtin into its `on_agent_switch` hook chain, to free GPU/RAM held by the previous model. Today only Docker Model Runner exposes such an endpoint; the `unload` builtin is a pure HTTP hook that silently skips non-DMR providers. A relative path is resolved against the scheme+host of base_url; an absolute URL is used verbatim.")
@@ -936,7 +936,7 @@ func (x *RagConfig) Annotate(a infer.Annotator) {
 // multiple strategies. If omitted and multiple strategies are configured, Reciprocal Rank Fusion
 // (rrf) with k=60 is used.
 type RagFusion struct {
-	Strategy *string            `pulumi:"strategy,optional" yaml:"strategy"`
+	Strategy *RagFusionStrategy `pulumi:"strategy,optional" yaml:"strategy"`
 	K        *int               `pulumi:"k,optional" yaml:"k"`
 	Weights  map[string]float64 `pulumi:"weights,optional" yaml:"weights"`
 	Extra    map[string]any     `pulumi:"extra,optional" yaml:"-" render:"extra"`
@@ -945,7 +945,7 @@ type RagFusion struct {
 // Annotate describes RagFusion for the Pulumi schema.
 func (x *RagFusion) Annotate(a infer.Annotator) {
 	a.Describe(&x, "Configuration for combining results from multiple strategies. If omitted and multiple strategies are configured, Reciprocal Rank Fusion (rrf) with k=60 is used.")
-	a.Describe(&x.Strategy, "Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.")
+	a.Describe(&x.Strategy, "Fusion strategy to use. Defaults to `rrf`.")
 	a.Describe(&x.K, "RRF smoothing parameter k (only for RRF strategy) Defaults to `60`.")
 	a.Describe(&x.Weights, "Strategy weights for weighted fusion (strategy name -> weight)")
 	a.Describe(&x.Extra, "Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.")
@@ -1035,31 +1035,31 @@ func (x *RagSource) Annotate(a infer.Annotator) {
 // type-specific parameters. Structured fields are limited; additional parameters are passed through
 // as-is for strategy-specific use.
 type RagStrategy struct {
-	Type                    string         `pulumi:"type" yaml:"type"`
-	EmbeddingModel          *string        `pulumi:"embeddingModel,optional" yaml:"embedding_model"`
-	Docs                    []string       `pulumi:"docs,optional" yaml:"docs"`
-	Database                *string        `pulumi:"database,optional" yaml:"database"`
-	SimilarityMetric        *string        `pulumi:"similarityMetric,optional" yaml:"similarity_metric"`
-	VectorDimensions        *int           `pulumi:"vectorDimensions,optional" yaml:"vector_dimensions"`
-	K1                      *float64       `pulumi:"k1,optional" yaml:"k1"`
-	B                       *float64       `pulumi:"b,optional" yaml:"b"`
-	Threshold               *float64       `pulumi:"threshold,optional" yaml:"threshold"`
-	Limit                   *int           `pulumi:"limit,optional" yaml:"limit"`
-	Chunking                *RagChunking   `pulumi:"chunking,optional" yaml:"chunking"`
-	EmbeddingBatchSize      *int           `pulumi:"embeddingBatchSize,optional" yaml:"embedding_batch_size"`
-	MaxEmbeddingConcurrency *int           `pulumi:"maxEmbeddingConcurrency,optional" yaml:"max_embedding_concurrency"`
-	MaxIndexingConcurrency  *int           `pulumi:"maxIndexingConcurrency,optional" yaml:"max_indexing_concurrency"`
-	RespectVCS              *bool          `pulumi:"respectVcs,optional" yaml:"respect_vcs"`
-	ChatModel               *string        `pulumi:"chatModel,optional" yaml:"chat_model"`
-	SemanticPrompt          *string        `pulumi:"semanticPrompt,optional" yaml:"semantic_prompt"`
-	ASTContext              *bool          `pulumi:"astContext,optional" yaml:"ast_context"`
-	Extra                   map[string]any `pulumi:"extra,optional" yaml:"-" render:"extra"`
+	Type                    RagStrategyType `pulumi:"type" yaml:"type"`
+	EmbeddingModel          *string         `pulumi:"embeddingModel,optional" yaml:"embedding_model"`
+	Docs                    []string        `pulumi:"docs,optional" yaml:"docs"`
+	Database                *string         `pulumi:"database,optional" yaml:"database"`
+	SimilarityMetric        *string         `pulumi:"similarityMetric,optional" yaml:"similarity_metric"`
+	VectorDimensions        *int            `pulumi:"vectorDimensions,optional" yaml:"vector_dimensions"`
+	K1                      *float64        `pulumi:"k1,optional" yaml:"k1"`
+	B                       *float64        `pulumi:"b,optional" yaml:"b"`
+	Threshold               *float64        `pulumi:"threshold,optional" yaml:"threshold"`
+	Limit                   *int            `pulumi:"limit,optional" yaml:"limit"`
+	Chunking                *RagChunking    `pulumi:"chunking,optional" yaml:"chunking"`
+	EmbeddingBatchSize      *int            `pulumi:"embeddingBatchSize,optional" yaml:"embedding_batch_size"`
+	MaxEmbeddingConcurrency *int            `pulumi:"maxEmbeddingConcurrency,optional" yaml:"max_embedding_concurrency"`
+	MaxIndexingConcurrency  *int            `pulumi:"maxIndexingConcurrency,optional" yaml:"max_indexing_concurrency"`
+	RespectVCS              *bool           `pulumi:"respectVcs,optional" yaml:"respect_vcs"`
+	ChatModel               *string         `pulumi:"chatModel,optional" yaml:"chat_model"`
+	SemanticPrompt          *string         `pulumi:"semanticPrompt,optional" yaml:"semantic_prompt"`
+	ASTContext              *bool           `pulumi:"astContext,optional" yaml:"ast_context"`
+	Extra                   map[string]any  `pulumi:"extra,optional" yaml:"-" render:"extra"`
 }
 
 // Annotate describes RagStrategy for the Pulumi schema.
 func (x *RagStrategy) Annotate(a infer.Annotator) {
 	a.Describe(&x, "Retrieval strategy configuration with type-specific parameters. Structured fields are limited; additional parameters are passed through as-is for strategy-specific use.")
-	a.Describe(&x.Type, "Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.")
+	a.Describe(&x.Type, "Retrieval strategy type.")
 	a.Describe(&x.EmbeddingModel, "Embedding model reference for chunked-embeddings and semantic-embeddings strategies (looked up in models map, or 'auto' for automatic selection)")
 	a.Describe(&x.Docs, "Additional documents for this strategy only (augments shared docs)")
 	a.Describe(&x.Database, "Database path or connection string. Currently only simple string values are supported (e.g., './vector.db', './bm25.db').")
@@ -1202,7 +1202,7 @@ func (x *RoutingRule) Annotate(a infer.Annotator) {
 type RuntimeDefaults struct {
 	Sandbox          *bool          `pulumi:"sandbox,optional" yaml:"sandbox"`
 	NetworkAllowlist []string       `pulumi:"networkAllowlist,optional" yaml:"network_allowlist"`
-	Safety           *string        `pulumi:"safety,optional" yaml:"safety"`
+	Safety           *SafetyMode    `pulumi:"safety,optional" yaml:"safety"`
 	Extra            map[string]any `pulumi:"extra,optional" yaml:"-" render:"extra"`
 }
 
@@ -1211,7 +1211,7 @@ func (x *RuntimeDefaults) Annotate(a infer.Annotator) {
 	a.Describe(&x, "Execution-time defaults baked into the agent config. Values act as defaults only; explicit CLI flags and user-config settings still take precedence.")
 	a.Describe(&x.Sandbox, "When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.")
 	a.Describe(&x.NetworkAllowlist, "Hosts to add to the sandbox's default-deny network proxy when this agent runs in a sandbox. Each entry is a hostname with an optional ':port' suffix (e.g. 'api.example.com', 'registry.npmjs.org:443'). Unioned with the gateway and tool-install hosts the runner already opens automatically. Use this for hosts the auto-installer can't infer (custom MCP endpoints, third-party APIs, registries not covered by the aqua resolver) instead of relying on the wider fallback host set.")
-	a.Describe(&x.Safety, "Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.")
+	a.Describe(&x.Safety, "Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.")
 	a.Describe(&x.Extra, "Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.")
 }
 
@@ -1258,12 +1258,12 @@ func (x *SkillSet) Annotate(a infer.Annotator) {
 // (native) and Google Gemini (native). Anthropic requires prompt engineering or tool-based
 // approaches.
 type StructuredOutput struct {
-	Name        string         `pulumi:"name" yaml:"name"`
-	Description *string        `pulumi:"description,optional" yaml:"description"`
-	Strict      *bool          `pulumi:"strict,optional" yaml:"strict"`
-	Mode        *string        `pulumi:"mode,optional" yaml:"mode"`
-	Schema      map[string]any `pulumi:"schema" yaml:"schema"`
-	Extra       map[string]any `pulumi:"extra,optional" yaml:"-" render:"extra"`
+	Name        string                `pulumi:"name" yaml:"name"`
+	Description *string               `pulumi:"description,optional" yaml:"description"`
+	Strict      *bool                 `pulumi:"strict,optional" yaml:"strict"`
+	Mode        *StructuredOutputMode `pulumi:"mode,optional" yaml:"mode"`
+	Schema      map[string]any        `pulumi:"schema" yaml:"schema"`
+	Extra       map[string]any        `pulumi:"extra,optional" yaml:"-" render:"extra"`
 }
 
 // Annotate describes StructuredOutput for the Pulumi schema.
@@ -1272,7 +1272,7 @@ func (x *StructuredOutput) Annotate(a infer.Annotator) {
 	a.Describe(&x.Name, "Name of the response format schema")
 	a.Describe(&x.Description, "Optional description of what the schema represents")
 	a.Describe(&x.Strict, "Enable strict schema adherence (OpenAI only). When true, all properties must be in required array. Defaults to `false`.")
-	a.Describe(&x.Mode, "How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.")
+	a.Describe(&x.Mode, "How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.")
 	a.Describe(&x.Schema, "JSON Schema object defining the structure of the response. Must include type, properties, and required fields.")
 	a.Describe(&x.Extra, "Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.")
 }
@@ -1411,4 +1411,362 @@ func (x *WorkloadIdentityFederation) Annotate(a infer.Annotator) {
 	a.Describe(&x.ServiceAccountID, "Optional expected-target check for federation rules with target_type=SERVICE_ACCOUNT. Must start with 'svac_'.")
 	a.Describe(&x.IdentityToken, "How to obtain a fresh JWT identity token for each token exchange.")
 	a.Describe(&x.Extra, "Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.")
+}
+
+// ApiType is the Pulumi enum generated from the values of `ProviderConfig.api_type`.
+type ApiType string
+
+// ApiType values.
+const (
+	// ApiTypeOpenAIChatCompletions is `openai_chatcompletions`.
+	ApiTypeOpenAIChatCompletions ApiType = "openai_chatcompletions"
+	// ApiTypeOpenAIResponses is `openai_responses`.
+	ApiTypeOpenAIResponses ApiType = "openai_responses"
+)
+
+// Values lists the values of ApiType for the Pulumi schema.
+func (ApiType) Values() []infer.EnumValue[ApiType] {
+	return []infer.EnumValue[ApiType]{
+		{Name: "OpenAIChatCompletions", Value: ApiTypeOpenAIChatCompletions},
+		{Name: "OpenAIResponses", Value: ApiTypeOpenAIResponses},
+	}
+}
+
+// EvaluatorDecision is the Pulumi enum generated from the values of `EvaluatorPolicy.decisions{}`.
+type EvaluatorDecision string
+
+// EvaluatorDecision values.
+const (
+	// EvaluatorDecisionAllow is `allow`.
+	EvaluatorDecisionAllow EvaluatorDecision = "allow"
+	// EvaluatorDecisionAsk is `ask`.
+	EvaluatorDecisionAsk EvaluatorDecision = "ask"
+	// EvaluatorDecisionDeny is `deny`.
+	EvaluatorDecisionDeny EvaluatorDecision = "deny"
+)
+
+// Values lists the values of EvaluatorDecision for the Pulumi schema.
+func (EvaluatorDecision) Values() []infer.EnumValue[EvaluatorDecision] {
+	return []infer.EnumValue[EvaluatorDecision]{
+		{Name: "Allow", Value: EvaluatorDecisionAllow},
+		{Name: "Ask", Value: EvaluatorDecisionAsk},
+		{Name: "Deny", Value: EvaluatorDecisionDeny},
+	}
+}
+
+// EvaluatorFallback is the Pulumi enum generated from the values of `EvaluatorPolicy.fallback`.
+type EvaluatorFallback string
+
+// EvaluatorFallback values.
+const (
+	// EvaluatorFallbackAsk is `ask`.
+	EvaluatorFallbackAsk EvaluatorFallback = "ask"
+	// EvaluatorFallbackDeny is `deny`.
+	EvaluatorFallbackDeny EvaluatorFallback = "deny"
+)
+
+// Values lists the values of EvaluatorFallback for the Pulumi schema.
+func (EvaluatorFallback) Values() []infer.EnumValue[EvaluatorFallback] {
+	return []infer.EnumValue[EvaluatorFallback]{
+		{Name: "Ask", Value: EvaluatorFallbackAsk},
+		{Name: "Deny", Value: EvaluatorFallbackDeny},
+	}
+}
+
+// EvaluatorType is the Pulumi enum generated from the values of `EvaluatorConfig.type`.
+type EvaluatorType string
+
+// EvaluatorType values.
+const (
+	// EvaluatorTypeBoolean is `boolean`.
+	EvaluatorTypeBoolean EvaluatorType = "boolean"
+	// EvaluatorTypeChoice is `choice`.
+	EvaluatorTypeChoice EvaluatorType = "choice"
+	// EvaluatorTypeScore is `score`.
+	EvaluatorTypeScore EvaluatorType = "score"
+)
+
+// Values lists the values of EvaluatorType for the Pulumi schema.
+func (EvaluatorType) Values() []infer.EnumValue[EvaluatorType] {
+	return []infer.EnumValue[EvaluatorType]{
+		{Name: "Boolean", Value: EvaluatorTypeBoolean},
+		{Name: "Choice", Value: EvaluatorTypeChoice},
+		{Name: "Score", Value: EvaluatorTypeScore},
+	}
+}
+
+// HarnessEffort is the Pulumi enum generated from the values of `HarnessConfig.effort`.
+type HarnessEffort string
+
+// HarnessEffort values.
+const (
+	// HarnessEffortLow is `low`.
+	HarnessEffortLow HarnessEffort = "low"
+	// HarnessEffortMedium is `medium`.
+	HarnessEffortMedium HarnessEffort = "medium"
+	// HarnessEffortHigh is `high`.
+	HarnessEffortHigh HarnessEffort = "high"
+	// HarnessEffortXHigh is `xhigh`.
+	HarnessEffortXHigh HarnessEffort = "xhigh"
+	// HarnessEffortMax is `max`.
+	HarnessEffortMax HarnessEffort = "max"
+)
+
+// Values lists the values of HarnessEffort for the Pulumi schema.
+func (HarnessEffort) Values() []infer.EnumValue[HarnessEffort] {
+	return []infer.EnumValue[HarnessEffort]{
+		{Name: "Low", Value: HarnessEffortLow},
+		{Name: "Medium", Value: HarnessEffortMedium},
+		{Name: "High", Value: HarnessEffortHigh},
+		{Name: "XHigh", Value: HarnessEffortXHigh},
+		{Name: "Max", Value: HarnessEffortMax},
+	}
+}
+
+// HarnessType is the Pulumi enum generated from the values of `HarnessConfig.type`.
+type HarnessType string
+
+// HarnessType values.
+const (
+	// HarnessTypeClaudeCode is `claude-code`.
+	HarnessTypeClaudeCode HarnessType = "claude-code"
+	// HarnessTypeCodex is `codex`.
+	HarnessTypeCodex HarnessType = "codex"
+	// HarnessTypePi is `pi`.
+	HarnessTypePi HarnessType = "pi"
+	// HarnessTypeOpenCode is `opencode`.
+	HarnessTypeOpenCode HarnessType = "opencode"
+)
+
+// Values lists the values of HarnessType for the Pulumi schema.
+func (HarnessType) Values() []infer.EnumValue[HarnessType] {
+	return []infer.EnumValue[HarnessType]{
+		{Name: "ClaudeCode", Value: HarnessTypeClaudeCode},
+		{Name: "Codex", Value: HarnessTypeCodex},
+		{Name: "Pi", Value: HarnessTypePi},
+		{Name: "OpenCode", Value: HarnessTypeOpenCode},
+	}
+}
+
+// HookErrorPolicy is the Pulumi enum generated from the values of `HookDefinition.on_error`.
+type HookErrorPolicy string
+
+// HookErrorPolicy values.
+const (
+	// HookErrorPolicyWarn is `warn`. Reports and continues (default).
+	HookErrorPolicyWarn HookErrorPolicy = "warn"
+	// HookErrorPolicyIgnore is `ignore`. Continues silently.
+	HookErrorPolicyIgnore HookErrorPolicy = "ignore"
+	// HookErrorPolicyBlock is `block`. Denies block-capable events.
+	HookErrorPolicyBlock HookErrorPolicy = "block"
+)
+
+// Values lists the values of HookErrorPolicy for the Pulumi schema.
+func (HookErrorPolicy) Values() []infer.EnumValue[HookErrorPolicy] {
+	return []infer.EnumValue[HookErrorPolicy]{
+		{Name: "Warn", Value: HookErrorPolicyWarn, Description: "Reports and continues (default)."},
+		{Name: "Ignore", Value: HookErrorPolicyIgnore, Description: "Continues silently."},
+		{Name: "Block", Value: HookErrorPolicyBlock, Description: "Denies block-capable events."},
+	}
+}
+
+// HookType is the Pulumi enum generated from the values of `HookDefinition.type`.
+type HookType string
+
+// HookType values.
+const (
+	// HookTypeCommand is `command`. Executes a shell command.
+	HookTypeCommand HookType = "command"
+	// HookTypeBuiltin is `builtin`. Invokes a named in-process Go function registered by the runtime.
+	HookTypeBuiltin HookType = "builtin"
+	// HookTypeModel is `model`. Asks an LLM and translates its reply into the hook's native output
+	// (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code).
+	HookTypeModel HookType = "model"
+	// HookTypeEvaluator is `evaluator`. Assesses tool input through a named evaluator and applies a
+	// separate policy (tool_guard only).
+	HookTypeEvaluator HookType = "evaluator"
+)
+
+// Values lists the values of HookType for the Pulumi schema.
+func (HookType) Values() []infer.EnumValue[HookType] {
+	return []infer.EnumValue[HookType]{
+		{Name: "Command", Value: HookTypeCommand, Description: "Executes a shell command."},
+		{Name: "Builtin", Value: HookTypeBuiltin, Description: "Invokes a named in-process Go function registered by the runtime."},
+		{Name: "Model", Value: HookTypeModel, Description: "Asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code)."},
+		{Name: "Evaluator", Value: HookTypeEvaluator, Description: "Assesses tool input through a named evaluator and applies a separate policy (tool_guard only)."},
+	}
+}
+
+// HttpMethod is the Pulumi enum generated from the values of `ApiConfig.method`.
+type HttpMethod string
+
+// HttpMethod values.
+const (
+	// HttpMethodGet is `GET`.
+	HttpMethodGet HttpMethod = "GET"
+	// HttpMethodPost is `POST`.
+	HttpMethodPost HttpMethod = "POST"
+	// HttpMethodPut is `PUT`.
+	HttpMethodPut HttpMethod = "PUT"
+	// HttpMethodPatch is `PATCH`.
+	HttpMethodPatch HttpMethod = "PATCH"
+	// HttpMethodDelete is `DELETE`.
+	HttpMethodDelete HttpMethod = "DELETE"
+)
+
+// Values lists the values of HttpMethod for the Pulumi schema.
+func (HttpMethod) Values() []infer.EnumValue[HttpMethod] {
+	return []infer.EnumValue[HttpMethod]{
+		{Name: "Get", Value: HttpMethodGet},
+		{Name: "Post", Value: HttpMethodPost},
+		{Name: "Put", Value: HttpMethodPut},
+		{Name: "Patch", Value: HttpMethodPatch},
+		{Name: "Delete", Value: HttpMethodDelete},
+	}
+}
+
+// LifecycleProfile is the Pulumi enum generated from the values of `Lifecycle.profile`.
+type LifecycleProfile string
+
+// LifecycleProfile values.
+const (
+	// LifecycleProfileResilient is `resilient`. Auto-restart on failure with exponential backoff (the
+	// default).
+	LifecycleProfileResilient LifecycleProfile = "resilient"
+	// LifecycleProfileStrict is `strict`. Fail fast — the agent refuses to start when the toolset is
+	// unavailable.
+	LifecycleProfileStrict LifecycleProfile = "strict"
+	// LifecycleProfileBestEffort is `best-effort`. Single attempt, no auto-restart.
+	LifecycleProfileBestEffort LifecycleProfile = "best-effort"
+)
+
+// Values lists the values of LifecycleProfile for the Pulumi schema.
+func (LifecycleProfile) Values() []infer.EnumValue[LifecycleProfile] {
+	return []infer.EnumValue[LifecycleProfile]{
+		{Name: "Resilient", Value: LifecycleProfileResilient, Description: "Auto-restart on failure with exponential backoff (the default)."},
+		{Name: "Strict", Value: LifecycleProfileStrict, Description: "Fail fast — the agent refuses to start when the toolset is unavailable."},
+		{Name: "BestEffort", Value: LifecycleProfileBestEffort, Description: "Single attempt, no auto-restart."},
+	}
+}
+
+// RagFusionStrategy is the Pulumi enum generated from the values of
+// `RAGConfig.results.fusion.strategy`.
+type RagFusionStrategy string
+
+// RagFusionStrategy values.
+const (
+	// RagFusionStrategyRRF is `rrf`.
+	RagFusionStrategyRRF RagFusionStrategy = "rrf"
+	// RagFusionStrategyReciprocalRankFusion is `reciprocal_rank_fusion`.
+	RagFusionStrategyReciprocalRankFusion RagFusionStrategy = "reciprocal_rank_fusion"
+	// RagFusionStrategyWeighted is `weighted`.
+	RagFusionStrategyWeighted RagFusionStrategy = "weighted"
+	// RagFusionStrategyMax is `max`.
+	RagFusionStrategyMax RagFusionStrategy = "max"
+)
+
+// Values lists the values of RagFusionStrategy for the Pulumi schema.
+func (RagFusionStrategy) Values() []infer.EnumValue[RagFusionStrategy] {
+	return []infer.EnumValue[RagFusionStrategy]{
+		{Name: "RRF", Value: RagFusionStrategyRRF},
+		{Name: "ReciprocalRankFusion", Value: RagFusionStrategyReciprocalRankFusion},
+		{Name: "Weighted", Value: RagFusionStrategyWeighted},
+		{Name: "Max", Value: RagFusionStrategyMax},
+	}
+}
+
+// RagStrategyType is the Pulumi enum generated from the values of `RAGConfig.strategies[].type`.
+type RagStrategyType string
+
+// RagStrategyType values.
+const (
+	// RagStrategyTypeBM25 is `bm25`.
+	RagStrategyTypeBM25 RagStrategyType = "bm25"
+	// RagStrategyTypeChunkedEmbeddings is `chunked-embeddings`.
+	RagStrategyTypeChunkedEmbeddings RagStrategyType = "chunked-embeddings"
+	// RagStrategyTypeSemanticEmbeddings is `semantic-embeddings`.
+	RagStrategyTypeSemanticEmbeddings RagStrategyType = "semantic-embeddings"
+)
+
+// Values lists the values of RagStrategyType for the Pulumi schema.
+func (RagStrategyType) Values() []infer.EnumValue[RagStrategyType] {
+	return []infer.EnumValue[RagStrategyType]{
+		{Name: "BM25", Value: RagStrategyTypeBM25},
+		{Name: "ChunkedEmbeddings", Value: RagStrategyTypeChunkedEmbeddings},
+		{Name: "SemanticEmbeddings", Value: RagStrategyTypeSemanticEmbeddings},
+	}
+}
+
+// RestartPolicy is the Pulumi enum generated from the values of `Lifecycle.restart`.
+type RestartPolicy string
+
+// RestartPolicy values.
+const (
+	// RestartPolicyNever is `never`.
+	RestartPolicyNever RestartPolicy = "never"
+	// RestartPolicyOnFailure is `on_failure`.
+	RestartPolicyOnFailure RestartPolicy = "on_failure"
+	// RestartPolicyAlways is `always`.
+	RestartPolicyAlways RestartPolicy = "always"
+)
+
+// Values lists the values of RestartPolicy for the Pulumi schema.
+func (RestartPolicy) Values() []infer.EnumValue[RestartPolicy] {
+	return []infer.EnumValue[RestartPolicy]{
+		{Name: "Never", Value: RestartPolicyNever},
+		{Name: "OnFailure", Value: RestartPolicyOnFailure},
+		{Name: "Always", Value: RestartPolicyAlways},
+	}
+}
+
+// SafetyMode is the Pulumi enum generated from the values of `AgentConfig.safety` and
+// `RuntimeDefaults.safety`.
+type SafetyMode string
+
+// SafetyMode values.
+const (
+	// SafetyModeStrict is `strict`. Prompt for every tool call.
+	SafetyModeStrict SafetyMode = "strict"
+	// SafetyModeBalanced is `balanced`. Auto-approve the tool calls docker-agent's classifier
+	// considers safe; prompt for the others.
+	SafetyModeBalanced SafetyMode = "balanced"
+	// SafetyModeRestricted is `restricted`. Auto-approve the calls the classifier considers safe and
+	// deny every other unmatched call without prompting: the fail-closed profile for unattended runs.
+	// Custom permission rules still win.
+	SafetyModeRestricted SafetyMode = "restricted"
+	// SafetyModeAutonomous is `autonomous`. Auto-approve every tool call (the legacy YOLO mode).
+	// Review configurations from URLs or OCI registries before running them.
+	SafetyModeAutonomous SafetyMode = "autonomous"
+)
+
+// Values lists the values of SafetyMode for the Pulumi schema.
+func (SafetyMode) Values() []infer.EnumValue[SafetyMode] {
+	return []infer.EnumValue[SafetyMode]{
+		{Name: "Strict", Value: SafetyModeStrict, Description: "Prompt for every tool call."},
+		{Name: "Balanced", Value: SafetyModeBalanced, Description: "Auto-approve the tool calls docker-agent's classifier considers safe; prompt for the others."},
+		{Name: "Restricted", Value: SafetyModeRestricted, Description: "Auto-approve the calls the classifier considers safe and deny every other unmatched call without prompting: the fail-closed profile for unattended runs. Custom permission rules still win."},
+		{Name: "Autonomous", Value: SafetyModeAutonomous, Description: "Auto-approve every tool call (the legacy YOLO mode). Review configurations from URLs or OCI registries before running them."},
+	}
+}
+
+// StructuredOutputMode is the Pulumi enum generated from the values of
+// `AgentConfig.structured_output.mode`.
+type StructuredOutputMode string
+
+// StructuredOutputMode values.
+const (
+	// StructuredOutputModeNative is `native`. Passes it to the provider's native structured-output
+	// support (the default).
+	StructuredOutputModeNative StructuredOutputMode = "native"
+	// StructuredOutputModeTool is `tool`. Exposes an internal tool the model must call with the final
+	// JSON; the runtime validates the arguments against the schema.
+	StructuredOutputModeTool StructuredOutputMode = "tool"
+)
+
+// Values lists the values of StructuredOutputMode for the Pulumi schema.
+func (StructuredOutputMode) Values() []infer.EnumValue[StructuredOutputMode] {
+	return []infer.EnumValue[StructuredOutputMode]{
+		{Name: "Native", Value: StructuredOutputModeNative, Description: "Passes it to the provider's native structured-output support (the default)."},
+		{Name: "Tool", Value: StructuredOutputModeTool, Description: "Exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema."},
+	}
 }

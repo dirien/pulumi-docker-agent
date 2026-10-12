@@ -9,7 +9,6 @@ package validate
 import (
 	"context"
 	"errors"
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -35,8 +34,12 @@ var allFeatures = []config.Feature{
 type Result struct {
 	// Valid is true when the configuration loads and only uses known toolsets and providers.
 	Valid bool
-	// Errors explains why the configuration is invalid. ANSI escape codes are removed.
+	// Errors explains why the configuration is invalid: the messages of Problems.
 	Errors []string
+	// Problems are the reasons the configuration is invalid and where they are, in document
+	// order. docker-agent stops at the first problem; Validate looks for the others too (see
+	// problems.go).
+	Problems []Problem
 	// AgentNames lists the agents in document order.
 	AgentNames []string
 	// DefaultAgent is `root` if an agent has that name, else the first agent.
@@ -65,7 +68,7 @@ func validate(ctx context.Context, name string, yamlDoc []byte) Result {
 	res := Result{}
 	cfg, err := config.Load(ctx, config.NewBytesSource(name, yamlDoc))
 	if err != nil {
-		res.Errors = []string{Clean(err.Error())}
+		res.setProblems(problems(ctx, name, yamlDoc, err))
 		// Still report the agent names when the document is at least well-formed YAML.
 		res.AgentNames = AgentNames(yamlDoc)
 		res.DefaultAgent = defaultAgent(res.AgentNames)
@@ -77,14 +80,26 @@ func validate(ctx context.Context, name string, yamlDoc []byte) Result {
 	}
 	res.DefaultAgent = defaultAgent(res.AgentNames)
 
-	if err := checkRequirements(cfg); err != nil {
-		res.Errors = err
+	if req := config.Requires(cfg); req.Check(hasProvider, hasToolset, allFeatures) != nil {
+		t, ok := parseTree(yamlDoc)
+		if !ok {
+			t = &tree{top: &yaml.Node{Kind: yaml.MappingNode}, removed: map[*yaml.Node][]int{}}
+		}
+		res.setProblems(requirementProblems(cfg, t))
 		return res
 	}
 
 	res.Valid = true
 	res.RequiredEnvVars = requiredEnvVars(ctx, cfg)
 	return res
+}
+
+func (r *Result) setProblems(ps []Problem) {
+	r.Problems = ps
+	r.Errors = make([]string, 0, len(ps))
+	for _, p := range ps {
+		r.Errors = append(r.Errors, p.Message)
+	}
 }
 
 // Error joins the errors of an invalid result into one error, or returns nil.
@@ -96,32 +111,6 @@ func (r Result) Error() error {
 		return errors.New("invalid docker-agent configuration")
 	}
 	return errors.New(strings.Join(r.Errors, "\n"))
-}
-
-func checkRequirements(cfg *latest.Config) []string {
-	req := config.Requires(cfg)
-	err := req.Check(hasProvider, hasToolset, allFeatures)
-	if err == nil {
-		return nil
-	}
-	var ue *config.UnsupportedError
-	if !errors.As(err, &ue) {
-		return []string{Clean(err.Error())}
-	}
-	var out []string
-	for _, p := range ue.Providers {
-		out = append(out, fmt.Sprintf("unknown model provider %q at %s: docker-agent %s supports %s, "+
-			"the built-in aliases (mistral, openrouter, ollama, ...) and custom providers declared under `providers`",
-			p.Name, strings.Join(p.Locations, ", "), DockerAgentVersion, strings.Join(ProviderTypes, ", ")))
-	}
-	for _, t := range ue.Toolsets {
-		out = append(out, fmt.Sprintf("unknown toolset type %q at %s: valid types are %s",
-			t.Name, strings.Join(t.Locations, ", "), strings.Join(ToolsetTypes, ", ")))
-	}
-	for _, f := range ue.Features {
-		out = append(out, fmt.Sprintf("unsupported feature %q at %s", f.Name, strings.Join(f.Locations, ", ")))
-	}
-	return out
 }
 
 func hasProvider(p string) bool {
@@ -198,38 +187,4 @@ func Clean(msg string) string {
 		out = append(out, l)
 	}
 	return strings.TrimSpace(strings.Join(out, "\n"))
-}
-
-// Redacted is the replacement for secret values in messages.
-const Redacted = "[secret]"
-
-// Redact replaces every occurrence of the given secret values in msg with [secret]. For
-// multi-line secrets (such as a secret YAML document) each line and each `key: value`
-// value of at least 8 characters is redacted as well.
-func Redact(msg string, secrets []string) string {
-	var candidates []string
-	add := func(s string, minLen int) {
-		s = strings.TrimSpace(s)
-		if len(s) >= minLen {
-			candidates = append(candidates, s)
-		}
-	}
-	for _, s := range secrets {
-		add(s, 4)
-		if !strings.Contains(s, "\n") {
-			continue
-		}
-		for _, line := range strings.Split(s, "\n") {
-			add(line, 8)
-			if _, v, ok := strings.Cut(line, ": "); ok {
-				add(strings.Trim(strings.TrimSpace(v), `"'`), 8)
-			}
-		}
-	}
-	// Longest first, so that a value is not partially replaced by a shorter one.
-	slices.SortFunc(candidates, func(a, b string) int { return len(b) - len(a) })
-	for _, c := range candidates {
-		msg = strings.ReplaceAll(msg, c, Redacted)
-	}
-	return msg
 }

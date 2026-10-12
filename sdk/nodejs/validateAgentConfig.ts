@@ -10,19 +10,45 @@ import * as utilities from "./utilities";
  * for unknown toolset types and model providers.
  *
  * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
- * `valid: false` and the reasons in `errors`.
+ * `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+ * docker-agent stops at.
  *
  * ## Example Usage
  * ### Validate an agent file
  *
  * ```typescript
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  * import * as fs from "fs";
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
  *
- * const result = dockeragent.validateAgentConfigOutput({ yaml: fs.readFileSync("agent.yaml", "utf8") });
+ * // An agent file kept as raw YAML next to the program.
+ * const agentFile = fs.readFileSync("./agent.yaml", "utf8");
  *
+ * // Never fails on an invalid document: check `valid` and `errors`.
+ * const result = docker_agent.validateAgentConfigOutput({
+ *     yaml: agentFile,
+ * });
  * export const valid = result.valid;
  * export const errors = result.errors;
+ * export const requiredEnvVars = result.requiredEnvVars;
+ * ```
+ * ### Validate a shared agent before running it
+ *
+ * ```typescript
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
+ *
+ * const shared = docker_agent.getAgentOutput({
+ *     reference: "docker.io/my-org/assistant:latest",
+ * });
+ *
+ * // Checks the pulled configuration against the docker-agent version of the provider.
+ * const check = docker_agent.validateAgentConfigOutput({
+ *     yaml: shared.yaml,
+ * });
+ * export const valid = check.valid;
+ * export const errors = check.errors;
+ * export const agentNames = check.agentNames;
  * ```
  */
 export function validateAgentConfig(args: ValidateAgentConfigArgs, opts?: pulumi.InvokeOptions): Promise<ValidateAgentConfigResult> {
@@ -67,19 +93,45 @@ export interface ValidateAgentConfigResult {
  * for unknown toolset types and model providers.
  *
  * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
- * `valid: false` and the reasons in `errors`.
+ * `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+ * docker-agent stops at.
  *
  * ## Example Usage
  * ### Validate an agent file
  *
  * ```typescript
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  * import * as fs from "fs";
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
  *
- * const result = dockeragent.validateAgentConfigOutput({ yaml: fs.readFileSync("agent.yaml", "utf8") });
+ * // An agent file kept as raw YAML next to the program.
+ * const agentFile = fs.readFileSync("./agent.yaml", "utf8");
  *
+ * // Never fails on an invalid document: check `valid` and `errors`.
+ * const result = docker_agent.validateAgentConfigOutput({
+ *     yaml: agentFile,
+ * });
  * export const valid = result.valid;
  * export const errors = result.errors;
+ * export const requiredEnvVars = result.requiredEnvVars;
+ * ```
+ * ### Validate a shared agent before running it
+ *
+ * ```typescript
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
+ *
+ * const shared = docker_agent.getAgentOutput({
+ *     reference: "docker.io/my-org/assistant:latest",
+ * });
+ *
+ * // Checks the pulled configuration against the docker-agent version of the provider.
+ * const check = docker_agent.validateAgentConfigOutput({
+ *     yaml: shared.yaml,
+ * });
+ * export const valid = check.valid;
+ * export const errors = check.errors;
+ * export const agentNames = check.agentNames;
  * ```
  */
 export function validateAgentConfigOutput(args: ValidateAgentConfigOutputArgs, opts?: pulumi.InvokeOutputOptions): pulumi.Output<ValidateAgentConfigResult> {

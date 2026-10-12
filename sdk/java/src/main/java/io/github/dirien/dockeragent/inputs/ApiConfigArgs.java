@@ -6,6 +6,7 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.HttpMethod;
 import io.github.dirien.dockeragent.inputs.ApiArgArgs;
 import java.lang.Object;
 import java.lang.String;
@@ -100,17 +101,17 @@ public final class ApiConfigArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+     * HTTP method.
      * 
      */
     @Import(name="method", required=true)
-    private Output<String> method;
+    private Output<HttpMethod> method;
 
     /**
-     * @return HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+     * @return HTTP method.
      * 
      */
-    public Output<String> method() {
+    public Output<HttpMethod> method() {
         return this.method;
     }
 
@@ -297,23 +298,23 @@ public final class ApiConfigArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param method HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+         * @param method HTTP method.
          * 
          * @return builder
          * 
          */
-        public Builder method(Output<String> method) {
+        public Builder method(Output<HttpMethod> method) {
             $.method = method;
             return this;
         }
 
         /**
-         * @param method HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+         * @param method HTTP method.
          * 
          * @return builder
          * 
          */
-        public Builder method(String method) {
+        public Builder method(HttpMethod method) {
             return method(Output.of(method));
         }
 

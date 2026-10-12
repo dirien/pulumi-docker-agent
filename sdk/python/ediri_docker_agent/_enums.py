@@ -7,9 +7,48 @@ import pulumi
 from enum import Enum
 
 __all__ = [
+    'ApiType',
+    'BusySendMode',
     'DeleteBehavior',
+    'EvaluatorDecision',
+    'EvaluatorFallback',
+    'EvaluatorType',
+    'HarnessEffort',
+    'HarnessType',
+    'HookErrorPolicy',
+    'HookType',
+    'HttpMethod',
+    'InterruptConfirmation',
+    'LifecycleProfile',
+    'Logging',
+    'RagFusionStrategy',
+    'RagStrategyType',
+    'RestartPolicy',
+    'SafetyMode',
+    'SectionSpacing',
+    'SidebarInfoMode',
+    'SidebarPosition',
+    'StructuredOutputMode',
     'ToolApproval',
 ]
+
+
+@pulumi.type_token("docker-agent:index:ApiType")
+class ApiType(_builtins.str, Enum):
+    OPEN_AI_CHAT_COMPLETIONS = "openai_chatcompletions"
+    OPEN_AI_RESPONSES = "openai_responses"
+
+
+@pulumi.type_token("docker-agent:index:BusySendMode")
+class BusySendMode(_builtins.str, Enum):
+    STEER = "steer"
+    """
+    Inject the message into the running turn (the default).
+    """
+    QUEUE = "queue"
+    """
+    Hold the message until the turn ends.
+    """
 
 
 @pulumi.type_token("docker-agent:index:DeleteBehavior")
@@ -21,6 +60,242 @@ class DeleteBehavior(_builtins.str, Enum):
     DELETE = "delete"
     """
     Delete the pushed manifest from the registry, unless another tag points to the same digest. Registries that do not support deletion (HTTP 405) only produce a warning.
+    """
+
+
+@pulumi.type_token("docker-agent:index:EvaluatorDecision")
+class EvaluatorDecision(_builtins.str, Enum):
+    ALLOW = "allow"
+    ASK = "ask"
+    DENY = "deny"
+
+
+@pulumi.type_token("docker-agent:index:EvaluatorFallback")
+class EvaluatorFallback(_builtins.str, Enum):
+    ASK = "ask"
+    DENY = "deny"
+
+
+@pulumi.type_token("docker-agent:index:EvaluatorType")
+class EvaluatorType(_builtins.str, Enum):
+    BOOLEAN = "boolean"
+    CHOICE = "choice"
+    SCORE = "score"
+
+
+@pulumi.type_token("docker-agent:index:HarnessEffort")
+class HarnessEffort(_builtins.str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    X_HIGH = "xhigh"
+    MAX = "max"
+
+
+@pulumi.type_token("docker-agent:index:HarnessType")
+class HarnessType(_builtins.str, Enum):
+    CLAUDE_CODE = "claude-code"
+    CODEX = "codex"
+    PI = "pi"
+    OPEN_CODE = "opencode"
+
+
+@pulumi.type_token("docker-agent:index:HookErrorPolicy")
+class HookErrorPolicy(_builtins.str, Enum):
+    WARN = "warn"
+    """
+    Reports and continues (default).
+    """
+    IGNORE = "ignore"
+    """
+    Continues silently.
+    """
+    BLOCK = "block"
+    """
+    Denies block-capable events.
+    """
+
+
+@pulumi.type_token("docker-agent:index:HookType")
+class HookType(_builtins.str, Enum):
+    COMMAND = "command"
+    """
+    Executes a shell command.
+    """
+    BUILTIN = "builtin"
+    """
+    Invokes a named in-process Go function registered by the runtime.
+    """
+    MODEL = "model"
+    """
+    Asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code).
+    """
+    EVALUATOR = "evaluator"
+    """
+    Assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+    """
+
+
+@pulumi.type_token("docker-agent:index:HttpMethod")
+class HttpMethod(_builtins.str, Enum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
+    DELETE = "DELETE"
+
+
+@pulumi.type_token("docker-agent:index:InterruptConfirmation")
+class InterruptConfirmation(_builtins.str, Enum):
+    ALWAYS = "always"
+    """
+    Ask for confirmation (the default).
+    """
+    DOUBLE_TAP = "double-tap"
+    """
+    Interrupt when Esc is pressed twice within a second.
+    """
+    NONE = "none"
+    """
+    Interrupt immediately.
+    """
+
+
+@pulumi.type_token("docker-agent:index:LifecycleProfile")
+class LifecycleProfile(_builtins.str, Enum):
+    RESILIENT = "resilient"
+    """
+    Auto-restart on failure with exponential backoff (the default).
+    """
+    STRICT = "strict"
+    """
+    Fail fast — the agent refuses to start when the toolset is unavailable.
+    """
+    BEST_EFFORT = "best-effort"
+    """
+    Single attempt, no auto-restart.
+    """
+
+
+@pulumi.type_token("docker-agent:index:Logging")
+class Logging(_builtins.str, Enum):
+    NONE = "none"
+    """
+    Report nothing while the agent runs, and no summary.
+    """
+    STATUS = "status"
+    """
+    Show the run's progress as status messages that are replaced by the next one (an agent started, a task was transferred or the conversation handed off, a tool call was approved or rejected, a model fell back to the next one), and log a summary of the run (duration, tool calls, tokens and estimated cost).
+    """
+    TOOLS = "tools"
+    """
+    `status`, and also log every tool call with its arguments and whether it was approved.
+    """
+    FULL = "full"
+    """
+    `tools`, and also log the agents' messages and the tools' results.
+    """
+
+
+@pulumi.type_token("docker-agent:index:RagFusionStrategy")
+class RagFusionStrategy(_builtins.str, Enum):
+    RRF = "rrf"
+    RECIPROCAL_RANK_FUSION = "reciprocal_rank_fusion"
+    WEIGHTED = "weighted"
+    MAX = "max"
+
+
+@pulumi.type_token("docker-agent:index:RagStrategyType")
+class RagStrategyType(_builtins.str, Enum):
+    BM25 = "bm25"
+    CHUNKED_EMBEDDINGS = "chunked-embeddings"
+    SEMANTIC_EMBEDDINGS = "semantic-embeddings"
+
+
+@pulumi.type_token("docker-agent:index:RestartPolicy")
+class RestartPolicy(_builtins.str, Enum):
+    NEVER = "never"
+    ON_FAILURE = "on_failure"
+    ALWAYS = "always"
+
+
+@pulumi.type_token("docker-agent:index:SafetyMode")
+class SafetyMode(_builtins.str, Enum):
+    STRICT = "strict"
+    """
+    Prompt for every tool call.
+    """
+    BALANCED = "balanced"
+    """
+    Auto-approve the tool calls docker-agent's classifier considers safe; prompt for the others.
+    """
+    RESTRICTED = "restricted"
+    """
+    Auto-approve the calls the classifier considers safe and deny every other unmatched call without prompting: the fail-closed profile for unattended runs. Custom permission rules still win.
+    """
+    AUTONOMOUS = "autonomous"
+    """
+    Auto-approve every tool call (the legacy YOLO mode). Review configurations from URLs or OCI registries before running them.
+    """
+
+
+@pulumi.type_token("docker-agent:index:SectionSpacing")
+class SectionSpacing(_builtins.str, Enum):
+    NORMAL = "normal"
+    """
+    The default spacing.
+    """
+    COMPACT = "compact"
+    """
+    Less space between sections.
+    """
+    RELAXED = "relaxed"
+    """
+    More space between sections.
+    """
+
+
+@pulumi.type_token("docker-agent:index:SidebarInfoMode")
+class SidebarInfoMode(_builtins.str, Enum):
+    COMPACT = "compact"
+    """
+    Two lines per agent (the default).
+    """
+    DETAILED = "detailed"
+    """
+    Cards with effort, context and cost metrics.
+    """
+
+
+@pulumi.type_token("docker-agent:index:SidebarPosition")
+class SidebarPosition(_builtins.str, Enum):
+    RIGHT = "right"
+    """
+    Right of the chat (the default).
+    """
+    LEFT = "left"
+    """
+    Left of the chat.
+    """
+    TOP = "top"
+    """
+    A compact horizontal band above the chat.
+    """
+    BOTTOM = "bottom"
+    """
+    A compact horizontal band below the chat.
+    """
+
+
+@pulumi.type_token("docker-agent:index:StructuredOutputMode")
+class StructuredOutputMode(_builtins.str, Enum):
+    NATIVE = "native"
+    """
+    Passes it to the provider's native structured-output support (the default).
+    """
+    TOOL = "tool"
+    """
+    Exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema.
     """
 
 

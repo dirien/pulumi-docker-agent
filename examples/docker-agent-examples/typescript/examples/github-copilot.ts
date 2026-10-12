@@ -1,0 +1,44 @@
+// Generated from docker-agent v1.150.0 examples/github-copilot.yaml by `make generate_config_types`. Do not edit.
+//
+// GitHub Copilot requires a `Copilot-Integration-Id` header on every request
+// to https://api.githubcopilot.com. docker-agent sends `copilot-developer-cli`
+// automatically (it works with both OAuth tokens and Personal Access Tokens),
+// but you can override it (or add any other custom header) via
+// `provider_opts.http_headers`.
+//
+// Newer Copilot models (gpt-5, Codex, ...) are only served via the Responses
+// API; docker-agent auto-selects the right endpoint per model, so no extra
+// config is needed. You can still force it with `provider_opts.api_type`.
+//
+// See https://github.com/docker/docker-agent/issues/2471
+//      https://github.com/docker/docker-agent/issues/2885
+
+import * as dockeragent from "@ediri/pulumi-docker-agent";
+
+export const config = new dockeragent.AgentConfig("github-copilot", {
+    agents: [
+        {
+            name: "root",
+            model: "github-copilot/gpt-5.5",
+            description: "A helpful AI assistant powered by GitHub Copilot",
+            instruction: `\
+You are a helpful AI assistant.
+Be helpful, accurate, and concise in your responses.
+`,
+        },
+    ],
+    models: {
+        "github-copilot/gpt-5.5": {
+            provider: "github-copilot",
+            model: "gpt-5.5",
+            // Optional: override the default Copilot-Integration-Id header or add
+            // any other custom HTTP headers. Header names are matched
+            // case-insensitively against the default.
+            // provider_opts:
+            //   http_headers:
+            //     Copilot-Integration-Id: vscode-chat
+        },
+    },
+});
+
+export const yaml = config.yaml;

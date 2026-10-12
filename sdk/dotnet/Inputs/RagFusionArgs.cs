@@ -35,10 +35,10 @@ namespace ediri.DockerAgent.Inputs
         public Input<int>? K { get; set; }
 
         /// <summary>
-        /// Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+        /// Fusion strategy to use. Defaults to `rrf`.
         /// </summary>
         [Input("strategy")]
-        public Input<string>? Strategy { get; set; }
+        public Input<ediri.DockerAgent.RagFusionStrategy>? Strategy { get; set; }
 
         [Input("weights")]
         private InputMap<double>? _weights;

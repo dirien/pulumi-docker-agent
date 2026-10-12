@@ -125,21 +125,56 @@ class AgentsIgnore(pulumi.CustomResource):
 
         If the project already has a `.agentsignore` with different content, the preview fails instead of replacing it.
         Copy its patterns into `patterns`, or set `overwrite: true`. Either way the existing file is moved to
-        `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a
-        backup, deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+        `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+        resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+        Set the `retainOnDelete` resource option to keep the file.
 
         ## Example Usage
         ### Hide secrets from the agent
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
-        ignore = dockeragent.AgentsIgnore("project",
+        # Writes /home/me/src/my-service/.agentsignore.
+        ignore = docker_agent.AgentsIgnore("ignore",
             directory="/home/me/src/my-service",
             comment="Managed by Pulumi. Keep secrets away from docker-agent.",
-            patterns=[".env", ".env.*", "*.pem", "*.key", "!public.key", ".aws/", "build/"])
-
+            patterns=[
+                ".env",
+                ".env.*",
+                "*.pem",
+                "*.key",
+                "!public.key",
+                ".aws/",
+                "build/",
+            ])
         pulumi.export("agentsIgnore", ignore.content)
+        pulumi.export("filePath", ignore.file_path)
+        ```
+        ### Render the file for a container image
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # No `directory`: nothing is written, the file is only rendered.
+        rendered = docker_agent.AgentsIgnore("rendered", patterns=[
+            ".git/",
+            "node_modules/",
+            "**/*.pem",
+        ])
+        pulumi.export("agentsIgnore", rendered.content)
+        ```
+
+        ## Import
+
+        An existing `.agentsignore` can be imported with its project directory (or the
+        file's path) as ID: the comment block at the top of the file becomes `comment` and every other line a
+        pattern (comments between patterns are not imported). The file is adopted as for `UserSettings`: the import
+        takes no backup, `overwrite` is not needed, and deleting the resource leaves the file in place. The resource
+        ID is the file's absolute path.
+
+        ```sh
+        $ pulumi import docker-agent:index:AgentsIgnore project ./my-service
         ```
 
         :param str resource_name: The name of the resource.
@@ -179,21 +214,56 @@ class AgentsIgnore(pulumi.CustomResource):
 
         If the project already has a `.agentsignore` with different content, the preview fails instead of replacing it.
         Copy its patterns into `patterns`, or set `overwrite: true`. Either way the existing file is moved to
-        `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a
-        backup, deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+        `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+        resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+        Set the `retainOnDelete` resource option to keep the file.
 
         ## Example Usage
         ### Hide secrets from the agent
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
-        ignore = dockeragent.AgentsIgnore("project",
+        # Writes /home/me/src/my-service/.agentsignore.
+        ignore = docker_agent.AgentsIgnore("ignore",
             directory="/home/me/src/my-service",
             comment="Managed by Pulumi. Keep secrets away from docker-agent.",
-            patterns=[".env", ".env.*", "*.pem", "*.key", "!public.key", ".aws/", "build/"])
-
+            patterns=[
+                ".env",
+                ".env.*",
+                "*.pem",
+                "*.key",
+                "!public.key",
+                ".aws/",
+                "build/",
+            ])
         pulumi.export("agentsIgnore", ignore.content)
+        pulumi.export("filePath", ignore.file_path)
+        ```
+        ### Render the file for a container image
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # No `directory`: nothing is written, the file is only rendered.
+        rendered = docker_agent.AgentsIgnore("rendered", patterns=[
+            ".git/",
+            "node_modules/",
+            "**/*.pem",
+        ])
+        pulumi.export("agentsIgnore", rendered.content)
+        ```
+
+        ## Import
+
+        An existing `.agentsignore` can be imported with its project directory (or the
+        file's path) as ID: the comment block at the top of the file becomes `comment` and every other line a
+        pattern (comments between patterns are not imported). The file is adopted as for `UserSettings`: the import
+        takes no backup, `overwrite` is not needed, and deleting the resource leaves the file in place. The resource
+        ID is the file's absolute path.
+
+        ```sh
+        $ pulumi import docker-agent:index:AgentsIgnore project ./my-service
         ```
 
         :param str resource_name: The name of the resource.
@@ -272,7 +342,7 @@ class AgentsIgnore(pulumi.CustomResource):
     @pulumi.getter(name="backupPath")
     def backup_path(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+        Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
         """
         return pulumi.get(self, "backup_path")
 

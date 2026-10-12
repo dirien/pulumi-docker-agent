@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.SafetyMode;
 import java.lang.Boolean;
 import java.lang.String;
 import java.util.Objects;
@@ -32,7 +33,7 @@ public final class UserAlias {
      * @return The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
      * 
      */
-    private @Nullable String safety;
+    private @Nullable SafetyMode safety;
     /**
      * @return Run the alias inside a Docker sandbox by default.
      * 
@@ -70,7 +71,7 @@ public final class UserAlias {
      * @return The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
      * 
      */
-    public Optional<String> safety() {
+    public Optional<SafetyMode> safety() {
         return Optional.ofNullable(this.safety);
     }
     /**
@@ -100,7 +101,7 @@ public final class UserAlias {
         private @Nullable Boolean hideToolResults;
         private @Nullable String model;
         private String path;
-        private @Nullable String safety;
+        private @Nullable SafetyMode safety;
         private @Nullable Boolean sandbox;
         private @Nullable Boolean yolo;
         public Builder() {}
@@ -135,7 +136,7 @@ public final class UserAlias {
             return this;
         }
         @CustomType.Setter
-        public Builder safety(@Nullable String safety) {
+        public Builder safety(@Nullable SafetyMode safety) {
 
             this.safety = safety;
             return this;

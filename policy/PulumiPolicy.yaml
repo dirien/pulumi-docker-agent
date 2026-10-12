@@ -1,0 +1,2 @@
+description: Guardrails for Docker Agent resources (AgentConfig, AgentRun, AgentArtifact, UserSettings).
+runtime: nodejs

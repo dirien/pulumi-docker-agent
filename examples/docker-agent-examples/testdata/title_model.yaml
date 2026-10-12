@@ -1,0 +1,14 @@
+version: "16"
+agents:
+  root:
+    model: primary
+    description: An assistant that generates session titles with a cheaper model.
+    instruction: You are a helpful assistant.
+models:
+  fast:
+    provider: anthropic
+    model: claude-haiku-4-5
+  primary:
+    provider: anthropic
+    model: claude-sonnet-5
+    title_model: fast

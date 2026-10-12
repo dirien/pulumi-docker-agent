@@ -20,7 +20,7 @@ namespace ediri.DockerAgent.Inputs
         /// The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
         /// </summary>
         [Input("apiType")]
-        public Input<string>? ApiType { get; set; }
+        public Input<ediri.DockerAgent.ApiType>? ApiType { get; set; }
 
         /// <summary>
         /// A non-API-key authentication scheme, such as Anthropic workload identity federation.

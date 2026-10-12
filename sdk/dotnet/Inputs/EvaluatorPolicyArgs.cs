@@ -17,14 +17,14 @@ namespace ediri.DockerAgent.Inputs
     public sealed class EvaluatorPolicyArgs : global::Pulumi.ResourceArgs
     {
         [Input("decisions", required: true)]
-        private InputMap<string>? _decisions;
+        private InputMap<ediri.DockerAgent.EvaluatorDecision>? _decisions;
 
         /// <summary>
-        /// Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+        /// Choice keys (or true/false for booleans) mapped to guard decisions.
         /// </summary>
-        public InputMap<string> Decisions
+        public InputMap<ediri.DockerAgent.EvaluatorDecision> Decisions
         {
-            get => _decisions ?? (_decisions = new InputMap<string>());
+            get => _decisions ?? (_decisions = new InputMap<ediri.DockerAgent.EvaluatorDecision>());
             set => _decisions = value;
         }
 
@@ -41,10 +41,10 @@ namespace ediri.DockerAgent.Inputs
         }
 
         /// <summary>
-        /// Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+        /// Decision for uncertainty or unmapped outcomes; provider failures always block.
         /// </summary>
         [Input("fallback", required: true)]
-        public Input<string> Fallback { get; set; } = null!;
+        public Input<ediri.DockerAgent.EvaluatorFallback> Fallback { get; set; } = null!;
 
         /// <summary>
         /// Minimum selected-outcome probability to apply its mapping; not the confidence metric.

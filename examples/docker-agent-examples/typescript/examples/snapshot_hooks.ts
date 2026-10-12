@@ -1,0 +1,44 @@
+// Generated from docker-agent v1.150.0 examples/snapshot_hooks.yaml by `make generate_config_types`. Do not edit.
+//
+// Shadow-git snapshot hook
+// ------------------------
+// Records filesystem snapshots under the docker-agent data
+// directory (`~/.cagent/snapshot/...` by default) without touching the
+// source repository's `.git` directory.
+//
+// The builtin is a no-op outside git repositories. It mirrors the source
+// repo's ignore rules and skips newly-added files larger than 2 MiB.
+//
+// To enable the same turn-level snapshots for every agent, set this in
+// ~/.config/cagent/config.yaml instead of wiring hooks manually:
+//
+// settings:
+//   snapshot: true
+
+import * as dockeragent from "@ediri/pulumi-docker-agent";
+
+export const config = new dockeragent.AgentConfig("snapshot_hooks", {
+    agents: [
+        {
+            name: "root",
+            model: "openai/gpt-5-mini",
+            description: "Coder with shadow-git snapshots enabled",
+            instruction: `\
+You are a coding assistant. Make focused changes and explain what you changed.
+`,
+            toolsets: [{ type: "shell" }, { type: "filesystem" }],
+            hooks: {
+                // Per-turn snapshots: capture before the model call and after the
+                // resulting tool batch finishes.
+                turnStart: [{ type: "builtin", command: "snapshot" }],
+                turnEnd: [{ type: "builtin", command: "snapshot" }],
+
+                // Runs git gc on the shadow repo. Undo checkpoints stay available after
+                // the response stops so `/undo` can restore the latest changed snapshot.
+                sessionEnd: [{ type: "builtin", command: "snapshot" }],
+            },
+        },
+    ],
+});
+
+export const yaml = config.yaml;

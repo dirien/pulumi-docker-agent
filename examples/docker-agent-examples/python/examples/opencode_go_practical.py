@@ -1,0 +1,38 @@
+# Generated from docker-agent v1.150.0 examples/opencode-go-practical.yaml by `make generate_config_types`. Do not edit.
+#
+# OpenCode Go — Practical Example
+#
+# Requirements:
+#   1. Subscribe to OpenCode Go at https://opencode.ai/auth
+#   2. Copy your API key and export it as an environment variable:
+#      export OPENCODE_API_KEY="your-api-key"
+#
+# Available models:
+#   OpenAI-compatible (/v1/chat/completions):
+#     deepseek-v4-flash, deepseek-v4-pro, kimi-k2.7-code, kimi-k2.6,
+#     glm-5.2, glm-5.1, mimo-v2.5, mimo-v2.5-pro
+#
+#   Anthropic-compatible (/v1/messages) — requires a custom provider:
+#     minimax-m3, minimax-m2.7, qwen3.7-max, qwen3.7-plus, qwen3.6-plus
+
+import ediri_docker_agent as dockeragent
+
+config = dockeragent.AgentConfig(
+    "opencode-go-practical",
+    agents=[
+        {
+            "name": "root",
+            "model": "opencode-go/deepseek-v4-flash",
+            "description": "Go assistant for programming tasks",
+            "instruction": """\
+You are an expert programming assistant.
+You help with code, debugging, code review, and software architecture.
+""",
+            "simple_commands": {
+                "code": "Write clean, well-structured code for the user's request.",
+                "review": "Review the provided code and suggest improvements.",
+                "debug": "Help debug the described code issue.",
+            },
+        },
+    ],
+)

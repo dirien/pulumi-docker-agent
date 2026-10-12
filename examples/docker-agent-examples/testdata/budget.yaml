@@ -1,0 +1,43 @@
+version: "16"
+agents:
+  root:
+    model: budget-model
+    description: An agent on a short leash.
+    instruction: |
+      You are a helpful assistant with shell access. Be concise.
+      Delegate research questions to the researcher sub-agent.
+    sub_agents:
+      - researcher
+    toolsets:
+      - type: shell
+    budgets:
+      - shell-work
+  researcher:
+    model: budget-model
+    description: Answers questions without touching the shell.
+    instruction: |
+      You answer questions concisely. You have no tools.
+    budgets:
+      - shell-work
+      - research
+models:
+  budget-model:
+    provider: openrouter
+    model: openai/gpt-4.1-mini
+    cost:
+      input: 0.15
+      output: 0.6
+providers:
+  openrouter:
+    base_url: https://openrouter.ai/api/v1
+    token_key: OPENROUTER_API_KEY
+budget:
+  max_cost: 0.05
+  max_tokens: 15000
+  max_time: 2m
+budgets:
+  research:
+    max_time: 1m
+  shell-work:
+    max_cost: 0.03
+    max_tokens: 8000

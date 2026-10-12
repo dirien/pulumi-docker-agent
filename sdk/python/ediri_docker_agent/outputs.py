@@ -196,7 +196,7 @@ class Agent(dict):
                  readonly: Optional[_builtins.bool] = None,
                  redact_secrets: Optional[_builtins.bool] = None,
                  routing: Optional['outputs.AgentRouting'] = None,
-                 safety: Optional[_builtins.str] = None,
+                 safety: Optional['SafetyMode'] = None,
                  session_compaction: Optional[_builtins.bool] = None,
                  simple_commands: Optional[Mapping[str, _builtins.str]] = None,
                  skills: Optional[Sequence[_builtins.str]] = None,
@@ -241,7 +241,7 @@ class Agent(dict):
         :param _builtins.bool readonly: When true, makes every one of this agent's toolsets read-only: only tools whose annotations carry a read-only hint are listed and callable, and all other (mutating) tools are filtered out. Equivalent to setting 'readonly: true' on each toolset. A sub-agent or handoff agent is made read-only by setting this flag on that agent's own definition.
         :param _builtins.bool redact_secrets: Enabled by default. When true (the default), the runtime auto-installs the redact_secrets builtin on all three of tool_input_transform (scrubs detected secrets from tool arguments before approval), before_llm_call (scrubs the messages sent to the LLM), and tool_response_transform (scrubs tool output before it reaches event consumers, the persisted session, the post_tool_use hook input, or the next LLM call). Set to false to opt out. The same hook entries can be authored directly in YAML for finer-grained control — see the hooks.tool_response_transform / hooks.before_llm_call / hooks.tool_input_transform sections. Detection uses the portcullis ruleset (GitHub PATs, AWS keys, Stripe / Slack / GitLab tokens, JWTs, private keys, etc.). Each detected span is replaced with the literal '[REDACTED]'.
         :param 'AgentRouting' routing: Local agents that this agent's before_agent_run and after_agent_complete hooks may route to. Requires at least one of those hooks; the agent cannot route to itself or to harness agents, and the combined graph of possible routes and force_handoff edges must not contain a cycle.
-        :param _builtins.str safety: Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        :param 'SafetyMode' safety: Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         :param _builtins.bool session_compaction: Enabled by default. When true (the default), the runtime automatically compacts the session: proactively when the estimated context usage crosses the compaction threshold, and reactively to recover from a context-overflow error. Set to false to disable both automatic triggers for this agent; the manual /compact command remains available.
         :param Mapping[str, _builtins.str] simple_commands: Named commands in the short form `name: instruction`: the string is the prompt sent to the agent. Rendered into the same `commands` map as `commands`; a name must not appear in both.
         :param Sequence[_builtins.str] skills: Skill sources and names: `local` (skills discovered on the local filesystem; `["local"]` is the same as `skills: true`), HTTP/HTTPS URLs of remote skill sources, or names of skills to include. Rendered into the `skills` list together with `inlineSkills`.
@@ -587,9 +587,9 @@ class Agent(dict):
 
     @_builtins.property
     @pulumi.getter
-    def safety(self) -> Optional[_builtins.str]:
+    def safety(self) -> Optional['SafetyMode']:
         """
-        Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         """
         return pulumi.get(self, "safety")
 
@@ -888,7 +888,7 @@ class ApiConfig(dict):
 
     def __init__(__self__, *,
                  endpoint: _builtins.str,
-                 method: _builtins.str,
+                 method: 'HttpMethod',
                  name: _builtins.str,
                  args: Optional[Mapping[str, 'outputs.ApiArg']] = None,
                  extra: Optional[Mapping[str, Any]] = None,
@@ -900,7 +900,7 @@ class ApiConfig(dict):
         API tool configuration for making HTTP requests to external APIs
 
         :param _builtins.str endpoint: API endpoint URL
-        :param _builtins.str method: HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+        :param 'HttpMethod' method: HTTP method.
         :param _builtins.str name: Name of the API tool
         :param Mapping[str, 'ApiArg'] args: Arguments schema for the API call
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
@@ -935,9 +935,9 @@ class ApiConfig(dict):
 
     @_builtins.property
     @pulumi.getter
-    def method(self) -> _builtins.str:
+    def method(self) -> 'HttpMethod':
         """
-        HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+        HTTP method.
         """
         return pulumi.get(self, "method")
 
@@ -1325,7 +1325,7 @@ class Evaluator(dict):
                  instructions: _builtins.str,
                  model: _builtins.str,
                  provider: _builtins.str,
-                 type: _builtins.str,
+                 type: 'EvaluatorType',
                  base_url: Optional[_builtins.str] = None,
                  bypass_models_gateway: Optional[_builtins.bool] = None,
                  choices: Optional[Mapping[str, _builtins.str]] = None,
@@ -1341,7 +1341,7 @@ class Evaluator(dict):
         :param _builtins.str instructions: The instructions the evaluator assesses the input with.
         :param _builtins.str model: The evaluator model of the provider.
         :param _builtins.str provider: Evaluator backend (typesafe or openai Decisions), or a named provider.
-        :param _builtins.str type: The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+        :param 'EvaluatorType' type: The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
         :param _builtins.str base_url: API base URL. TypeSafe defaults to https://api.typesafe.ai with /v1/systemone; OpenAI defaults to https://api.openai.com/v1 with /decisions.
         :param _builtins.bool bypass_models_gateway: Connect directly even when a models gateway is configured. Custom base_url and endpoint do not implicitly bypass the gateway.
         :param Mapping[str, _builtins.str] choices: For `type: choice`: the possible outcomes, keyed by name, with a description of when each applies (2 to 255).
@@ -1401,9 +1401,9 @@ class Evaluator(dict):
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> _builtins.str:
+    def type(self) -> 'EvaluatorType':
         """
-        The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+        The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
         """
         return pulumi.get(self, "type")
 
@@ -1503,15 +1503,15 @@ class EvaluatorPolicy(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 decisions: Mapping[str, _builtins.str],
-                 fallback: _builtins.str,
+                 decisions: Mapping[str, 'EvaluatorDecision'],
+                 fallback: 'EvaluatorFallback',
                  min_probability: _builtins.float,
                  extra: Optional[Mapping[str, Any]] = None):
         """
         Maps an evaluator's decisions to tool approval outcomes (`allow`, `ask`, `deny`) for `tool_guard` hooks.
 
-        :param Mapping[str, _builtins.str] decisions: Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
-        :param _builtins.str fallback: Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+        :param Mapping[str, 'EvaluatorDecision'] decisions: Choice keys (or true/false for booleans) mapped to guard decisions.
+        :param 'EvaluatorFallback' fallback: Decision for uncertainty or unmapped outcomes; provider failures always block.
         :param _builtins.float min_probability: Minimum selected-outcome probability to apply its mapping; not the confidence metric.
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         """
@@ -1523,17 +1523,17 @@ class EvaluatorPolicy(dict):
 
     @_builtins.property
     @pulumi.getter
-    def decisions(self) -> Mapping[str, _builtins.str]:
+    def decisions(self) -> Mapping[str, 'EvaluatorDecision']:
         """
-        Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+        Choice keys (or true/false for booleans) mapped to guard decisions.
         """
         return pulumi.get(self, "decisions")
 
     @_builtins.property
     @pulumi.getter
-    def fallback(self) -> _builtins.str:
+    def fallback(self) -> 'EvaluatorFallback':
         """
-        Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+        Decision for uncertainty or unmapped outcomes; provider failures always block.
         """
         return pulumi.get(self, "fallback")
 
@@ -1620,18 +1620,18 @@ class Harness(dict):
     Configuration for running an agent through an external coding-agent CLI via github.com/rumpl/harness
     """
     def __init__(__self__, *,
-                 type: _builtins.str,
+                 type: 'HarnessType',
                  agent: Optional[_builtins.str] = None,
-                 effort: Optional[_builtins.str] = None,
+                 effort: Optional['HarnessEffort'] = None,
                  extra: Optional[Mapping[str, Any]] = None,
                  model: Optional[_builtins.str] = None,
                  thinking: Optional[_builtins.bool] = None):
         """
         Configuration for running an agent through an external coding-agent CLI via github.com/rumpl/harness
 
-        :param _builtins.str type: External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+        :param 'HarnessType' type: External coding harness provider to use.
         :param _builtins.str agent: opencode agent name forwarded as --agent
-        :param _builtins.str effort: Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+        :param 'HarnessEffort' effort: Claude Code effort level forwarded as --effort.
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param _builtins.str model: Optional model name passed to the external harness. When omitted, the external CLI uses its own default model.
         :param _builtins.bool thinking: Enable opencode thinking output
@@ -1650,9 +1650,9 @@ class Harness(dict):
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> _builtins.str:
+    def type(self) -> 'HarnessType':
         """
-        External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+        External coding harness provider to use.
         """
         return pulumi.get(self, "type")
 
@@ -1666,9 +1666,9 @@ class Harness(dict):
 
     @_builtins.property
     @pulumi.getter
-    def effort(self) -> Optional[_builtins.str]:
+    def effort(self) -> Optional['HarnessEffort']:
         """
-        Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+        Claude Code effort level forwarded as --effort.
         """
         return pulumi.get(self, "effort")
 
@@ -1730,7 +1730,7 @@ class HookDefinition(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 type: _builtins.str,
+                 type: 'HookType',
                  args: Optional[Sequence[_builtins.str]] = None,
                  command: Optional[_builtins.str] = None,
                  env: Optional[Mapping[str, _builtins.str]] = None,
@@ -1739,7 +1739,7 @@ class HookDefinition(dict):
                  extra: Optional[Mapping[str, Any]] = None,
                  model: Optional[_builtins.str] = None,
                  name: Optional[_builtins.str] = None,
-                 on_error: Optional[_builtins.str] = None,
+                 on_error: Optional['HookErrorPolicy'] = None,
                  prompt: Optional[_builtins.str] = None,
                  routing_policy: Optional['outputs.RoutingPolicy'] = None,
                  schema: Optional[_builtins.str] = None,
@@ -1750,7 +1750,7 @@ class HookDefinition(dict):
         """
         Definition of a lifecycle hook
 
-        :param _builtins.str type: Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
+        :param 'HookType' type: Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
         :param Sequence[_builtins.str] args: Arbitrary string arguments passed to the hook handler. Builtin handlers receive them as a typed parameter; e.g. 'add_context' takes Go text/template strings using hook input fields such as {{ .SessionID }}, 'add_prompt_files' takes the list of prompt files to load, 'add_recent_commits' optionally takes a positive integer commit limit, 'add_git_diff' accepts 'full' to emit the full unified diff, and 'max_iterations' takes a positive integer call limit.
         :param _builtins.str command: Shell command (type=command) or builtin name (type=builtin) to invoke. Command hooks receive JSON input via stdin with tool/session information. Ignored when type=model.
         :param Mapping[str, _builtins.str] env: Environment variables to add or override for this hook only. Values expand the plain ${env.VAR} form from the OS environment; any other $ is kept literal.
@@ -1759,7 +1759,7 @@ class HookDefinition(dict):
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param _builtins.str model: Model spec ('provider/model', e.g. 'openai/gpt-4o-mini') invoked by type=model hooks. Required for that type, ignored otherwise.
         :param _builtins.str name: Optional friendly hook name used in logs and runtime hook events.
-        :param _builtins.str on_error: Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
+        :param 'HookErrorPolicy' on_error: Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
         :param _builtins.str prompt: User-message template rendered for each invocation of a type=model hook. Parsed as a Go text/template with the hook Input as the data context: {{ .ToolName }}, {{ .ToolInput }}, {{ .StopResponse }}, etc. Required for type=model.
         :param 'RoutingPolicy' routing_policy: Maps a choice evaluator's outcomes to agents. Kept apart from the evaluator so the same assessment can drive different actions.
         :param _builtins.str schema: Well-known response interpretation for type=model hooks. Empty: return the model's reply as additional_context. 'pre_tool_use_decision': ask the model for {decision, reason} JSON and produce a permission_decision verdict (allow|ask|deny).
@@ -1804,9 +1804,9 @@ class HookDefinition(dict):
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> _builtins.str:
+    def type(self) -> 'HookType':
         """
-        Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
+        Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
         """
         return pulumi.get(self, "type")
 
@@ -1876,9 +1876,9 @@ class HookDefinition(dict):
 
     @_builtins.property
     @pulumi.getter(name="onError")
-    def on_error(self) -> Optional[_builtins.str]:
+    def on_error(self) -> Optional['HookErrorPolicy']:
         """
-        Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
+        Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
         """
         return pulumi.get(self, "on_error")
 
@@ -2764,9 +2764,9 @@ class Lifecycle(dict):
                  call_timeout: Optional[_builtins.str] = None,
                  extra: Optional[Mapping[str, Any]] = None,
                  max_restarts: Optional[_builtins.int] = None,
-                 profile: Optional[_builtins.str] = None,
+                 profile: Optional['LifecycleProfile'] = None,
                  required: Optional[_builtins.bool] = None,
-                 restart: Optional[_builtins.str] = None,
+                 restart: Optional['RestartPolicy'] = None,
                  startup_timeout: Optional[_builtins.str] = None):
         """
         Controls how the agent supervises a long-running toolset process (MCP server, remote MCP, LSP server). All fields are optional; pick a profile that matches your taste and override individual knobs as needed.
@@ -2775,9 +2775,9 @@ class Lifecycle(dict):
         :param _builtins.str call_timeout: Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param _builtins.int max_restarts: Maximum number of consecutive restart attempts after a disconnect. 0 = use profile default (5). -1 = unlimited.
-        :param _builtins.str profile: Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+        :param 'LifecycleProfile' profile: Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
         :param _builtins.bool required: Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.
-        :param _builtins.str restart: How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+        :param 'RestartPolicy' restart: How the supervisor reacts to an unexpected disconnect.
         :param _builtins.str startup_timeout: Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. '30s', '2m'). 0 means no timeout.
         """
         if backoff is not None:
@@ -2831,9 +2831,9 @@ class Lifecycle(dict):
 
     @_builtins.property
     @pulumi.getter
-    def profile(self) -> Optional[_builtins.str]:
+    def profile(self) -> Optional['LifecycleProfile']:
         """
-        Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+        Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
         """
         return pulumi.get(self, "profile")
 
@@ -2847,9 +2847,9 @@ class Lifecycle(dict):
 
     @_builtins.property
     @pulumi.getter
-    def restart(self) -> Optional[_builtins.str]:
+    def restart(self) -> Optional['RestartPolicy']:
         """
-        How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+        How the supervisor reacts to an unexpected disconnect.
         """
         return pulumi.get(self, "restart")
 
@@ -4021,7 +4021,7 @@ class ProviderDef(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 api_type: Optional[_builtins.str] = None,
+                 api_type: Optional['ApiType'] = None,
                  auth: Optional['outputs.ModelAuth'] = None,
                  base_url: Optional[_builtins.str] = None,
                  compaction_model: Optional[_builtins.str] = None,
@@ -4043,7 +4043,7 @@ class ProviderDef(dict):
         """
         Configuration for a model provider. Defines reusable defaults that models can inherit by referencing the provider name. Supports any provider type (openai, anthropic, google, amazon-bedrock, etc.).
 
-        :param _builtins.str api_type: The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+        :param 'ApiType' api_type: The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
         :param 'ModelAuth' auth: Non-API-key authentication scheme. When set, the provider's regular API-key path is bypassed.
         :param _builtins.str base_url: Base URL for the provider's API endpoint. Required for OpenAI-compatible providers, optional for native providers. Accepts ${env.VAR} / ${VAR} references, substituted from the environment when a model using this provider is loaded.
         :param _builtins.str compaction_model: Default model used to summarize the conversation when the session of an agent whose model uses this provider is compacted. Value can be a model name from the models section or an inline 'provider/model' spec. Lowest priority in the resolution chain: an agent-level compaction_model wins, then a model-level one, then this provider-level default; when all are omitted, compaction reuses the agent's own model.
@@ -4104,9 +4104,9 @@ class ProviderDef(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiType")
-    def api_type(self) -> Optional[_builtins.str]:
+    def api_type(self) -> Optional['ApiType']:
         """
-        The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+        The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
         """
         return pulumi.get(self, "api_type")
 
@@ -4468,14 +4468,14 @@ class RagFusion(dict):
     def __init__(__self__, *,
                  extra: Optional[Mapping[str, Any]] = None,
                  k: Optional[_builtins.int] = None,
-                 strategy: Optional[_builtins.str] = None,
+                 strategy: Optional['RagFusionStrategy'] = None,
                  weights: Optional[Mapping[str, _builtins.float]] = None):
         """
         Configuration for combining results from multiple strategies. If omitted and multiple strategies are configured, Reciprocal Rank Fusion (rrf) with k=60 is used.
 
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param _builtins.int k: RRF smoothing parameter k (only for RRF strategy) Defaults to `60`.
-        :param _builtins.str strategy: Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+        :param 'RagFusionStrategy' strategy: Fusion strategy to use. Defaults to `rrf`.
         :param Mapping[str, _builtins.float] weights: Strategy weights for weighted fusion (strategy name -> weight)
         """
         if extra is not None:
@@ -4505,9 +4505,9 @@ class RagFusion(dict):
 
     @_builtins.property
     @pulumi.getter
-    def strategy(self) -> Optional[_builtins.str]:
+    def strategy(self) -> Optional['RagFusionStrategy']:
         """
-        Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+        Fusion strategy to use. Defaults to `rrf`.
         """
         return pulumi.get(self, "strategy")
 
@@ -4940,7 +4940,7 @@ class RagStrategy(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 type: _builtins.str,
+                 type: 'RagStrategyType',
                  ast_context: Optional[_builtins.bool] = None,
                  b: Optional[_builtins.float] = None,
                  chat_model: Optional[_builtins.str] = None,
@@ -4962,7 +4962,7 @@ class RagStrategy(dict):
         """
         Retrieval strategy configuration with type-specific parameters. Structured fields are limited; additional parameters are passed through as-is for strategy-specific use.
 
-        :param _builtins.str type: Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+        :param 'RagStrategyType' type: Retrieval strategy type.
         :param _builtins.bool ast_context: Include TreeSitter-derived AST metadata in the semantic prompt (semantic-embeddings only, requires chunking.code_aware for best results) Defaults to `false`.
         :param _builtins.float b: BM25 length normalization (bm25 only, 0-1, typically 0.75)
         :param _builtins.str chat_model: Chat model used to generate semantic representations for each chunk (semantic-embeddings only, required)
@@ -5022,9 +5022,9 @@ class RagStrategy(dict):
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> _builtins.str:
+    def type(self) -> 'RagStrategyType':
         """
-        Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+        Retrieval strategy type.
         """
         return pulumi.get(self, "type")
 
@@ -5700,14 +5700,14 @@ class RuntimeDefaults(dict):
     def __init__(__self__, *,
                  extra: Optional[Mapping[str, Any]] = None,
                  network_allowlist: Optional[Sequence[_builtins.str]] = None,
-                 safety: Optional[_builtins.str] = None,
+                 safety: Optional['SafetyMode'] = None,
                  sandbox: Optional[_builtins.bool] = None):
         """
         Execution-time defaults baked into the agent config. Values act as defaults only; explicit CLI flags and user-config settings still take precedence.
 
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param Sequence[_builtins.str] network_allowlist: Hosts to add to the sandbox's default-deny network proxy when this agent runs in a sandbox. Each entry is a hostname with an optional ':port' suffix (e.g. 'api.example.com', 'registry.npmjs.org:443'). Unioned with the gateway and tool-install hosts the runner already opens automatically. Use this for hosts the auto-installer can't infer (custom MCP endpoints, third-party APIs, registries not covered by the aqua resolver) instead of relying on the wider fallback host set.
-        :param _builtins.str safety: Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        :param 'SafetyMode' safety: Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         :param _builtins.bool sandbox: When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
         """
         if extra is not None:
@@ -5737,9 +5737,9 @@ class RuntimeDefaults(dict):
 
     @_builtins.property
     @pulumi.getter
-    def safety(self) -> Optional[_builtins.str]:
+    def safety(self) -> Optional['SafetyMode']:
         """
-        Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         """
         return pulumi.get(self, "safety")
 
@@ -5928,7 +5928,7 @@ class StructuredOutput(dict):
                  schema: Mapping[str, Any],
                  description: Optional[_builtins.str] = None,
                  extra: Optional[Mapping[str, Any]] = None,
-                 mode: Optional[_builtins.str] = None,
+                 mode: Optional['StructuredOutputMode'] = None,
                  strict: Optional[_builtins.bool] = None):
         """
         Structured output configuration for constraining model responses to a specific JSON schema. Supported by OpenAI (native) and Google Gemini (native). Anthropic requires prompt engineering or tool-based approaches.
@@ -5937,7 +5937,7 @@ class StructuredOutput(dict):
         :param Mapping[str, Any] schema: JSON Schema object defining the structure of the response. Must include type, properties, and required fields.
         :param _builtins.str description: Optional description of what the schema represents
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
-        :param _builtins.str mode: How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+        :param 'StructuredOutputMode' mode: How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
         :param _builtins.bool strict: Enable strict schema adherence (OpenAI only). When true, all properties must be in required array. Defaults to `false`.
         """
         pulumi.set(__self__, "name", name)
@@ -5985,9 +5985,9 @@ class StructuredOutput(dict):
 
     @_builtins.property
     @pulumi.getter
-    def mode(self) -> Optional[_builtins.str]:
+    def mode(self) -> Optional['StructuredOutputMode']:
         """
-        How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+        How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
         """
         return pulumi.get(self, "mode")
 
@@ -6606,7 +6606,7 @@ class UserAlias(dict):
                  path: _builtins.str,
                  hide_tool_results: Optional[_builtins.bool] = None,
                  model: Optional[_builtins.str] = None,
-                 safety: Optional[_builtins.str] = None,
+                 safety: Optional['SafetyMode'] = None,
                  sandbox: Optional[_builtins.bool] = None,
                  yolo: Optional[_builtins.bool] = None):
         """
@@ -6615,7 +6615,7 @@ class UserAlias(dict):
         :param _builtins.str path: The agent file path or OCI reference, for example `./agent.yaml` or `docker.io/myorg/agent:latest`.
         :param _builtins.bool hide_tool_results: Hide tool call results in the TUI when running the alias.
         :param _builtins.str model: Override the agent's model, in the format `[agent=]provider/model`.
-        :param _builtins.str safety: The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
+        :param 'SafetyMode' safety: The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
         :param _builtins.bool sandbox: Run the alias inside a Docker sandbox by default.
         :param _builtins.bool yolo: Auto-approve every tool call when running the alias. Legacy alias for `safety: autonomous`.
         """
@@ -6657,7 +6657,7 @@ class UserAlias(dict):
 
     @_builtins.property
     @pulumi.getter
-    def safety(self) -> Optional[_builtins.str]:
+    def safety(self) -> Optional['SafetyMode']:
         """
         The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
         """
@@ -6987,20 +6987,20 @@ class UserGlobalSettings(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 busy_send_mode: Optional[_builtins.str] = None,
+                 busy_send_mode: Optional['BusySendMode'] = None,
                  cache_stable_prompts: Optional[_builtins.bool] = None,
                  expand_thinking: Optional[_builtins.bool] = None,
                  extra: Optional[Mapping[str, Any]] = None,
                  hide_tool_results: Optional[_builtins.bool] = None,
                  hooks: Optional['outputs.UserHooks'] = None,
-                 interrupt_confirmation: Optional[_builtins.str] = None,
+                 interrupt_confirmation: Optional['InterruptConfirmation'] = None,
                  keybindings: Optional[Sequence['outputs.UserKeybinding']] = None,
                  layout: Optional['outputs.UserLayoutSettings'] = None,
                  lean: Optional[_builtins.bool] = None,
                  permissions: Optional['outputs.UserPermissions'] = None,
                  render_images: Optional[_builtins.bool] = None,
                  restore_tabs: Optional[_builtins.bool] = None,
-                 safety: Optional[_builtins.str] = None,
+                 safety: Optional['SafetyMode'] = None,
                  show_banner: Optional[_builtins.bool] = None,
                  snapshot: Optional[_builtins.bool] = None,
                  sound: Optional[_builtins.bool] = None,
@@ -7015,20 +7015,20 @@ class UserGlobalSettings(dict):
         """
         The `settings:` block of the docker-agent user configuration: preferences that apply to every agent you run. Every field is optional; unset fields use docker-agent's defaults. See https://docs.docker.com/ai/docker-agent/configuration/user-settings/.
 
-        :param _builtins.str busy_send_mode: What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
+        :param 'BusySendMode' busy_send_mode: What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         :param _builtins.bool cache_stable_prompts: Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
         :param _builtins.bool expand_thinking: Start sessions with thinking and tool blocks expanded (`expand_thinking`, default `false`).
         :param Mapping[str, Any] extra: Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
         :param _builtins.bool hide_tool_results: Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
         :param 'UserHooks' hooks: Global lifecycle hooks that run for every agent, in addition to the agent's own hooks, `hooks.d/` drop-ins and `--hook-*` flags.
-        :param _builtins.str interrupt_confirmation: How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
+        :param 'InterruptConfirmation' interrupt_confirmation: How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
         :param Sequence['UserKeybinding'] keybindings: Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
         :param 'UserLayoutSettings' layout: Sidebar position and section visibility of the TUI.
         :param _builtins.bool lean: Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
         :param 'UserPermissions' permissions: Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
         :param _builtins.bool render_images: Render images in the TUI with the Kitty graphics protocol (`render_images`, default `true`).
         :param _builtins.bool restore_tabs: Restore previously open tabs when the TUI starts (`restore_tabs`, default `false`).
-        :param _builtins.str safety: The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
+        :param 'SafetyMode' safety: The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
         :param _builtins.bool show_banner: Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).
         :param _builtins.bool snapshot: Take automatic shadow-git snapshots at turn boundaries for every agent (`snapshot`, default `false`).
         :param _builtins.bool sound: Play a notification sound when a task succeeds or fails (`sound`, default `false`).
@@ -7094,7 +7094,7 @@ class UserGlobalSettings(dict):
 
     @_builtins.property
     @pulumi.getter(name="busySendMode")
-    def busy_send_mode(self) -> Optional[_builtins.str]:
+    def busy_send_mode(self) -> Optional['BusySendMode']:
         """
         What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         """
@@ -7142,7 +7142,7 @@ class UserGlobalSettings(dict):
 
     @_builtins.property
     @pulumi.getter(name="interruptConfirmation")
-    def interrupt_confirmation(self) -> Optional[_builtins.str]:
+    def interrupt_confirmation(self) -> Optional['InterruptConfirmation']:
         """
         How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
         """
@@ -7198,7 +7198,7 @@ class UserGlobalSettings(dict):
 
     @_builtins.property
     @pulumi.getter
-    def safety(self) -> Optional[_builtins.str]:
+    def safety(self) -> Optional['SafetyMode']:
         """
         The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
         """
@@ -7333,33 +7333,33 @@ class UserHook(dict):
                  evaluator_policy: Optional['outputs.UserHookEvaluatorPolicy'] = None,
                  model: Optional[_builtins.str] = None,
                  name: Optional[_builtins.str] = None,
-                 on_error: Optional[_builtins.str] = None,
+                 on_error: Optional['HookErrorPolicy'] = None,
                  prompt: Optional[_builtins.str] = None,
                  routing_policy: Optional['outputs.UserHookRoutingPolicy'] = None,
                  schema: Optional[_builtins.str] = None,
                  strict_output: Optional[_builtins.bool] = None,
                  system_prompt: Optional[_builtins.str] = None,
                  timeout: Optional[_builtins.int] = None,
-                 type: Optional[_builtins.str] = None,
+                 type: Optional['HookType'] = None,
                  working_dir: Optional[_builtins.str] = None):
         """
         A hook: a shell command, a built-in function, an evaluator or a model call.
 
         :param Sequence[_builtins.str] args: Arguments passed to the hook handler, for example to built-ins.
         :param _builtins.str command: The shell command (`command` hooks) or the built-in name (`builtin` hooks).
-        :param Mapping[str, _builtins.str] env: Environment variables added for this hook only.
+        :param Mapping[str, _builtins.str] env: Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
         :param _builtins.str evaluator: The evaluator an `evaluator` hook uses.
         :param 'UserHookEvaluatorPolicy' evaluator_policy: How a `toolGuard` evaluator hook turns assessments into decisions.
         :param _builtins.str model: The model (`provider/model`) a `model` hook calls.
         :param _builtins.str name: A label for logs and runtime events.
-        :param _builtins.str on_error: What a hook failure does: `warn` (default), `ignore` or `block`.
+        :param 'HookErrorPolicy' on_error: What a hook failure does: `warn` (default), `ignore` or `block`.
         :param _builtins.str prompt: The prompt template of a `model` hook (Go text/template over the hook input).
         :param 'UserHookRoutingPolicy' routing_policy: How a `beforeAgentRun`/`afterAgentComplete` evaluator hook routes to agents.
         :param _builtins.str schema: How a `model` hook's reply is interpreted, for example `pre_tool_use_decision` or `guard_decision`. Empty returns the reply as additional context.
         :param _builtins.bool strict_output: Require JSON output and validate it against the event's capabilities.
         :param _builtins.str system_prompt: Overrides the default system message of a `model` hook.
         :param _builtins.int timeout: Execution timeout in seconds (default `60`).
-        :param _builtins.str type: The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
+        :param 'HookType' type: The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
         :param _builtins.str working_dir: The working directory of the hook.
         """
         if args is not None:
@@ -7417,7 +7417,7 @@ class UserHook(dict):
     @pulumi.getter
     def env(self) -> Optional[Mapping[str, _builtins.str]]:
         """
-        Environment variables added for this hook only.
+        Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
         """
         return pulumi.get(self, "env")
 
@@ -7455,7 +7455,7 @@ class UserHook(dict):
 
     @_builtins.property
     @pulumi.getter(name="onError")
-    def on_error(self) -> Optional[_builtins.str]:
+    def on_error(self) -> Optional['HookErrorPolicy']:
         """
         What a hook failure does: `warn` (default), `ignore` or `block`.
         """
@@ -7511,7 +7511,7 @@ class UserHook(dict):
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[_builtins.str]:
+    def type(self) -> Optional['HookType']:
         """
         The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
         """
@@ -7549,14 +7549,14 @@ class UserHookEvaluatorPolicy(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 decisions: Mapping[str, _builtins.str],
-                 fallback: _builtins.str,
+                 decisions: Mapping[str, 'EvaluatorDecision'],
+                 fallback: 'EvaluatorFallback',
                  min_probability: _builtins.float):
         """
         Maps an evaluator's assessments to tool-guard decisions.
 
-        :param Mapping[str, _builtins.str] decisions: Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
-        :param _builtins.str fallback: The decision when the assessment is uncertain: `ask` or `deny`.
+        :param Mapping[str, 'EvaluatorDecision'] decisions: Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
+        :param 'EvaluatorFallback' fallback: The decision when the assessment is uncertain: `ask` or `deny`.
         :param _builtins.float min_probability: The lowest probability (greater than 0, at most 1) at which a decision applies.
         """
         pulumi.set(__self__, "decisions", decisions)
@@ -7565,7 +7565,7 @@ class UserHookEvaluatorPolicy(dict):
 
     @_builtins.property
     @pulumi.getter
-    def decisions(self) -> Mapping[str, _builtins.str]:
+    def decisions(self) -> Mapping[str, 'EvaluatorDecision']:
         """
         Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
         """
@@ -7573,7 +7573,7 @@ class UserHookEvaluatorPolicy(dict):
 
     @_builtins.property
     @pulumi.getter
-    def fallback(self) -> _builtins.str:
+    def fallback(self) -> 'EvaluatorFallback':
         """
         The decision when the assessment is uncertain: `ask` or `deny`.
         """
@@ -8209,7 +8209,7 @@ class UserIdentityTokenSource(dict):
         :param Sequence[_builtins.str] command: Run this command (argv form) and read the token from stdout.
         :param _builtins.str env: Read the token from this environment variable.
         :param _builtins.str file: Read the token from this file.
-        :param Mapping[str, _builtins.str] headers: HTTP headers sent with the `url` request.
+        :param Mapping[str, _builtins.str] headers: HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
         :param _builtins.str response_field: The JSON field of the `url` response that holds the token.
         :param _builtins.str url: Fetch the token from this URL.
         """
@@ -8254,7 +8254,7 @@ class UserIdentityTokenSource(dict):
     @pulumi.getter
     def headers(self) -> Optional[Mapping[str, _builtins.str]]:
         """
-        HTTP headers sent with the `url` request.
+        HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
         """
         return pulumi.get(self, "headers")
 
@@ -8356,10 +8356,10 @@ class UserLayoutSettings(dict):
                  hide_todos: Optional[_builtins.bool] = None,
                  hide_tools: Optional[_builtins.bool] = None,
                  hide_usage: Optional[_builtins.bool] = None,
-                 section_spacing: Optional[_builtins.str] = None,
+                 section_spacing: Optional['SectionSpacing'] = None,
                  show_plans: Optional[_builtins.bool] = None,
-                 sidebar_info_mode: Optional[_builtins.str] = None,
-                 sidebar_position: Optional[_builtins.str] = None):
+                 sidebar_info_mode: Optional['SidebarInfoMode'] = None,
+                 sidebar_position: Optional['SidebarPosition'] = None):
         """
         The TUI layout (`settings.layout`). Unset fields keep the default layout: sidebar on the right, every section except Plans visible, normal spacing.
 
@@ -8369,10 +8369,10 @@ class UserLayoutSettings(dict):
         :param _builtins.bool hide_todos: Hide the Todos section.
         :param _builtins.bool hide_tools: Hide the Tools section.
         :param _builtins.bool hide_usage: Hide the token usage section.
-        :param _builtins.str section_spacing: Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
+        :param 'SectionSpacing' section_spacing: Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
         :param _builtins.bool show_plans: Show shared plans in the sidebar (default `false`).
-        :param _builtins.str sidebar_info_mode: How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
-        :param _builtins.str sidebar_position: Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
+        :param 'SidebarInfoMode' sidebar_info_mode: How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
+        :param 'SidebarPosition' sidebar_position: Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
         """
         if active_agents_only is not None:
             pulumi.set(__self__, "active_agents_only", active_agents_only)
@@ -8445,7 +8445,7 @@ class UserLayoutSettings(dict):
 
     @_builtins.property
     @pulumi.getter(name="sectionSpacing")
-    def section_spacing(self) -> Optional[_builtins.str]:
+    def section_spacing(self) -> Optional['SectionSpacing']:
         """
         Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
         """
@@ -8461,7 +8461,7 @@ class UserLayoutSettings(dict):
 
     @_builtins.property
     @pulumi.getter(name="sidebarInfoMode")
-    def sidebar_info_mode(self) -> Optional[_builtins.str]:
+    def sidebar_info_mode(self) -> Optional['SidebarInfoMode']:
         """
         How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
         """
@@ -8469,7 +8469,7 @@ class UserLayoutSettings(dict):
 
     @_builtins.property
     @pulumi.getter(name="sidebarPosition")
-    def sidebar_position(self) -> Optional[_builtins.str]:
+    def sidebar_position(self) -> Optional['SidebarPosition']:
         """
         Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
         """
@@ -9183,7 +9183,7 @@ class UserProvider(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 api_type: Optional[_builtins.str] = None,
+                 api_type: Optional['ApiType'] = None,
                  auth: Optional['outputs.UserModelAuth'] = None,
                  base_url: Optional[_builtins.str] = None,
                  compaction_model: Optional[_builtins.str] = None,
@@ -9203,7 +9203,7 @@ class UserProvider(dict):
         """
         A reusable model provider (for example an OpenAI-compatible endpoint), merged into every agent configuration docker-agent loads. Definitions in an agent file win on name conflicts.
 
-        :param _builtins.str api_type: The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
+        :param 'ApiType' api_type: The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
         :param 'UserModelAuth' auth: A non-API-key authentication scheme, such as Anthropic workload identity federation.
         :param _builtins.str base_url: The API base URL. Required for OpenAI-compatible providers.
         :param _builtins.str compaction_model: Default compaction (summary) model for agents using this provider.
@@ -9258,7 +9258,7 @@ class UserProvider(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiType")
-    def api_type(self) -> Optional[_builtins.str]:
+    def api_type(self) -> Optional['ApiType']:
         """
         The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
         """

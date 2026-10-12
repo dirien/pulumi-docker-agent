@@ -4,8 +4,10 @@
 package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
+import io.github.dirien.dockeragent.enums.SectionSpacing;
+import io.github.dirien.dockeragent.enums.SidebarInfoMode;
+import io.github.dirien.dockeragent.enums.SidebarPosition;
 import java.lang.Boolean;
-import java.lang.String;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -46,7 +48,7 @@ public final class UserLayoutSettings {
      * @return Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
      * 
      */
-    private @Nullable String sectionSpacing;
+    private @Nullable SectionSpacing sectionSpacing;
     /**
      * @return Show shared plans in the sidebar (default `false`).
      * 
@@ -56,12 +58,12 @@ public final class UserLayoutSettings {
      * @return How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
      * 
      */
-    private @Nullable String sidebarInfoMode;
+    private @Nullable SidebarInfoMode sidebarInfoMode;
     /**
      * @return Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
      * 
      */
-    private @Nullable String sidebarPosition;
+    private @Nullable SidebarPosition sidebarPosition;
 
     private UserLayoutSettings() {}
     /**
@@ -110,7 +112,7 @@ public final class UserLayoutSettings {
      * @return Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
      * 
      */
-    public Optional<String> sectionSpacing() {
+    public Optional<SectionSpacing> sectionSpacing() {
         return Optional.ofNullable(this.sectionSpacing);
     }
     /**
@@ -124,14 +126,14 @@ public final class UserLayoutSettings {
      * @return How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
      * 
      */
-    public Optional<String> sidebarInfoMode() {
+    public Optional<SidebarInfoMode> sidebarInfoMode() {
         return Optional.ofNullable(this.sidebarInfoMode);
     }
     /**
      * @return Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
      * 
      */
-    public Optional<String> sidebarPosition() {
+    public Optional<SidebarPosition> sidebarPosition() {
         return Optional.ofNullable(this.sidebarPosition);
     }
 
@@ -150,10 +152,10 @@ public final class UserLayoutSettings {
         private @Nullable Boolean hideTodos;
         private @Nullable Boolean hideTools;
         private @Nullable Boolean hideUsage;
-        private @Nullable String sectionSpacing;
+        private @Nullable SectionSpacing sectionSpacing;
         private @Nullable Boolean showPlans;
-        private @Nullable String sidebarInfoMode;
-        private @Nullable String sidebarPosition;
+        private @Nullable SidebarInfoMode sidebarInfoMode;
+        private @Nullable SidebarPosition sidebarPosition;
         public Builder() {}
         public Builder(UserLayoutSettings defaults) {
     	      Objects.requireNonNull(defaults);
@@ -206,7 +208,7 @@ public final class UserLayoutSettings {
             return this;
         }
         @CustomType.Setter
-        public Builder sectionSpacing(@Nullable String sectionSpacing) {
+        public Builder sectionSpacing(@Nullable SectionSpacing sectionSpacing) {
 
             this.sectionSpacing = sectionSpacing;
             return this;
@@ -218,13 +220,13 @@ public final class UserLayoutSettings {
             return this;
         }
         @CustomType.Setter
-        public Builder sidebarInfoMode(@Nullable String sidebarInfoMode) {
+        public Builder sidebarInfoMode(@Nullable SidebarInfoMode sidebarInfoMode) {
 
             this.sidebarInfoMode = sidebarInfoMode;
             return this;
         }
         @CustomType.Setter
-        public Builder sidebarPosition(@Nullable String sidebarPosition) {
+        public Builder sidebarPosition(@Nullable SidebarPosition sidebarPosition) {
 
             this.sidebarPosition = sidebarPosition;
             return this;

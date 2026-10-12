@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  * manifest digest stays stable. A refresh detects when the tag was moved by someone else.
  * 
  * Registry credentials come from the provider&#39;s `registryAuth` setting, falling back to the Docker
- * credential store (`docker login`). Like the docker CLI, the provider tries HTTPS first and falls back to
+ * credential store (`docker login`). Like the `docker agent` CLI, the provider tries HTTPS first and falls back to
  * plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses; set `insecure` for any
  * other plain-HTTP or self-signed registry, and the provider&#39;s `forceHttps` option to forbid the private-address
  * fallback.
@@ -41,7 +41,121 @@ import javax.annotation.Nullable;
  * repository points to the same digest (two tags pushed with identical content in the same second) or the tags cannot
  * be listed; the provider then keeps the artifact and logs a warning.
  * 
+ * Unless `skipValidation` is set, the preview validates `yaml` with docker-agent and reports every independent
+ * problem at once. The artifact is readable by everyone who can pull it, so a secret `yaml` is pushed in
+ * plaintext; the provider warns about it.
+ * 
  * ## Example Usage
+ * ### Push an agent to a registry
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentConfig;
+ * import io.github.dirien.dockeragent.AgentConfigArgs;
+ * import io.github.dirien.dockeragent.inputs.AgentArgs;
+ * import io.github.dirien.dockeragent.AgentArtifact;
+ * import io.github.dirien.dockeragent.AgentArtifactArgs;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         // The agent configuration, rendered and validated.
+ *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+ *             .agents(AgentArgs.builder()
+ *                 .name("root")
+ *                 .model("openai/gpt-5-mini")
+ *                 .instruction("You are a helpful assistant. Answer briefly.")
+ *                 .build())
+ *             .build());
+ * 
+ *         // Pushes the configuration like `docker agent share push`.
+ *         var artifact = new AgentArtifact("artifact", AgentArtifactArgs.builder()
+ *             .reference("ghcr.io/my-org/agents/assistant:v1")
+ *             .yaml(assistant.yaml())
+ *             .build());
+ * 
+ *         ctx.export("pinnedReference", artifact.pinnedReference());
+ *         ctx.export("digest", artifact.digest());
+ *     }
+ * }
+ * }
+ * </pre>
+ * ### Push an existing agent file
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentArtifact;
+ * import io.github.dirien.dockeragent.AgentArtifactArgs;
+ * import io.github.dirien.dockeragent.enums.DeleteBehavior;
+ * import java.io.IOException;
+ * import java.io.UncheckedIOException;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         // An agent file kept as raw YAML next to the program.
+ *         final var agentFile = readFile("./pirate.yaml");
+ * 
+ *         // Deleted from the registry when the resource is destroyed.
+ *         var pirate = new AgentArtifact("pirate", AgentArtifactArgs.builder()
+ *             .reference("localhost:5000/agents/pirate:latest")
+ *             .yaml(agentFile)
+ *             .annotations(Map.of("org.opencontainers.image.source", "https://github.com/my-org/agents"))
+ *             .deleteBehavior(DeleteBehavior.Delete)
+ *             .build());
+ * 
+ *         ctx.export("pinnedReference", pirate.pinnedReference());
+ *     }
+ * 
+ *     private static String readFile(String path) {
+ *         try {
+ *             return Files.readString(Paths.get(path));
+ *         } catch (IOException e) {
+ *             throw new UncheckedIOException(e);
+ *         }
+ *     }
+ * }
+ * }
+ * </pre>
+ * 
+ * ## Import
+ * 
+ * An artifact pushed with `docker agent share push` (or by another stack) can be imported by its
+ * tag, `&lt;registry&gt;/&lt;repository&gt;:&lt;tag&gt;`. `&lt;registry&gt;/&lt;repository&gt;:&lt;tag&gt;{@literal @}sha256:&lt;digest&gt;` checks that the tag
+ * still points to that digest, and `&lt;registry&gt;/&lt;repository&gt;{@literal @}sha256:&lt;digest&gt;` imports the one tag of the
+ * repository that points to it. The registry is read with the provider&#39;s `registryAuth` and the Docker
+ * credential store. The imported resource has the pushed `yaml`, exactly as it is stored, the annotations the
+ * provider would not have set itself and `deleteBehavior: retain`; its ID is the tag.
+ * 
+ * ```sh
+ * $ pulumi import docker-agent:index:AgentArtifact assistant ghcr.io/my-org/agents/assistant:v1
+ * ```
  * 
  */
 @ResourceType(type="docker-agent:index:AgentArtifact")
@@ -131,14 +245,14 @@ public class AgentArtifact extends com.pulumi.resources.CustomResource {
         return this.dockerAgentVersion;
     }
     /**
-     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
+     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
      * 
      */
     @Export(name="insecure", refs={Boolean.class}, tree="[0]")
     private Output</* @Nullable */ Boolean> insecure;
 
     /**
-     * @return Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
+     * @return Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
      * 
      */
     public Output<Optional<Boolean>> insecure() {

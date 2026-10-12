@@ -4,6 +4,7 @@
 package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
+import io.github.dirien.dockeragent.enums.RagFusionStrategy;
 import java.lang.Double;
 import java.lang.Integer;
 import java.lang.Object;
@@ -26,10 +27,10 @@ public final class RagFusion {
      */
     private @Nullable Integer k;
     /**
-     * @return Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+     * @return Fusion strategy to use. Defaults to `rrf`.
      * 
      */
-    private @Nullable String strategy;
+    private @Nullable RagFusionStrategy strategy;
     /**
      * @return Strategy weights for weighted fusion (strategy name -&gt; weight)
      * 
@@ -52,10 +53,10 @@ public final class RagFusion {
         return Optional.ofNullable(this.k);
     }
     /**
-     * @return Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+     * @return Fusion strategy to use. Defaults to `rrf`.
      * 
      */
-    public Optional<String> strategy() {
+    public Optional<RagFusionStrategy> strategy() {
         return Optional.ofNullable(this.strategy);
     }
     /**
@@ -77,7 +78,7 @@ public final class RagFusion {
     public static final class Builder {
         private @Nullable Map<String,Object> extra;
         private @Nullable Integer k;
-        private @Nullable String strategy;
+        private @Nullable RagFusionStrategy strategy;
         private @Nullable Map<String,Double> weights;
         public Builder() {}
         public Builder(RagFusion defaults) {
@@ -101,7 +102,7 @@ public final class RagFusion {
             return this;
         }
         @CustomType.Setter
-        public Builder strategy(@Nullable String strategy) {
+        public Builder strategy(@Nullable RagFusionStrategy strategy) {
 
             this.strategy = strategy;
             return this;

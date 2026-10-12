@@ -1,0 +1,25 @@
+version: "16"
+agents:
+  root:
+    model: qwen
+    description: Pirate-themed AI assistant
+    instruction: Talk like a pirate
+    commands:
+      demo: Hey tell me a story about docker containers
+models:
+  qwen:
+    provider: dmr
+    model: ai/qwen3
+  qwen_speculative:
+    provider: dmr
+    model: ai/qwen3
+    provider_opts:
+      speculative_acceptance_rate: 0.8
+      speculative_draft_model: ai/qwen3:0.6B-Q4_K_M
+      speculative_num_tokens: 16
+  qwen_vision:
+    provider: dmr
+    model: ai/qwen2.5-vl
+    provider_opts:
+      supports_images: true
+      supports_pdf: false

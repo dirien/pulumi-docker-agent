@@ -67,14 +67,14 @@ public final class UserIdentityTokenSourceArgs extends com.pulumi.resources.Reso
     }
 
     /**
-     * HTTP headers sent with the `url` request.
+     * HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
      * 
      */
     @Import(name="headers")
     private @Nullable Output<Map<String,String>> headers;
 
     /**
-     * @return HTTP headers sent with the `url` request.
+     * @return HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
      * 
      */
     public Optional<Output<Map<String,String>>> headers() {
@@ -214,7 +214,7 @@ public final class UserIdentityTokenSourceArgs extends com.pulumi.resources.Reso
         }
 
         /**
-         * @param headers HTTP headers sent with the `url` request.
+         * @param headers HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
          * 
          * @return builder
          * 
@@ -225,7 +225,7 @@ public final class UserIdentityTokenSourceArgs extends com.pulumi.resources.Reso
         }
 
         /**
-         * @param headers HTTP headers sent with the `url` request.
+         * @param headers HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
          * 
          * @return builder
          * 

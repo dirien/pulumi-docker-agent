@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.EvaluatorType;
 import io.github.dirien.dockeragent.outputs.Cost;
 import java.lang.Boolean;
 import java.lang.Object;
@@ -78,10 +79,10 @@ public final class Evaluator {
      */
     private @Nullable String tokenKey;
     /**
-     * @return The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+     * @return The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
      * 
      */
-    private String type;
+    private EvaluatorType type;
 
     private Evaluator() {}
     /**
@@ -169,10 +170,10 @@ public final class Evaluator {
         return Optional.ofNullable(this.tokenKey);
     }
     /**
-     * @return The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+     * @return The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
      * 
      */
-    public String type() {
+    public EvaluatorType type() {
         return this.type;
     }
 
@@ -197,7 +198,7 @@ public final class Evaluator {
         private String provider;
         private @Nullable String timeout;
         private @Nullable String tokenKey;
-        private String type;
+        private EvaluatorType type;
         public Builder() {}
         public Builder(Evaluator defaults) {
     	      Objects.requireNonNull(defaults);
@@ -298,7 +299,7 @@ public final class Evaluator {
             return this;
         }
         @CustomType.Setter
-        public Builder type(String type) {
+        public Builder type(EvaluatorType type) {
             if (type == null) {
               throw new MissingRequiredPropertyException("Evaluator", "type");
             }

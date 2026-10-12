@@ -1,0 +1,62 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o
+    description: assistant with semantic code search
+    instruction: |
+      You are a helpful coding assistant with access to semantic code search.
+      Use the search tool to find relevant code based on meaning, not just keywords.
+    toolsets:
+      - type: rag
+        ref: codebase
+rag:
+  codebase:
+    tool:
+      description: Search the codebase for relevant code snippets by semantic meaning
+    docs:
+      - ../../pkg/**/*.go
+      - ../../cmd/**/*.go
+    indexing_timeout: 2h
+    strategies:
+      - type: semantic-embeddings
+        embedding_model: openai/text-embedding-3-small
+        database: ./semantic_embeddings.db
+        similarity_metric: cosine_similarity
+        vector_dimensions: 1536
+        threshold: 0.3
+        limit: 10
+        chunking:
+          size: 1000
+          respect_word_boundaries: true
+          code_aware: true
+        embedding_batch_size: 50
+        max_embedding_concurrency: 3
+        max_indexing_concurrency: 3
+        chat_model: openai/gpt-4o-mini
+        semantic_prompt: |
+          You are summarizing source code for semantic search.
+
+          File: ${basename}
+          ${ast_context}
+
+          ```
+          ${content}
+          ```
+
+          In 2-4 sentences, explain what this code does. Be specific:
+          - Name exact functions, types, and methods
+          - Mention key dependencies or libraries used
+          - Describe inputs, outputs, and notable behavior
+        ast_context: true
+    results:
+      limit: 5
+      reranking:
+        model: openai/gpt-4o-mini
+        threshold: 0.3
+        criteria: |
+          When scoring relevance, prioritize:
+          - Code that directly implements the queried functionality
+          - Functions and methods over comments or documentation
+          - Complete implementations over partial snippets
+      deduplicate: true
+      return_full_content: false

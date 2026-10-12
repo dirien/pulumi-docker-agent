@@ -1,11 +1,16 @@
 name: release
 
 # Tag vX.Y.Z on main to release:
-#   1. GoReleaser builds the six plugin archives, checksums, cosign bundle and SBOMs
-#      and publishes them as a GitHub release (the Pulumi Registry reads this).
+#   1. GoReleaser builds the twelve plugin archives (provider and converter, six platforms
+#      each), checksums, cosign bundle and SBOMs and publishes them as a GitHub release
+#      (the Pulumi Registry reads this).
 #   2. The Go SDK module is tagged sdk/vX.Y.Z on the same commit.
 #   3. The npm, PyPI and NuGet SDKs are built from the committed sources with the
 #      release version injected, and published.
+#   4. The Java SDK is published to Maven Central as io.github.dirien:docker-agent, when
+#      PUBLISH_JAVA is "true" and the signing and Central Portal secrets are set (see
+#      CONTRIBUTING.md); otherwise that job skips itself and the release still succeeds.
+#      Java publishing is off for now: set PUBLISH_JAVA to "true" to turn it on.
 on:
   push:
     tags:
@@ -23,6 +28,7 @@ env:
   PUBLISH_NPM: "true"
   PUBLISH_PYPI: "true"
   PUBLISH_NUGET: "true"
+  PUBLISH_JAVA: "false"
 
 jobs:
   publish_binary:
@@ -168,3 +174,97 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --api-key "${NUGET_PUBLISH_KEY}" \
             --skip-duplicate
+
+  publish_java:
+    name: Publish Java SDK
+    needs: publish_binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check for the Maven Central secrets
+        id: secrets
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          PUBLISH_REPO_USERNAME: ${{ secrets.PUBLISH_REPO_USERNAME }}
+          PUBLISH_REPO_PASSWORD: ${{ secrets.PUBLISH_REPO_PASSWORD }}
+        run: |
+          missing=()
+          for name in SIGNING_KEY SIGNING_PASSWORD PUBLISH_REPO_USERNAME PUBLISH_REPO_PASSWORD; do
+            if [ -z "${!name}" ]; then missing+=("${name}"); fi
+          done
+          if [ "${PUBLISH_JAVA}" != "true" ]; then
+            echo "::notice title=Java SDK not published::PUBLISH_JAVA is not true"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif [ "${#missing[@]}" -gt 0 ]; then
+            echo "::notice title=Java SDK not published::the repository secrets ${missing[*]} are not set; see 'Maven Central (Java SDK)' in CONTRIBUTING.md"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Checkout
+        if: steps.secrets.outputs.publish == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set PROVIDER_VERSION from the tag
+        if: steps.secrets.outputs.publish == 'true'
+        run: echo "PROVIDER_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Install pulumictl
+        if: steps.secrets.outputs.publish == 'true'
+        uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8 # v3.0.0
+        with:
+          repo: pulumi/pulumictl
+          tag: v0.0.50
+      - name: Install Pulumi CLI
+        if: steps.secrets.outputs.publish == 'true'
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Setup Java
+        if: steps.secrets.outputs.publish == 'true'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          # sdk/java/build.gradle compiles with a Java 11 toolchain; Gradle runs on 21.
+          java-version: |
+            11
+            21
+      - name: Setup Gradle
+        if: steps.secrets.outputs.publish == 'true'
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "9.7.1"
+          cache-disabled: true # build what gets published from a clean Gradle home
+      - name: Build SDK
+        if: steps.secrets.outputs.publish == 'true'
+        run: make build_java PROVIDER_VERSION="${PROVIDER_VERSION}"
+      - name: Check worktree clean (committed SDK must match codegen)
+        if: steps.secrets.outputs.publish == 'true'
+        run: |
+          git update-index -q --refresh
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the committed SDK does not match codegen; refusing to publish"
+            git status --porcelain
+            git --no-pager diff --stat
+            exit 1
+          fi
+      - name: Publish to Maven Central
+        # The generated build.gradle publishes through the Central Portal's OSSRH Staging API
+        # (gradle-nexus publish-plugin): closing the staging repository uploads the deployment to
+        # the Portal, and releasing it publishes it to Maven Central once it passes validation.
+        if: steps.secrets.outputs.publish == 'true'
+        env:
+          PACKAGE_VERSION: ${{ env.PROVIDER_VERSION }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          PUBLISH_REPO_USERNAME: ${{ secrets.PUBLISH_REPO_USERNAME }}
+          PUBLISH_REPO_PASSWORD: ${{ secrets.PUBLISH_REPO_PASSWORD }}
+        run: |
+          # Gradle resolves a relative --init-script against the -p project directory, not the
+          # working directory, so the init script is passed as an absolute path.
+          gradle -p sdk/java --console=plain --init-script "${GITHUB_WORKSPACE}/scripts/java-sdk.init.gradle" \
+            publishToSonatype closeAndReleaseSonatypeStagingRepository
+          echo "Published io.github.dirien:docker-agent:${PACKAGE_VERSION}; Maven Central lists it once the Portal finishes publishing (usually within 30 minutes)."

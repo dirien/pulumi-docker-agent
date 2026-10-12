@@ -28,22 +28,59 @@ import * as utilities from "./utilities";
  *
  * If the project already has a `.agentsignore` with different content, the preview fails instead of replacing it.
  * Copy its patterns into `patterns`, or set `overwrite: true`. Either way the existing file is moved to
- * `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a
- * backup, deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+ * `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+ * resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+ * Set the `retainOnDelete` resource option to keep the file.
  *
  * ## Example Usage
  * ### Hide secrets from the agent
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * const ignore = new dockeragent.AgentsIgnore("project", {
+ * // Writes /home/me/src/my-service/.agentsignore.
+ * const ignore = new docker_agent.AgentsIgnore("ignore", {
  *     directory: "/home/me/src/my-service",
  *     comment: "Managed by Pulumi. Keep secrets away from docker-agent.",
- *     patterns: [".env", ".env.*", "*.pem", "*.key", "!public.key", ".aws/", "build/"],
+ *     patterns: [
+ *         ".env",
+ *         ".env.*",
+ *         "*.pem",
+ *         "*.key",
+ *         "!public.key",
+ *         ".aws/",
+ *         "build/",
+ *     ],
  * });
- *
  * export const agentsIgnore = ignore.content;
+ * export const filePath = ignore.filePath;
+ * ```
+ * ### Render the file for a container image
+ *
+ * ```typescript
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
+ *
+ * // No `directory`: nothing is written, the file is only rendered.
+ * const rendered = new docker_agent.AgentsIgnore("rendered", {patterns: [
+ *     ".git/",
+ *     "node_modules/",
+ *     "**&#47;*.pem",
+ * ]});
+ * export const agentsIgnore = rendered.content;
+ * ```
+ *
+ * ## Import
+ *
+ * An existing `.agentsignore` can be imported with its project directory (or the
+ * file's path) as ID: the comment block at the top of the file becomes `comment` and every other line a
+ * pattern (comments between patterns are not imported). The file is adopted as for `UserSettings`: the import
+ * takes no backup, `overwrite` is not needed, and deleting the resource leaves the file in place. The resource
+ * ID is the file's absolute path.
+ *
+ * ```sh
+ * $ pulumi import docker-agent:index:AgentsIgnore project ./my-service
  * ```
  */
 export class AgentsIgnore extends pulumi.CustomResource {
@@ -74,7 +111,7 @@ export class AgentsIgnore extends pulumi.CustomResource {
     }
 
     /**
-     * Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+     * Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
      */
     declare public /*out*/ readonly backupPath: pulumi.Output<string | undefined>;
     /**

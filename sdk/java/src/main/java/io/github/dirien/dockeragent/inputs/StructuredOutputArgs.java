@@ -6,6 +6,7 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.StructuredOutputMode;
 import java.lang.Boolean;
 import java.lang.Object;
 import java.lang.String;
@@ -54,17 +55,17 @@ public final class StructuredOutputArgs extends com.pulumi.resources.ResourceArg
     }
 
     /**
-     * How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+     * How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
      * 
      */
     @Import(name="mode")
-    private @Nullable Output<String> mode;
+    private @Nullable Output<StructuredOutputMode> mode;
 
     /**
-     * @return How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+     * @return How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
      * 
      */
-    public Optional<Output<String>> mode() {
+    public Optional<Output<StructuredOutputMode>> mode() {
         return Optional.ofNullable(this.mode);
     }
 
@@ -185,23 +186,23 @@ public final class StructuredOutputArgs extends com.pulumi.resources.ResourceArg
         }
 
         /**
-         * @param mode How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+         * @param mode How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
          * 
          * @return builder
          * 
          */
-        public Builder mode(@Nullable Output<String> mode) {
+        public Builder mode(@Nullable Output<StructuredOutputMode> mode) {
             $.mode = mode;
             return this;
         }
 
         /**
-         * @param mode How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+         * @param mode How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
          * 
          * @return builder
          * 
          */
-        public Builder mode(String mode) {
+        public Builder mode(StructuredOutputMode mode) {
             return mode(Output.of(mode));
         }
 

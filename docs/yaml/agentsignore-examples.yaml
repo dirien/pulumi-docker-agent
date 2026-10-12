@@ -1,0 +1,39 @@
+# Example Usage of AgentsIgnore. See agentconfig-examples.yaml for the format.
+---
+description: Hide secrets from the agent
+name: agents-ignore
+runtime: yaml
+resources:
+  # Writes /home/me/src/my-service/.agentsignore.
+  ignore:
+    type: docker-agent:index:AgentsIgnore
+    properties:
+      directory: /home/me/src/my-service
+      comment: Managed by Pulumi. Keep secrets away from docker-agent.
+      patterns:
+        - .env
+        - .env.*
+        - "*.pem"
+        - "*.key"
+        - "!public.key"
+        - .aws/
+        - build/
+outputs:
+  agentsIgnore: ${ignore.content}
+  filePath: ${ignore.filePath}
+---
+description: Render the file for a container image
+name: image-agents-ignore
+runtime: yaml
+resources:
+  # No `directory`: nothing is written, the file is only rendered.
+  rendered:
+    type: docker-agent:index:AgentsIgnore
+    properties:
+      patterns:
+        - .git/
+        - node_modules/
+        - "**/*.pem"
+outputs:
+  # Copy it into the image, for example with a Dockerfile `COPY`.
+  agentsIgnore: ${rendered.content}

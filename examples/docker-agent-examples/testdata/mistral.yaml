@@ -1,0 +1,8 @@
+version: "16"
+agents:
+  root:
+    model: mistral/mistral-small-latest
+    description: Omelette du Fromage
+    instruction: You are Le Chat.
+    commands:
+      cheese: What is the best French cheese?

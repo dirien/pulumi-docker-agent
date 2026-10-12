@@ -1,0 +1,52 @@
+# The Pulumi ESC environment that examples/esc-yaml imports. Put the ARN of your IAM role into
+# `roleArn`, then create the environment and replace the placeholders:
+#
+#   pulumi env init <org>/docker-agent/dev --file environment.yaml
+#   pulumi env set <org>/docker-agent/dev registry.username <github-user>
+#   pulumi env set <org>/docker-agent/dev registry.token <github-token> --secret
+#   pulumi env set <org>/docker-agent/dev anthropic.apiKey <anthropic-api-key> --secret
+#
+# The role must trust Pulumi Cloud as an OIDC provider and allow bedrock:InvokeModel and
+# bedrock:InvokeModelWithResponseStream. `pulumi env edit <org>/docker-agent/dev` changes the
+# definition later.
+values:
+  # Short-lived AWS credentials for Amazon Bedrock, through OpenID Connect: no static keys.
+  aws:
+    login:
+      fn::open::aws-login:
+        oidc:
+          roleArn: arn:aws:iam::123456789012:role/pulumi-esc-bedrock
+          sessionName: pulumi-esc-docker-agent
+          duration: 1h
+
+  # Registry credentials for pushing agents (a GitHub token with write:packages for ghcr.io).
+  registry:
+    address: ghcr.io
+    username: my-github-user
+    token:
+      fn::secret: replace-with-a-github-token
+
+  anthropic:
+    apiKey:
+      fn::secret: replace-with-an-anthropic-api-key
+
+  # Stack configuration for the stacks that import this environment.
+  pulumiConfig:
+    # Provider configuration: AgentArtifact and getAgent use these registry credentials.
+    docker-agent:registryAuth:
+      - address: ${registry.address}
+        username: ${registry.username}
+        password: ${registry.token}
+    # Program configuration of examples/esc-yaml.
+    registryPrefix: ${registry.address}/${registry.username}/agents
+    anthropicApiKey: ${anthropic.apiKey}
+
+  # Environment variables. `pulumi up` exports them to the Pulumi CLI and its plugins, so AgentRun
+  # sees them with `inheritEnvironment: true` (the default); `pulumi env run` exports them to any
+  # command, for example `docker agent run`.
+  environmentVariables:
+    ANTHROPIC_API_KEY: ${anthropic.apiKey}
+    AWS_ACCESS_KEY_ID: ${aws.login.accessKeyId}
+    AWS_SECRET_ACCESS_KEY: ${aws.login.secretAccessKey}
+    AWS_SESSION_TOKEN: ${aws.login.sessionToken}
+    AWS_REGION: us-east-1

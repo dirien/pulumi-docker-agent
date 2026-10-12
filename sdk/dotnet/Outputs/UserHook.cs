@@ -26,7 +26,7 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly string? Command;
         /// <summary>
-        /// Environment variables added for this hook only.
+        /// Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
         /// </summary>
         public readonly ImmutableDictionary<string, string>? Env;
         /// <summary>
@@ -48,7 +48,7 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// What a hook failure does: `warn` (default), `ignore` or `block`.
         /// </summary>
-        public readonly string? OnError;
+        public readonly ediri.DockerAgent.HookErrorPolicy? OnError;
         /// <summary>
         /// The prompt template of a `model` hook (Go text/template over the hook input).
         /// </summary>
@@ -76,7 +76,7 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
         /// </summary>
-        public readonly string? Type;
+        public readonly ediri.DockerAgent.HookType? Type;
         /// <summary>
         /// The working directory of the hook.
         /// </summary>
@@ -98,7 +98,7 @@ namespace ediri.DockerAgent.Outputs
 
             string? name,
 
-            string? onError,
+            ediri.DockerAgent.HookErrorPolicy? onError,
 
             string? prompt,
 
@@ -112,7 +112,7 @@ namespace ediri.DockerAgent.Outputs
 
             int? timeout,
 
-            string? type,
+            ediri.DockerAgent.HookType? type,
 
             string? workingDir)
         {

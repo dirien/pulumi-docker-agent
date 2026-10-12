@@ -57,8 +57,22 @@ func cmdDiff(args []string) error {
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Print(d.Markdown(f.from, f.to, untypedPath))
+	_, err = fmt.Print(d.Markdown(f.from, f.to, untypedPath, &schemadiff.Enums{Old: enumClassifier(f.old), New: enumClassifier(f.new)}))
 	return err
+}
+
+// enumClassifier returns which schema paths the generator turns into Pulumi enums for the
+// schema in file, or nil (with a warning) when the generator rejects the schema.
+func enumClassifier(file string) schemadiff.EnumClassifier {
+	g, _, err := loadGenerator(file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "schemagen: the Pulumi enums of %s are unknown: %v\n", file, err)
+		return nil
+	}
+	return func(path string) (string, bool) {
+		name, ok := g.enumAt[path]
+		return name, ok
+	}
 }
 
 // cmdChangelog prepends an entry for the upgrade to the Unreleased section of CHANGELOG.md.

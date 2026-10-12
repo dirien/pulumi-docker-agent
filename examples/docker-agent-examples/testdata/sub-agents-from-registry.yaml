@@ -1,0 +1,24 @@
+version: "16"
+agents:
+  root:
+    model: model
+    description: Coordinator that delegates to local and external sub-agents
+    instruction: |
+      You are a coordinator agent. You have access to both local and external sub-agents.
+
+      - Use the "local_helper" agent for simple tasks.
+      - Use the "agent" sub-agent (pulled from the registry) for everything else.
+
+      Delegate tasks to the most appropriate sub-agent based on the user's request.
+    sub_agents:
+      - local_helper
+      - myorg/agent:tag
+  local_helper:
+    model: model
+    description: A local helper agent for simple tasks
+    instruction: |
+      You are a helpful assistant that answers questions concisely.
+models:
+  model:
+    provider: openai
+    model: gpt-5.6-sol

@@ -260,14 +260,14 @@ public final class AgentConfigArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
      * 
      */
     @Import(name="skipValidation")
     private @Nullable Output<Boolean> skipValidation;
 
     /**
-     * @return Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * @return Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
      * 
      */
     public Optional<Output<Boolean>> skipValidation() {
@@ -671,7 +671,7 @@ public final class AgentConfigArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param skipValidation Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+         * @param skipValidation Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
          * 
          * @return builder
          * 
@@ -682,7 +682,7 @@ public final class AgentConfigArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param skipValidation Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+         * @param skipValidation Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
          * 
          * @return builder
          * 

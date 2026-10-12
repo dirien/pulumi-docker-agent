@@ -5,6 +5,9 @@ package io.github.dirien.dockeragent.inputs;
 
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
+import io.github.dirien.dockeragent.enums.BusySendMode;
+import io.github.dirien.dockeragent.enums.InterruptConfirmation;
+import io.github.dirien.dockeragent.enums.SafetyMode;
 import io.github.dirien.dockeragent.inputs.UserHooksArgs;
 import io.github.dirien.dockeragent.inputs.UserKeybindingArgs;
 import io.github.dirien.dockeragent.inputs.UserLayoutSettingsArgs;
@@ -33,13 +36,13 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
      * 
      */
     @Import(name="busySendMode")
-    private @Nullable Output<String> busySendMode;
+    private @Nullable Output<BusySendMode> busySendMode;
 
     /**
      * @return What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
      * 
      */
-    public Optional<Output<String>> busySendMode() {
+    public Optional<Output<BusySendMode>> busySendMode() {
         return Optional.ofNullable(this.busySendMode);
     }
 
@@ -123,13 +126,13 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
      * 
      */
     @Import(name="interruptConfirmation")
-    private @Nullable Output<String> interruptConfirmation;
+    private @Nullable Output<InterruptConfirmation> interruptConfirmation;
 
     /**
      * @return How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
      * 
      */
-    public Optional<Output<String>> interruptConfirmation() {
+    public Optional<Output<InterruptConfirmation>> interruptConfirmation() {
         return Optional.ofNullable(this.interruptConfirmation);
     }
 
@@ -228,13 +231,13 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
      * 
      */
     @Import(name="safety")
-    private @Nullable Output<String> safety;
+    private @Nullable Output<SafetyMode> safety;
 
     /**
      * @return The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent&#39;s config loading, so the provider rejects it.
      * 
      */
-    public Optional<Output<String>> safety() {
+    public Optional<Output<SafetyMode>> safety() {
         return Optional.ofNullable(this.safety);
     }
 
@@ -457,7 +460,7 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder busySendMode(@Nullable Output<String> busySendMode) {
+        public Builder busySendMode(@Nullable Output<BusySendMode> busySendMode) {
             $.busySendMode = busySendMode;
             return this;
         }
@@ -468,7 +471,7 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder busySendMode(String busySendMode) {
+        public Builder busySendMode(BusySendMode busySendMode) {
             return busySendMode(Output.of(busySendMode));
         }
 
@@ -583,7 +586,7 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder interruptConfirmation(@Nullable Output<String> interruptConfirmation) {
+        public Builder interruptConfirmation(@Nullable Output<InterruptConfirmation> interruptConfirmation) {
             $.interruptConfirmation = interruptConfirmation;
             return this;
         }
@@ -594,7 +597,7 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder interruptConfirmation(String interruptConfirmation) {
+        public Builder interruptConfirmation(InterruptConfirmation interruptConfirmation) {
             return interruptConfirmation(Output.of(interruptConfirmation));
         }
 
@@ -740,7 +743,7 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder safety(@Nullable Output<String> safety) {
+        public Builder safety(@Nullable Output<SafetyMode> safety) {
             $.safety = safety;
             return this;
         }
@@ -751,7 +754,7 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder safety(String safety) {
+        public Builder safety(SafetyMode safety) {
             return safety(Output.of(safety));
         }
 

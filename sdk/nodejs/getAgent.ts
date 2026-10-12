@@ -21,12 +21,46 @@ import * as utilities from "./utilities";
  * ### Read a shared agent
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * const agent = dockeragent.getAgentOutput({ reference: "docker.io/my-org/assistant:latest" });
- *
+ * // Reads the artifact like `docker agent share pull`, without writing a file.
+ * const agent = docker_agent.getAgentOutput({
+ *     reference: "docker.io/my-org/assistant:latest",
+ * });
  * export const agentYaml = agent.yaml;
  * export const agentNames = agent.agentNames;
+ * export const pinnedReference = agent.pinnedReference;
+ * ```
+ * ### Read back an agent pushed by the same program
+ *
+ * ```typescript
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
+ *
+ * const assistant = new docker_agent.AgentConfig("assistant", {
+ *     metadata: {
+ *         author: "platform-team",
+ *         version: "1.0.0",
+ *     },
+ *     agents: [{
+ *         name: "root",
+ *         model: "openai/gpt-5-mini",
+ *         instruction: "You are a helpful assistant. Answer briefly.",
+ *     }],
+ * });
+ * const artifact = new docker_agent.AgentArtifact("artifact", {
+ *     reference: "localhost:5000/agents/assistant:v1",
+ *     yaml: assistant.yaml,
+ * });
+ *
+ * // Reads the pushed artifact by digest once the push is done.
+ * const pulled = docker_agent.getAgentOutput({
+ *     reference: artifact.pinnedReference,
+ * });
+ * export const digest = pulled.digest;
+ * export const defaultAgent = pulled.defaultAgent;
+ * export const annotations = pulled.annotations;
  * ```
  */
 export function getAgent(args: GetAgentArgs, opts?: pulumi.InvokeOptions): Promise<GetAgentResult> {
@@ -39,7 +73,7 @@ export function getAgent(args: GetAgentArgs, opts?: pulumi.InvokeOptions): Promi
 
 export interface GetAgentArgs {
     /**
-     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
      */
     insecure?: boolean;
     /**
@@ -92,12 +126,46 @@ export interface GetAgentResult {
  * ### Read a shared agent
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * const agent = dockeragent.getAgentOutput({ reference: "docker.io/my-org/assistant:latest" });
- *
+ * // Reads the artifact like `docker agent share pull`, without writing a file.
+ * const agent = docker_agent.getAgentOutput({
+ *     reference: "docker.io/my-org/assistant:latest",
+ * });
  * export const agentYaml = agent.yaml;
  * export const agentNames = agent.agentNames;
+ * export const pinnedReference = agent.pinnedReference;
+ * ```
+ * ### Read back an agent pushed by the same program
+ *
+ * ```typescript
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
+ *
+ * const assistant = new docker_agent.AgentConfig("assistant", {
+ *     metadata: {
+ *         author: "platform-team",
+ *         version: "1.0.0",
+ *     },
+ *     agents: [{
+ *         name: "root",
+ *         model: "openai/gpt-5-mini",
+ *         instruction: "You are a helpful assistant. Answer briefly.",
+ *     }],
+ * });
+ * const artifact = new docker_agent.AgentArtifact("artifact", {
+ *     reference: "localhost:5000/agents/assistant:v1",
+ *     yaml: assistant.yaml,
+ * });
+ *
+ * // Reads the pushed artifact by digest once the push is done.
+ * const pulled = docker_agent.getAgentOutput({
+ *     reference: artifact.pinnedReference,
+ * });
+ * export const digest = pulled.digest;
+ * export const defaultAgent = pulled.defaultAgent;
+ * export const annotations = pulled.annotations;
  * ```
  */
 export function getAgentOutput(args: GetAgentOutputArgs, opts?: pulumi.InvokeOutputOptions): pulumi.Output<GetAgentResult> {
@@ -110,7 +178,7 @@ export function getAgentOutput(args: GetAgentOutputArgs, opts?: pulumi.InvokeOut
 
 export interface GetAgentOutputArgs {
     /**
-     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
      */
     insecure?: pulumi.Input<boolean | undefined>;
     /**

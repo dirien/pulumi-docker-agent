@@ -41,6 +41,7 @@ func Provider() p.Provider {
 	if err != nil {
 		panic(fmt.Errorf("unable to build provider: %w", err))
 	}
+	prov = withImportedProviderConfig(withAgentConfigRead(withUserSettingsSecrets(prov)))
 	return withUnknownInputs(withLocalFilePreview(withPreviewOutputs(withConfigVersionDiff(prov))))
 }
 
@@ -81,7 +82,10 @@ func Builder() *infer.ProviderBuilder {
 		WithPublisher("dirien").
 		WithLogoURL(logoURL).
 		WithLicense("Apache-2.0").
-		WithKeywords("pulumi", "docker", "docker-agent", "ai", "agents", "category/utility", "kind/native").
+		// The Registry matches its search box against these; it drops "pulumi" and the
+		// category/ and kind/ tags, and has no AI category (utility is the closest).
+		WithKeywords("pulumi", "docker", "docker-agent", "cagent", "ai", "agents", "genai", "llm", "mcp", "oci",
+			"category/utility", "kind/native").
 		WithNamespace("dirien").
 		WithPluginDownloadURL("github://api.github.com/dirien/pulumi-docker-agent").
 		WithLanguageMap(map[string]any{
@@ -103,10 +107,20 @@ func Builder() *infer.ProviderBuilder {
 				"importBasePath":                 "github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent",
 				"respectSchemaVersion":           true,
 			},
+			// Maven coordinates io.github.dirien:docker-agent (the Registry derives them from
+			// basePackage and the package name), Java package io.github.dirien.dockeragent. The
+			// io.github.dirien namespace is verifiable on the Maven Central Portal through the
+			// dirien GitHub account. The dependencies pin pulumi-java's defaults, so a CLI upgrade
+			// cannot change them silently.
 			"java": map[string]any{
 				"basePackage":                     "io.github.dirien",
 				"buildFiles":                      "gradle",
 				"gradleNexusPublishPluginVersion": "2.0.0",
+				"dependencies": map[string]any{
+					"com.pulumi:pulumi":               "1.0.0",
+					"com.google.code.gson:gson":       "2.8.9",
+					"com.google.code.findbugs:jsr305": "3.0.2",
+				},
 			},
 		}).
 		WithConfig(infer.Config(&Config{})).

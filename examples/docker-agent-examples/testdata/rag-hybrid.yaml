@@ -1,0 +1,50 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-5-mini
+    description: assistant with hybrid search
+    instruction: |
+      You are a helpful assistant with access to hybrid retrieval
+      combining semantic and keyword search for comprehensive results.
+    toolsets:
+      - type: rag
+        ref: knowledge_base
+rag:
+  knowledge_base:
+    tool:
+      description: to be used to search for information about blorks
+    docs:
+      - ./blork_field_guide.txt
+    strategies:
+      - type: chunked-embeddings
+        embedding_model: openai/text-embedding-3-small
+        docs:
+          - ./docs
+        database: ./chunked_embeddings.db
+        similarity_metric: cosine_similarity
+        vector_dimensions: 1536
+        threshold: 0.5
+        limit: 20
+        chunking:
+          size: 1000
+          overlap: 100
+          respect_word_boundaries: true
+        max_embedding_concurrency: 5
+      - type: bm25
+        docs:
+          - ./docs
+        database: ./bm25.db
+        k1: 1.5
+        b: 0.75
+        threshold: 0.3
+        limit: 15
+        chunking:
+          size: 1000
+          overlap: 100
+          respect_word_boundaries: true
+    results:
+      limit: 5
+      fusion:
+        strategy: rrf
+        k: 60
+      deduplicate: true

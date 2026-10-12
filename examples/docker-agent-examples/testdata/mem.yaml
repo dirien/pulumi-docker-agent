@@ -1,0 +1,11 @@
+version: "16"
+metadata:
+  author: JL
+agents:
+  root:
+    model: openai/gpt-4o
+    description: Humorous AI with persistent memory
+    instruction: You are a funny chatter
+    toolsets:
+      - type: memory
+        path: ./funny.db

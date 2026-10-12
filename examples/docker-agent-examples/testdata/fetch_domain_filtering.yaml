@@ -1,0 +1,31 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: An agent restricted to Docker and GitHub documentation.
+    instruction: |
+      You are a documentation assistant. You may only fetch pages from the
+      docker.com and github.com families of domains. If asked about an
+      external resource, politely refuse and suggest a search instead.
+    toolsets:
+      - type: fetch
+        allowed_domains:
+          - docker.com
+          - github.com
+          - raw.githubusercontent.com
+  safe_fetch:
+    model: anthropic/claude-sonnet-4-5
+    description: An agent that can fetch the open web except a few sensitive hosts.
+    instruction: |
+      You are a research assistant. Use the fetch tool to gather information
+      from the public web. Some hosts are blocked for safety; if a fetch is
+      rejected, do not retry and explain the situation to the user.
+    toolsets:
+      - type: fetch
+        blocked_domains:
+          - 169.254.169.254
+          - 169.254.0.0/16
+          - 10.0.0.0/8
+          - 100.100.100.200
+          - metadata.google.internal
+          - '*.internal.example.com'

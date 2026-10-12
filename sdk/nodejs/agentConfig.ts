@@ -24,34 +24,65 @@ import * as utilities from "./utilities";
  * docker-agent releases newer than the one this provider pins. `instructionFile` needs `skipValidation`
  * because validation happens in memory; read the file in your program and pass its contents as `instruction`.
  *
+ * Closed value sets, such as the `safety` modes or a hook's `type`, are enums. A value that this
+ * provider version does not list fails on its property during preview unless `skipValidation` is set; in
+ * C# and Java, whose enums cannot hold other values, set such a value through the object's `extra` map
+ * (for example `runtime.extra`), which replaces the typed key.
+ *
+ * The preview reports every independent problem at once, each attached to the input that caused it, for example
+ * `property agents[0].subAgents ... has a problem: invalid docker-agent configuration: agent 'root' references non-existent sub-agent 'missing'`.
+ * docker-agent stops at the first problem; the provider removes the faulty value and validates again to find the
+ * rest. A problem with a whole definition (a model, provider or toolset) is reported alone. The provider also warns
+ * about `headers` and `env` values that look like literal credentials: they end up in `yaml`
+ * and in every artifact made from it, so use a `${env.NAME}` placeholder that docker-agent resolves at run
+ * time instead.
+ *
  * ## Example Usage
  * ### A single agent with tools
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * const assistant = new dockeragent.AgentConfig("assistant", {
- *     metadata: { author: "platform-team", license: "Apache-2.0" },
+ * // A typed docker-agent configuration, validated during `pulumi preview`.
+ * const assistant = new docker_agent.AgentConfig("assistant", {
+ *     metadata: {
+ *         author: "platform-team",
+ *         license: "Apache-2.0",
+ *     },
  *     agents: [{
  *         name: "root",
  *         model: "openai/gpt-5-mini",
  *         description: "A helpful assistant",
  *         instruction: "You are a helpful assistant. Answer briefly.",
- *         toolsets: [{ type: "think" }, { type: "mcp", ref: "docker:duckduckgo" }],
+ *         toolsets: [
+ *             {
+ *                 type: "think",
+ *             },
+ *             {
+ *                 type: "mcp",
+ *                 ref: "docker:duckduckgo",
+ *             },
+ *         ],
  *     }],
  * });
- *
  * export const agentYaml = assistant.yaml;
- * export const requiredEnvVars = assistant.requiredEnvVars; // ["OPENAI_API_KEY"]
+ * export const requiredEnvVars = assistant.requiredEnvVars;
  * ```
  * ### A team with a named model
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * const team = new dockeragent.AgentConfig("team", {
+ * // `root` delegates research questions to the `researcher` sub-agent.
+ * const team = new docker_agent.AgentConfig("team", {
  *     models: {
- *         fast: { provider: "anthropic", model: "claude-haiku-4-5", maxTokens: 8192 },
+ *         fast: {
+ *             provider: "anthropic",
+ *             model: "claude-haiku-4-5",
+ *             maxTokens: 8192,
+ *         },
  *     },
  *     agents: [
  *         {
@@ -65,31 +96,82 @@ import * as utilities from "./utilities";
  *             model: "openai/gpt-5-mini",
  *             description: "Searches the web",
  *             instruction: "Research the question and report sources.",
- *             toolsets: [{ type: "fetch" }],
+ *             toolsets: [{
+ *                 type: "fetch",
+ *             }],
  *             maxConsecutiveToolCalls: 10,
  *         },
  *     ],
  * });
+ * export const agentNames = team.agentNames;
+ * export const defaultAgent = team.defaultAgent;
  * ```
- * ### Sandbox mode
+ * ### Sandbox mode, a safety mode, hooks and a budget
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * const sandboxed = new dockeragent.AgentConfig("sandboxed", {
+ * // Runs in a sandbox by default, with the fail-closed `restricted` safety mode.
+ * const sandboxed = new docker_agent.AgentConfig("sandboxed", {
  *     runtime: {
  *         sandbox: true,
- *         safety: "restricted",
- *         networkAllowlist: ["api.github.com", "registry.npmjs.org:443"],
+ *         safety: docker_agent.SafetyMode.Restricted,
+ *         networkAllowlist: [
+ *             "api.github.com",
+ *             "registry.npmjs.org:443",
+ *         ],
+ *     },
+ *     permissions: {
+ *         deny: ["shell:cmd=sudo*"],
  *     },
  *     agents: [{
  *         name: "root",
  *         model: "anthropic/claude-sonnet-4-5",
- *         instruction: "Fix the failing tests.",
- *         toolsets: [{ type: "shell" }, { type: "filesystem" }],
- *         hooks: { sessionStart: [{ type: "builtin", command: "add_environment_info" }] },
+ *         instruction: "Run the test suite and fix the failing tests.",
+ *         toolsets: [
+ *             {
+ *                 type: "shell",
+ *             },
+ *             {
+ *                 type: "filesystem",
+ *             },
+ *         ],
+ *         hooks: {
+ *             sessionStart: [{
+ *                 type: docker_agent.HookType.Builtin,
+ *                 command: "add_environment_info",
+ *             }],
+ *         },
+ *         simpleCommands: {
+ *             test: "Run the tests and summarise the failures",
+ *         },
  *     }],
+ *     budget: {
+ *         maxCost: 5,
+ *         maxTime: "30m",
+ *     },
  * });
+ * export const agentYaml = sandboxed.yaml;
+ * ```
+ *
+ * ## Import
+ *
+ * An existing docker-agent configuration can be imported, and `pulumi import` generates its typed
+ * inputs in your program's language. The ID is `file://<path>`, a path ending in `.yaml`, `.yml` or
+ * `.hcl` (relative to the project directory), or `oci://<registry>/<repository>:<tag>` (or
+ * `@sha256:<digest>`) for a shared agent, read with the provider's registry credentials. Only configurations
+ * that pass validation are imported; set the provider's `skipValidation` to import one that needs a newer
+ * docker-agent (the resource then gets `skipValidation: true`). Keys without a typed input go to
+ * `extra`, `instruction_file` contents become `instruction`, and comments, key order and YAML
+ * anchors are not kept. The imported resource's ID is its name; it keeps no link to the file or artifact.
+ *
+ * ```sh
+ * $ pulumi import docker-agent:index:AgentConfig assistant ./agent.yaml
+ * ```
+ *
+ * ```sh
+ * $ pulumi import docker-agent:index:AgentConfig shared oci://ghcr.io/my-org/agents/assistant:v1
  * ```
  */
 export class AgentConfig extends pulumi.CustomResource {
@@ -200,7 +282,7 @@ export class AgentConfig extends pulumi.CustomResource {
      */
     declare public readonly skills: pulumi.Output<{[key: string]: outputs.SkillSet} | undefined>;
     /**
-     * Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
      */
     declare public readonly skipValidation: pulumi.Output<boolean | undefined>;
     /**
@@ -350,7 +432,7 @@ export interface AgentConfigArgs {
      */
     skills?: pulumi.Input<{[key: string]: pulumi.Input<inputs.SkillSetArgs>} | undefined>;
     /**
-     * Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
      */
     skipValidation?: pulumi.Input<boolean | undefined>;
     /**

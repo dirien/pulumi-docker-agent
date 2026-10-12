@@ -1,0 +1,7 @@
+agents:
+  root:
+    model: openai/gpt-4o
+    description: Test agent
+    instruction: You know how to read/write and list files.
+    toolsets:
+      - type: filesystem

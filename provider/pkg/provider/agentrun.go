@@ -37,7 +37,8 @@ The agent runs inside the provider process with the docker-agent Go SDK (the sam
 outputs are unknown until the update. A change of ` + "`yaml`" + `, ` + "`reference`" + `, ` + "`agent`" + `,
 ` + "`prompt`" + `, ` + "`env`" + `, ` + "`inheritEnvironment`" + `, ` + "`workingDir`" + `, ` + "`toolApproval`" + `,
 ` + "`allowHookApprovals`" + ` or ` + "`triggers`" + ` (including a value that is unknown during the preview) runs the
-agent again; a change of ` + "`timeoutSeconds`" + ` or ` + "`outputSecret`" + ` alone only updates the state.
+agent again; a change of ` + "`timeoutSeconds`" + `, ` + "`outputSecret`" + ` or ` + "`logging`" + ` alone only updates
+the state.
 ` + "`pulumi up`" + ` without changes and ` + "`pulumi refresh`" + ` reuse the stored answer, deleting the resource
 does nothing, and importing is not supported.
 
@@ -65,8 +66,9 @@ Credentials and ` + "`${env.NAME}`" + ` references resolve from ` + "`env`" + ` 
 ` + "`background_jobs`" + ` tools and MCP and LSP servers started with ` + "`command`" + ` also lose that environment:
 they see the system variables (` + "`PATH`" + `, ` + "`HOME`" + `, ` + "`USER`" + `, ` + "`SHELL`" + `,
 ` + "`LANG`" + `, ` + "`TMPDIR`" + `, ` + "`TZ`" + `, ...) plus their own ` + "`env`" + ` (hooks also get
-` + "`env`" + `). ` + "`docker:`" + ` MCP servers, filesystem ` + "`post_edit`" + ` commands and the
-` + "`open_url`" + ` launcher always inherit it. Errors, warnings and logs are redacted: the values of
+` + "`env`" + `). ` + "`docker:`" + ` MCP servers, filesystem ` + "`post_edit`" + ` commands, the
+` + "`open_url`" + ` launcher and docker-agent's on-demand tool installation always inherit it.
+Errors, warnings and logs are redacted: the values of
 ` + "`env`" + `, secret inputs, credential-named variables of the environment (` + "`*_API_KEY`" + `,
 ` + "`*_TOKEN`" + `, ` + "`*SECRET*`" + `, ` + "`*PASSWORD*`" + `, ...) and the variables the configuration names as
 ` + "`token_key`" + `. When the answer contains one of these values, ` + "`output`" + ` and
@@ -78,128 +80,30 @@ aliases, global providers and credentials in ` + "`~/.config/cagent`" + ` are ne
 works in a fresh temporary directory unless ` + "`workingDir`" + ` is set. Runs of one provider process execute one at
 a time.
 
-{{% examples %}}
-## Example Usage
-{{% example %}}
-### Structured output from an agent
+` + "`logging`" + ` controls what ` + "`pulumi up`" + ` shows while the agent runs. ` + "`status`" + ` (the default) shows the
+run's progress as status messages that the next one replaces (an agent started, a task was transferred or the
+conversation handed off, each tool call and whether it was approved or rejected, and why, a model that fell back to
+the next one) and ends with one summary line: duration, tool calls, input and output tokens and the estimated cost.
+` + "`tools`" + ` also logs every tool call with its arguments, and ` + "`full`" + ` also logs the agents' messages and
+the tools' results. ` + "`none`" + ` shows nothing. Messages are redacted like errors. When the answer is secret
+(` + "`outputSecret`" + `, or a secret ` + "`prompt`" + ` or ` + "`yaml`" + `), ` + "`tools`" + ` and ` + "`full`" + ` log no
+arguments, messages or results, and with a secret ` + "`yaml`" + ` or ` + "`agent`" + ` the messages name no agents, tools or
+models.
 
-` + "```typescript" + `
-import * as pulumi from "@pulumi/pulumi";
-import * as dockeragent from "@ediri/pulumi-docker-agent";
+An AgentRun has two time limits. ` + "`timeoutSeconds`" + ` (default 300) limits the agent run itself: when it runs
+out, the run is cancelled and the create or update fails with "the agent did not finish within ... (timeoutSeconds)".
+The ` + "`customTimeouts`" + ` resource option (` + "`create`" + `, ` + "`update`" + `) limits the whole provider operation,
+including pulling a ` + "`reference`" + ` and waiting for another AgentRun of the same provider process to finish; when
+it runs out, Pulumi cancels the operation and the run fails as cancelled. The shorter limit wins. Use
+` + "`customTimeouts`" + ` to bound the deployment step as a whole and keep ` + "`timeoutSeconds`" + ` as the per-run safety
+limit.`
 
-const config = new pulumi.Config();
-
-// The agent: its answer must match a JSON schema.
-const reviewer = new dockeragent.AgentConfig("reviewer", {
-    agents: [{
-        name: "root",
-        model: "openai/gpt-5-mini",
-        instruction: "Rate the risk of the infrastructure change and explain it in one sentence.",
-        structuredOutput: {
-            name: "change_review",
-            schema: {
-                type: "object",
-                properties: {
-                    risk: { type: "string", enum: ["low", "medium", "high"] },
-                    summary: { type: "string" },
-                },
-                required: ["risk", "summary"],
-                additionalProperties: false,
-            },
-        },
-    }],
-});
-
-// Runs the agent during ` + "`" + `pulumi up` + "`" + ` (never during a preview) and keeps its answer in the state.
-const review = new dockeragent.AgentRun("review", {
-    yaml: reviewer.yaml,
-    prompt: "Upgrade the production PostgreSQL cluster from version 15 to 17.",
-    env: { OPENAI_API_KEY: config.requireSecret("openaiApiKey") },
-});
-
-export const risk = review.structuredOutput.apply(o => o.risk);
-export const summary = review.structuredOutput.apply(o => o.summary);
-` + "```" + `
-` + "```python" + `
-import pulumi
-import ediri_docker_agent as dockeragent
-
-config = pulumi.Config()
-
-# The agent: its answer must match a JSON schema.
-reviewer = dockeragent.AgentConfig("reviewer", agents=[{
-    "name": "root",
-    "model": "openai/gpt-5-mini",
-    "instruction": "Rate the risk of the infrastructure change and explain it in one sentence.",
-    "structured_output": {
-        "name": "change_review",
-        "schema": {
-            "type": "object",
-            "properties": {
-                "risk": {"type": "string", "enum": ["low", "medium", "high"]},
-                "summary": {"type": "string"},
-            },
-            "required": ["risk", "summary"],
-            "additionalProperties": False,
-        },
-    },
-}])
-
-# Runs the agent during ` + "`" + `pulumi up` + "`" + ` (never during a preview) and keeps its answer in the state.
-review = dockeragent.AgentRun("review",
-    yaml=reviewer.yaml,
-    prompt="Upgrade the production PostgreSQL cluster from version 15 to 17.",
-    env={"OPENAI_API_KEY": config.require_secret("openaiApiKey")})
-
-pulumi.export("risk", review.structured_output.apply(lambda o: o["risk"]))
-pulumi.export("summary", review.structured_output.apply(lambda o: o["summary"]))
-` + "```" + `
-` + "```yaml" + `
-name: change-review
-runtime: yaml
-config:
-  openaiApiKey:
-    type: string
-    secret: true
-
-resources:
-  # The agent: its answer must match a JSON schema.
-  reviewer:
-    type: docker-agent:index:AgentConfig
-    properties:
-      agents:
-        - name: root
-          model: openai/gpt-5-mini
-          instruction: Rate the risk of the infrastructure change and explain it in one sentence.
-          structuredOutput:
-            name: change_review
-            schema:
-              type: object
-              properties:
-                risk: {type: string, enum: [low, medium, high]}
-                summary: {type: string}
-              required: [risk, summary]
-              additionalProperties: false
-
-  # Runs the agent during ` + "`" + `pulumi up` + "`" + ` (never during a preview) and keeps its answer in the state.
-  review:
-    type: docker-agent:index:AgentRun
-    properties:
-      yaml: ${reviewer.yaml}
-      prompt: Upgrade the production PostgreSQL cluster from version 15 to 17.
-      env:
-        OPENAI_API_KEY: ${openaiApiKey}
-
-outputs:
-  risk: ${review.structuredOutput.risk}
-  summary: ${review.structuredOutput.summary}
-` + "```" + `
-{{% /example %}}
-{{% /examples %}}`
+const agentRunImportDoc = `An AgentRun cannot be imported: a run has nothing to read back. Declare the resource instead; the
+next ` + "`pulumi up`" + ` runs the agent.`
 
 // Annotate describes the resource.
 func (r *AgentRun) Annotate(a infer.Annotator) {
-	a.Describe(&r, agentRunDoc)
+	a.Describe(&r, describe(agentRunDoc, agentRunExamples, agentRunImportDoc))
 }
 
 // ToolApproval decides what happens to tool calls that docker-agent would ask a user to
@@ -223,6 +127,35 @@ func (ToolApproval) Values() []infer.EnumValue[ToolApproval] {
 	}
 }
 
+// Logging selects what AgentRun reports while the agent runs.
+type Logging string
+
+const (
+	// LoggingNone reports nothing.
+	LoggingNone Logging = "none"
+	// LoggingStatus reports status updates and a summary.
+	LoggingStatus Logging = "status"
+	// LoggingTools also reports each tool call with its arguments.
+	LoggingTools Logging = "tools"
+	// LoggingFull also reports the agents' messages and the tools' results.
+	LoggingFull Logging = "full"
+)
+
+// Values lists the enum values.
+func (Logging) Values() []infer.EnumValue[Logging] {
+	return []infer.EnumValue[Logging]{
+		{Name: "None", Value: LoggingNone, Description: "Report nothing while the agent runs, and no summary."},
+		{Name: "Status", Value: LoggingStatus, Description: "Show the run's progress as status messages that are " +
+			"replaced by the next one (an agent started, a task was transferred or the conversation handed off, a " +
+			"tool call was approved or rejected, a model fell back to the next one), and log a summary of the run " +
+			"(duration, tool calls, tokens and estimated cost)."},
+		{Name: "Tools", Value: LoggingTools, Description: "`status`, and also log every tool call with its arguments " +
+			"and whether it was approved."},
+		{Name: "Full", Value: LoggingFull, Description: "`tools`, and also log the agents' messages and the tools' " +
+			"results."},
+	}
+}
+
 // AgentRunArgs are the inputs of AgentRun.
 type AgentRunArgs struct {
 	YAML               *string           `pulumi:"yaml,optional"`
@@ -237,6 +170,7 @@ type AgentRunArgs struct {
 	Triggers           []any             `pulumi:"triggers,optional"`
 	OutputSecret       *bool             `pulumi:"outputSecret,optional"`
 	AllowHookApprovals *bool             `pulumi:"allowHookApprovals,optional"`
+	Logging            *Logging          `pulumi:"logging,optional"`
 }
 
 // Annotate describes the inputs.
@@ -257,7 +191,8 @@ func (a *AgentRunArgs) Annotate(an infer.Annotator) {
 		"With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers "+
 		"started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, "+
 		"`TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` "+
-		"commands and the `open_url` launcher still inherit everything. docker-agent's other credential sources "+
+		"commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. "+
+		"docker-agent's other credential sources "+
 		"(its `.env` file, credential helper, Docker Desktop) are never used.")
 	an.SetDefault(&a.InheritEnvironment, true)
 	an.Describe(&a.WorkingDir, "The agent's working directory, used by the shell, filesystem and other "+
@@ -284,6 +219,17 @@ func (a *AgentRunArgs) Annotate(an infer.Annotator) {
 		"`deny` only runs what docker-agent approves by its rules. Hook denials always apply. It has no effect with "+
 		"`toolApproval: allow`.")
 	an.SetDefault(&a.AllowHookApprovals, false)
+	an.Describe(&a.Logging, "What `pulumi up` shows while the agent runs. `status` (default) shows the run's "+
+		"progress as status messages that the next one replaces (an agent started, a task was transferred or the "+
+		"conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to "+
+		"the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). "+
+		"`tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' "+
+		"results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, "+
+		"credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a "+
+		"secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret "+
+		"`yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without "+
+		"running the agent again.")
+	an.SetDefault(&a.Logging, LoggingStatus)
 }
 
 // AgentRunUsage is the token usage and cost of a run.
@@ -401,7 +347,7 @@ func (*AgentRun) Create(ctx context.Context, req infer.CreateRequest[AgentRunArg
 }
 
 // Update runs the agent again when an input that affects the run changed. Changes of
-// `outputSecret` or `timeoutSeconds` alone only update the state.
+// `outputSecret`, `timeoutSeconds` or `logging` alone only update the state.
 func (*AgentRun) Update(
 	ctx context.Context, req infer.UpdateRequest[AgentRunArgs, AgentRunState],
 ) (infer.UpdateResponse[AgentRunState], error) {
@@ -431,7 +377,7 @@ func (*AgentRun) Update(
 }
 
 // rerunNeeded reports whether an input that affects the run changed: everything except
-// `outputSecret` and `timeoutSeconds`.
+// `outputSecret`, `timeoutSeconds` and `logging`.
 func rerunNeeded(olds, news AgentRunArgs) bool {
 	return len(runInputChanges(olds, news)) > 0
 }
@@ -476,6 +422,9 @@ func (*AgentRun) Diff(
 	}
 	if runBool(olds.OutputSecret) != runBool(news.OutputSecret) {
 		diff["outputSecret"] = p.PropertyDiff{Kind: p.Update, InputDiff: true}
+	}
+	if loggingOf(olds) != loggingOf(news) {
+		diff["logging"] = p.PropertyDiff{Kind: p.Update, InputDiff: true}
 	}
 	return infer.DiffResponse{HasChanges: len(diff) > 0, DetailedDiff: diff}, nil
 }
@@ -537,6 +486,7 @@ func (*AgentRun) WireDependencies(f infer.FieldSelector, args *AgentRunArgs, sta
 	f.OutputField(&state.Triggers).DependsOn(f.InputField(&args.Triggers))
 	f.OutputField(&state.OutputSecret).DependsOn(f.InputField(&args.OutputSecret))
 	f.OutputField(&state.AllowHookApprovals).DependsOn(f.InputField(&args.AllowHookApprovals))
+	f.OutputField(&state.Logging).DependsOn(f.InputField(&args.Logging))
 }
 
 func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunState, error) {
@@ -557,6 +507,19 @@ func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunStat
 	// debug output. A failed run reports its error instead.
 	var logs []runLogRecord
 	var logsMu sync.Mutex
+	// Progress is shown while the agent runs; the summary comes after the warnings.
+	logger := userLog(ctx)
+	var summary string
+	progress := func(pr agentrun.Progress) {
+		switch {
+		case pr.Summary:
+			summary = pr.Message
+		case pr.Persistent:
+			logger.Info(pr.Message)
+		default:
+			logger.InfoStatus(pr.Message)
+		}
+	}
 	res, err := agentrun.Run(ctx, agentrun.Request{
 		Name:               name,
 		YAML:               doc,
@@ -574,10 +537,12 @@ func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunStat
 			defer logsMu.Unlock()
 			logs = append(logs, runLogRecord{level, msg})
 		},
+		Progress:  progress,
+		Logging:   runLogging(args, rc),
+		HideNames: rc != nil && rc.namesSecret,
 	})
 	logsMu.Lock()
 	defer logsMu.Unlock()
-	logger := p.GetLogger(ctx)
 	for _, l := range logs {
 		if err == nil && l.level >= slog.LevelError {
 			logger.Warning("docker-agent: " + l.msg)
@@ -590,6 +555,9 @@ func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunStat
 	}
 	for _, w := range res.Warnings {
 		logger.Warning("docker-agent: " + w)
+	}
+	if summary != "" {
+		logger.Info(summary)
 	}
 	state.Output = res.Output
 	if rc != nil {
@@ -651,6 +619,23 @@ func toolApproval(a AgentRunArgs) ToolApproval {
 	return *a.ToolApproval
 }
 
+func loggingOf(a AgentRunArgs) Logging {
+	if a.Logging == nil || *a.Logging == "" {
+		return LoggingStatus
+	}
+	return *a.Logging
+}
+
+// runLogging returns the progress a run reports: `logging`, without the arguments, messages
+// and results of `tools` and `full` when the answer is secret.
+func runLogging(args AgentRunArgs, rc *runContext) agentrun.Logging {
+	level := loggingOf(args)
+	if rc != nil && rc.contentSecret && (level == LoggingTools || level == LoggingFull) {
+		level = LoggingStatus
+	}
+	return agentrun.Logging(level)
+}
+
 func timeoutOf(a AgentRunArgs) int {
 	if a.TimeoutSeconds == nil || *a.TimeoutSeconds <= 0 {
 		return int(agentrun.DefaultTimeout / time.Second)
@@ -677,6 +662,21 @@ type runContext struct {
 	secrets      []string
 	answerSecret bool
 	rerun        bool
+	// contentSecret and namesSecret keep secret content out of the progress messages: the
+	// answer is secret (outputSecret, a secret prompt or yaml), or the configuration's
+	// names are (a secret yaml or agent).
+	contentSecret, namesSecret bool
+}
+
+func newRunContext(inputs property.Map) *runContext {
+	outputSecret := inputs.Get("outputSecret")
+	yaml := inputs.Get("yaml").Secret()
+	return &runContext{
+		secrets: secretStrings(inputs),
+		contentSecret: (outputSecret.IsBool() && outputSecret.AsBool()) || outputSecret.Secret() || yaml ||
+			inputs.Get("prompt").Secret(),
+		namesSecret: yaml || inputs.Get("agent").Secret(),
+	}
 }
 
 type runContextKey struct{}
@@ -687,7 +687,7 @@ func runContextFrom(ctx context.Context) *runContext {
 }
 
 func (r agentRunResource) Create(ctx context.Context, req p.CreateRequest) (p.CreateResponse, error) {
-	rc := &runContext{secrets: secretStrings(req.Properties)}
+	rc := newRunContext(req.Properties)
 	resp, err := r.InferredResource.Create(context.WithValue(ctx, runContextKey{}, rc), req)
 	if err != nil {
 		return resp, err
@@ -701,7 +701,7 @@ func (r agentRunResource) Create(ctx context.Context, req p.CreateRequest) (p.Cr
 }
 
 func (r agentRunResource) Update(ctx context.Context, req p.UpdateRequest) (p.UpdateResponse, error) {
-	rc := &runContext{secrets: secretStrings(req.Inputs)}
+	rc := newRunContext(req.Inputs)
 	resp, err := r.InferredResource.Update(context.WithValue(ctx, runContextKey{}, rc), req)
 	if err != nil {
 		return resp, err

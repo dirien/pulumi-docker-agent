@@ -5,6 +5,8 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.HarnessEffort;
+import io.github.dirien.dockeragent.enums.HarnessType;
 import java.lang.Boolean;
 import java.lang.Object;
 import java.lang.String;
@@ -21,10 +23,10 @@ public final class Harness {
      */
     private @Nullable String agent;
     /**
-     * @return Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+     * @return Claude Code effort level forwarded as --effort.
      * 
      */
-    private @Nullable String effort;
+    private @Nullable HarnessEffort effort;
     /**
      * @return Additional fields that are not modelled by this provider version, merged verbatim into this object&#39;s YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
      * 
@@ -41,10 +43,10 @@ public final class Harness {
      */
     private @Nullable Boolean thinking;
     /**
-     * @return External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+     * @return External coding harness provider to use.
      * 
      */
-    private String type;
+    private HarnessType type;
 
     private Harness() {}
     /**
@@ -55,10 +57,10 @@ public final class Harness {
         return Optional.ofNullable(this.agent);
     }
     /**
-     * @return Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+     * @return Claude Code effort level forwarded as --effort.
      * 
      */
-    public Optional<String> effort() {
+    public Optional<HarnessEffort> effort() {
         return Optional.ofNullable(this.effort);
     }
     /**
@@ -83,10 +85,10 @@ public final class Harness {
         return Optional.ofNullable(this.thinking);
     }
     /**
-     * @return External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+     * @return External coding harness provider to use.
      * 
      */
-    public String type() {
+    public HarnessType type() {
         return this.type;
     }
 
@@ -100,11 +102,11 @@ public final class Harness {
     @CustomType.Builder
     public static final class Builder {
         private @Nullable String agent;
-        private @Nullable String effort;
+        private @Nullable HarnessEffort effort;
         private @Nullable Map<String,Object> extra;
         private @Nullable String model;
         private @Nullable Boolean thinking;
-        private String type;
+        private HarnessType type;
         public Builder() {}
         public Builder(Harness defaults) {
     	      Objects.requireNonNull(defaults);
@@ -123,7 +125,7 @@ public final class Harness {
             return this;
         }
         @CustomType.Setter
-        public Builder effort(@Nullable String effort) {
+        public Builder effort(@Nullable HarnessEffort effort) {
 
             this.effort = effort;
             return this;
@@ -147,7 +149,7 @@ public final class Harness {
             return this;
         }
         @CustomType.Setter
-        public Builder type(String type) {
+        public Builder type(HarnessType type) {
             if (type == null) {
               throw new MissingRequiredPropertyException("Harness", "type");
             }

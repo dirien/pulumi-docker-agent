@@ -1,0 +1,17 @@
+version: "16"
+agents:
+  root:
+    model: gpt-ws
+    description: Assistant using WebSocket streaming
+    instruction: |
+      You are a helpful assistant. Answer questions concisely.
+    toolsets:
+      - type: shell
+    commands:
+      demo: List the files in the current directory, then count how many are YAML files
+models:
+  gpt-ws:
+    provider: openai
+    model: gpt-4.1
+    provider_opts:
+      transport: websocket

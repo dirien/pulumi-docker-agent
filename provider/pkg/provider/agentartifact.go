@@ -37,7 +37,7 @@ pushes when ` + "`yaml`" + ` or ` + "`annotations`" + ` change, so ` + "`pulumi 
 manifest digest stays stable. A refresh detects when the tag was moved by someone else.
 
 Registry credentials come from the provider's ` + "`registryAuth`" + ` setting, falling back to the Docker
-credential store (` + "`docker login`" + `). Like the docker CLI, the provider tries HTTPS first and falls back to
+credential store (` + "`docker login`" + `). Like the ` + "`docker agent`" + ` CLI, the provider tries HTTPS first and falls back to
 plain HTTP for ` + "`localhost`" + `, ` + "`*.localhost`" + `, loopback and private (RFC 1918) addresses; set ` + "`insecure`" + ` for any
 other plain-HTTP or self-signed registry, and the provider's ` + "`forceHttps`" + ` option to forbid the private-address
 fallback.
@@ -46,84 +46,21 @@ With ` + "`deleteBehavior: delete`" + `, destroying the resource deletes the pus
 repository points to the same digest (two tags pushed with identical content in the same second) or the tags cannot
 be listed; the provider then keeps the artifact and logs a warning.
 
-{{% examples %}}
-## Example Usage
-{{% example %}}
-### Push an agent to a registry
+Unless ` + "`skipValidation`" + ` is set, the preview validates ` + "`yaml`" + ` with docker-agent and reports every independent
+problem at once. The artifact is readable by everyone who can pull it, so a secret ` + "`yaml`" + ` is pushed in
+plaintext; the provider warns about it.`
 
-` + "```typescript" + `
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-const assistant = new dockeragent.AgentConfig("assistant", {
-    agents: [{
-        name: "root",
-        model: "openai/gpt-5-mini",
-        instruction: "You are a helpful assistant. Answer briefly.",
-    }],
-});
-
-const artifact = new dockeragent.AgentArtifact("assistant", {
-    reference: "ghcr.io/my-org/agents/assistant:v1",
-    yaml: assistant.yaml,
-});
-
-// Run it with: docker agent run <pinnedReference>
-export const pinnedReference = artifact.pinnedReference;
-` + "```" + `
-` + "```python" + `
-import pulumi
-import ediri_docker_agent as dockeragent
-
-assistant = dockeragent.AgentConfig("assistant", agents=[{
-    "name": "root",
-    "model": "openai/gpt-5-mini",
-    "instruction": "You are a helpful assistant. Answer briefly.",
-}])
-
-artifact = dockeragent.AgentArtifact("assistant",
-    reference="ghcr.io/my-org/agents/assistant:v1",
-    yaml=assistant.yaml)
-
-pulumi.export("pinnedReference", artifact.pinned_reference)
-` + "```" + `
-` + "```yaml" + `
-resources:
-  assistant:
-    type: docker-agent:index:AgentConfig
-    properties:
-      agents:
-        - name: root
-          model: openai/gpt-5-mini
-          instruction: You are a helpful assistant. Answer briefly.
-  artifact:
-    type: docker-agent:index:AgentArtifact
-    properties:
-      reference: ghcr.io/my-org/agents/assistant:v1
-      yaml: ${assistant.yaml}
-outputs:
-  pinnedReference: ${artifact.pinnedReference}
-` + "```" + `
-{{% /example %}}
-{{% example %}}
-### Push an existing agent file
-
-` + "```typescript" + `
-import * as fs from "fs";
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-new dockeragent.AgentArtifact("pirate", {
-    reference: "localhost:5000/agents/pirate:latest",
-    yaml: fs.readFileSync("pirate.yaml", "utf8"),
-    annotations: { "org.opencontainers.image.source": "https://github.com/my-org/agents" },
-    deleteBehavior: "delete",
-});
-` + "```" + `
-{{% /example %}}
-{{% /examples %}}`
+var agentArtifactImportDoc = `An artifact pushed with ` + "`docker agent share push`" + ` (or by another stack) can be imported by its
+tag, ` + "`<registry>/<repository>:<tag>`" + `. ` + "`<registry>/<repository>:<tag>@sha256:<digest>`" + ` checks that the tag
+still points to that digest, and ` + "`<registry>/<repository>@sha256:<digest>`" + ` imports the one tag of the
+repository that points to it. The registry is read with the provider's ` + "`registryAuth`" + ` and the Docker
+credential store. The imported resource has the pushed ` + "`yaml`" + `, exactly as it is stored, the annotations the
+provider would not have set itself and ` + "`deleteBehavior: retain`" + `; its ID is the tag.` +
+	importCommand("docker-agent:index:AgentArtifact", "assistant", "ghcr.io/my-org/agents/assistant:v1")
 
 // Annotate describes the resource.
 func (r *AgentArtifact) Annotate(a infer.Annotator) {
-	a.Describe(&r, agentArtifactDoc)
+	a.Describe(&r, describe(agentArtifactDoc, agentArtifactExamples, agentArtifactImportDoc))
 }
 
 // DeleteBehavior controls what happens to a pushed artifact when the resource is deleted.
@@ -168,7 +105,7 @@ func (a *AgentArtifactArgs) Annotate(an infer.Annotator) {
 		"`org.opencontainers.image.created`.")
 	an.Describe(&a.Insecure, "Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used "+
 		"as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, "+
-		"172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option "+
+		"172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option "+
 		"turns that fallback off except for localhost and loopback.")
 	an.Describe(&a.DeleteBehavior, "What to do with the pushed manifest when the resource is deleted. "+
 		"Defaults to `retain`. With `delete`, the manifest is kept (with a warning) if another tag of the "+
@@ -211,10 +148,20 @@ func (*AgentArtifact) Check(
 		return infer.CheckResponse[AgentArtifactArgs]{Inputs: args, Failures: failures}, err
 	}
 
+	registry := "the registry"
 	if v := req.NewInputs.Get("reference"); !v.IsComputed() && !v.HasComputed() {
-		if _, err := ociagent.ParseTag(args.Reference, boolValue(args.Insecure)); err != nil {
+		tag, err := ociagent.ParseTag(args.Reference, boolValue(args.Insecure))
+		if err != nil {
 			failures = append(failures, p.CheckFailure{Property: "reference", Reason: err.Error()})
+		} else if !v.Secret() {
+			registry = tag.RegistryStr()
 		}
+	}
+	if req.NewInputs.Get("yaml").Secret() {
+		// Secrets stay encrypted in the state, but the artifact is pushed as it is.
+		userLog(ctx).Warning(fmt.Sprintf("`yaml` is secret: the configuration contains secret values and is pushed in "+
+			"plaintext to %s, where everyone who can pull the artifact can read them. Keep credentials out of the "+
+			"configuration with `${env.NAME}` placeholders, which docker-agent resolves when the agent runs.", registry))
 	}
 	for _, k := range slices.Sorted(maps.Keys(args.Annotations)) {
 		if slices.Contains(ociagent.ReservedAnnotations, k) {
@@ -307,22 +254,25 @@ func (*AgentArtifact) Update(
 // Read checks which digest the tag points to. When it moved, the state is updated from
 // the registry, so the next `pulumi up` pushes the configured YAML again if it differs.
 // When the tag is gone, the resource is reported as deleted. Read also implements
-// `pulumi import` with the reference as ID.
+// `pulumi import` with the tag (or a digest reference, see artifactImportReference) as ID.
 func (*AgentArtifact) Read(
 	ctx context.Context, req infer.ReadRequest[AgentArtifactArgs, AgentArtifactState],
 ) (infer.ReadResponse[AgentArtifactArgs, AgentArtifactState], error) {
-	ref := req.State.Reference
-	if ref == "" {
-		ref = req.Inputs.Reference
-	}
-	if ref == "" {
-		ref = req.ID
-	}
 	insecure := req.State.Insecure
 	if insecure == nil {
 		insecure = req.Inputs.Insecure
 	}
 	opts := registryOptions(ctx, insecure)
+	ref := req.State.Reference
+	if ref == "" {
+		ref = req.Inputs.Reference
+	}
+	if ref == "" {
+		var err error
+		if ref, err = artifactImportReference(ctx, req.ID, opts); err != nil {
+			return infer.ReadResponse[AgentArtifactArgs, AgentArtifactState]{}, err
+		}
+	}
 
 	digest, found, err := ociagent.Head(ctx, ref, opts)
 	if err != nil {
@@ -388,8 +338,9 @@ func (*AgentArtifact) Read(
 		state.ManifestAnnotations = map[string]string{}
 	}
 	id := req.ID
-	if id == "" {
-		id = ref
+	if id == "" || imported {
+		// The ID of an imported artifact is its tag, as for a created one.
+		id = normalizeReference(ref, insecure)
 	}
 	return infer.ReadResponse[AgentArtifactArgs, AgentArtifactState]{ID: id, Inputs: inputs, State: state}, nil
 }

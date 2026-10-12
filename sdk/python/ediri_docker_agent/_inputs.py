@@ -294,9 +294,9 @@ class AgentArgsDict(TypedDict):
     """
     Local agents that this agent's before_agent_run and after_agent_complete hooks may route to. Requires at least one of those hooks; the agent cannot route to itself or to harness agents, and the combined graph of possible routes and force_handoff edges must not contain a cycle.
     """
-    safety: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    safety: NotRequired[pulumi.Input[Optional['SafetyMode']]]
     """
-    Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+    Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
     """
     session_compaction: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -373,7 +373,7 @@ class AgentArgs:
                  readonly: pulumi.Input[Optional[_builtins.bool]] = None,
                  redact_secrets: pulumi.Input[Optional[_builtins.bool]] = None,
                  routing: pulumi.Input[Optional['AgentRoutingArgs']] = None,
-                 safety: pulumi.Input[Optional[_builtins.str]] = None,
+                 safety: pulumi.Input[Optional['SafetyMode']] = None,
                  session_compaction: pulumi.Input[Optional[_builtins.bool]] = None,
                  simple_commands: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  skills: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -418,7 +418,7 @@ class AgentArgs:
         :param pulumi.Input[_builtins.bool] readonly: When true, makes every one of this agent's toolsets read-only: only tools whose annotations carry a read-only hint are listed and callable, and all other (mutating) tools are filtered out. Equivalent to setting 'readonly: true' on each toolset. A sub-agent or handoff agent is made read-only by setting this flag on that agent's own definition.
         :param pulumi.Input[_builtins.bool] redact_secrets: Enabled by default. When true (the default), the runtime auto-installs the redact_secrets builtin on all three of tool_input_transform (scrubs detected secrets from tool arguments before approval), before_llm_call (scrubs the messages sent to the LLM), and tool_response_transform (scrubs tool output before it reaches event consumers, the persisted session, the post_tool_use hook input, or the next LLM call). Set to false to opt out. The same hook entries can be authored directly in YAML for finer-grained control — see the hooks.tool_response_transform / hooks.before_llm_call / hooks.tool_input_transform sections. Detection uses the portcullis ruleset (GitHub PATs, AWS keys, Stripe / Slack / GitLab tokens, JWTs, private keys, etc.). Each detected span is replaced with the literal '[REDACTED]'.
         :param pulumi.Input['AgentRoutingArgs'] routing: Local agents that this agent's before_agent_run and after_agent_complete hooks may route to. Requires at least one of those hooks; the agent cannot route to itself or to harness agents, and the combined graph of possible routes and force_handoff edges must not contain a cycle.
-        :param pulumi.Input[_builtins.str] safety: Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        :param pulumi.Input['SafetyMode'] safety: Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         :param pulumi.Input[_builtins.bool] session_compaction: Enabled by default. When true (the default), the runtime automatically compacts the session: proactively when the estimated context usage crosses the compaction threshold, and reactively to recover from a context-overflow error. Set to false to disable both automatic triggers for this agent; the manual /compact command remains available.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] simple_commands: Named commands in the short form `name: instruction`: the string is the prompt sent to the agent. Rendered into the same `commands` map as `commands`; a name must not appear in both.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] skills: Skill sources and names: `local` (skills discovered on the local filesystem; `["local"]` is the same as `skills: true`), HTTP/HTTPS URLs of remote skill sources, or names of skills to include. Rendered into the `skills` list together with `inlineSkills`.
@@ -888,14 +888,14 @@ class AgentArgs:
 
     @_builtins.property
     @pulumi.getter
-    def safety(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def safety(self) -> pulumi.Input[Optional['SafetyMode']]:
         """
-        Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         """
         return pulumi.get(self, "safety")
 
     @safety.setter
-    def safety(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def safety(self, value: pulumi.Input[Optional['SafetyMode']]):
         pulumi.set(self, "safety", value)
 
     @_builtins.property
@@ -1194,9 +1194,9 @@ class ApiConfigArgsDict(TypedDict):
     """
     API endpoint URL
     """
-    method: pulumi.Input[_builtins.str]
+    method: pulumi.Input['HttpMethod']
     """
-    HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+    HTTP method.
     """
     name: pulumi.Input[_builtins.str]
     """
@@ -1231,7 +1231,7 @@ class ApiConfigArgsDict(TypedDict):
 class ApiConfigArgs:
     def __init__(__self__, *,
                  endpoint: pulumi.Input[_builtins.str],
-                 method: pulumi.Input[_builtins.str],
+                 method: pulumi.Input['HttpMethod'],
                  name: pulumi.Input[_builtins.str],
                  args: pulumi.Input[Optional[Mapping[str, pulumi.Input['ApiArgArgs']]]] = None,
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None,
@@ -1243,7 +1243,7 @@ class ApiConfigArgs:
         API tool configuration for making HTTP requests to external APIs
 
         :param pulumi.Input[_builtins.str] endpoint: API endpoint URL
-        :param pulumi.Input[_builtins.str] method: HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+        :param pulumi.Input['HttpMethod'] method: HTTP method.
         :param pulumi.Input[_builtins.str] name: Name of the API tool
         :param pulumi.Input[Mapping[str, pulumi.Input['ApiArgArgs']]] args: Arguments schema for the API call
         :param pulumi.Input[Mapping[str, Any]] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
@@ -1282,14 +1282,14 @@ class ApiConfigArgs:
 
     @_builtins.property
     @pulumi.getter
-    def method(self) -> pulumi.Input[_builtins.str]:
+    def method(self) -> pulumi.Input['HttpMethod']:
         """
-        HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+        HTTP method.
         """
         return pulumi.get(self, "method")
 
     @method.setter
-    def method(self, value: pulumi.Input[_builtins.str]):
+    def method(self, value: pulumi.Input['HttpMethod']):
         pulumi.set(self, "method", value)
 
     @_builtins.property
@@ -1769,9 +1769,9 @@ class EvaluatorArgsDict(TypedDict):
     """
     Evaluator backend (typesafe or openai Decisions), or a named provider.
     """
-    type: pulumi.Input[_builtins.str]
+    type: pulumi.Input['EvaluatorType']
     """
-    The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+    The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
     """
     base_url: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -1816,7 +1816,7 @@ class EvaluatorArgs:
                  instructions: pulumi.Input[_builtins.str],
                  model: pulumi.Input[_builtins.str],
                  provider: pulumi.Input[_builtins.str],
-                 type: pulumi.Input[_builtins.str],
+                 type: pulumi.Input['EvaluatorType'],
                  base_url: pulumi.Input[Optional[_builtins.str]] = None,
                  bypass_models_gateway: pulumi.Input[Optional[_builtins.bool]] = None,
                  choices: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -1832,7 +1832,7 @@ class EvaluatorArgs:
         :param pulumi.Input[_builtins.str] instructions: The instructions the evaluator assesses the input with.
         :param pulumi.Input[_builtins.str] model: The evaluator model of the provider.
         :param pulumi.Input[_builtins.str] provider: Evaluator backend (typesafe or openai Decisions), or a named provider.
-        :param pulumi.Input[_builtins.str] type: The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+        :param pulumi.Input['EvaluatorType'] type: The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
         :param pulumi.Input[_builtins.str] base_url: API base URL. TypeSafe defaults to https://api.typesafe.ai with /v1/systemone; OpenAI defaults to https://api.openai.com/v1 with /decisions.
         :param pulumi.Input[_builtins.bool] bypass_models_gateway: Connect directly even when a models gateway is configured. Custom base_url and endpoint do not implicitly bypass the gateway.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] choices: For `type: choice`: the possible outcomes, keyed by name, with a description of when each applies (2 to 255).
@@ -1904,14 +1904,14 @@ class EvaluatorArgs:
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> pulumi.Input[_builtins.str]:
+    def type(self) -> pulumi.Input['EvaluatorType']:
         """
-        The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+        The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
         """
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: pulumi.Input[_builtins.str]):
+    def type(self, value: pulumi.Input['EvaluatorType']):
         pulumi.set(self, "type", value)
 
     @_builtins.property
@@ -2027,13 +2027,13 @@ class EvaluatorPolicyArgsDict(TypedDict):
     """
     Maps an evaluator's decisions to tool approval outcomes (`allow`, `ask`, `deny`) for `tool_guard` hooks.
     """
-    decisions: pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]
+    decisions: pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]]
     """
-    Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+    Choice keys (or true/false for booleans) mapped to guard decisions.
     """
-    fallback: pulumi.Input[_builtins.str]
+    fallback: pulumi.Input['EvaluatorFallback']
     """
-    Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+    Decision for uncertainty or unmapped outcomes; provider failures always block.
     """
     min_probability: pulumi.Input[_builtins.float]
     """
@@ -2047,15 +2047,15 @@ class EvaluatorPolicyArgsDict(TypedDict):
 @pulumi.input_type
 class EvaluatorPolicyArgs:
     def __init__(__self__, *,
-                 decisions: pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]],
-                 fallback: pulumi.Input[_builtins.str],
+                 decisions: pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]],
+                 fallback: pulumi.Input['EvaluatorFallback'],
                  min_probability: pulumi.Input[_builtins.float],
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None):
         """
         Maps an evaluator's decisions to tool approval outcomes (`allow`, `ask`, `deny`) for `tool_guard` hooks.
 
-        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] decisions: Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
-        :param pulumi.Input[_builtins.str] fallback: Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+        :param pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]] decisions: Choice keys (or true/false for booleans) mapped to guard decisions.
+        :param pulumi.Input['EvaluatorFallback'] fallback: Decision for uncertainty or unmapped outcomes; provider failures always block.
         :param pulumi.Input[_builtins.float] min_probability: Minimum selected-outcome probability to apply its mapping; not the confidence metric.
         :param pulumi.Input[Mapping[str, Any]] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         """
@@ -2067,26 +2067,26 @@ class EvaluatorPolicyArgs:
 
     @_builtins.property
     @pulumi.getter
-    def decisions(self) -> pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]:
+    def decisions(self) -> pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]]:
         """
-        Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+        Choice keys (or true/false for booleans) mapped to guard decisions.
         """
         return pulumi.get(self, "decisions")
 
     @decisions.setter
-    def decisions(self, value: pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]):
+    def decisions(self, value: pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]]):
         pulumi.set(self, "decisions", value)
 
     @_builtins.property
     @pulumi.getter
-    def fallback(self) -> pulumi.Input[_builtins.str]:
+    def fallback(self) -> pulumi.Input['EvaluatorFallback']:
         """
-        Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+        Decision for uncertainty or unmapped outcomes; provider failures always block.
         """
         return pulumi.get(self, "fallback")
 
     @fallback.setter
-    def fallback(self, value: pulumi.Input[_builtins.str]):
+    def fallback(self, value: pulumi.Input['EvaluatorFallback']):
         pulumi.set(self, "fallback", value)
 
     @_builtins.property
@@ -2212,17 +2212,17 @@ class HarnessArgsDict(TypedDict):
     """
     Configuration for running an agent through an external coding-agent CLI via github.com/rumpl/harness
     """
-    type: pulumi.Input[_builtins.str]
+    type: pulumi.Input['HarnessType']
     """
-    External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+    External coding harness provider to use.
     """
     agent: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     opencode agent name forwarded as --agent
     """
-    effort: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    effort: NotRequired[pulumi.Input[Optional['HarnessEffort']]]
     """
-    Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+    Claude Code effort level forwarded as --effort.
     """
     extra: NotRequired[pulumi.Input[Optional[Mapping[str, Any]]]]
     """
@@ -2240,18 +2240,18 @@ class HarnessArgsDict(TypedDict):
 @pulumi.input_type
 class HarnessArgs:
     def __init__(__self__, *,
-                 type: pulumi.Input[_builtins.str],
+                 type: pulumi.Input['HarnessType'],
                  agent: pulumi.Input[Optional[_builtins.str]] = None,
-                 effort: pulumi.Input[Optional[_builtins.str]] = None,
+                 effort: pulumi.Input[Optional['HarnessEffort']] = None,
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None,
                  model: pulumi.Input[Optional[_builtins.str]] = None,
                  thinking: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         Configuration for running an agent through an external coding-agent CLI via github.com/rumpl/harness
 
-        :param pulumi.Input[_builtins.str] type: External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+        :param pulumi.Input['HarnessType'] type: External coding harness provider to use.
         :param pulumi.Input[_builtins.str] agent: opencode agent name forwarded as --agent
-        :param pulumi.Input[_builtins.str] effort: Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+        :param pulumi.Input['HarnessEffort'] effort: Claude Code effort level forwarded as --effort.
         :param pulumi.Input[Mapping[str, Any]] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param pulumi.Input[_builtins.str] model: Optional model name passed to the external harness. When omitted, the external CLI uses its own default model.
         :param pulumi.Input[_builtins.bool] thinking: Enable opencode thinking output
@@ -2270,14 +2270,14 @@ class HarnessArgs:
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> pulumi.Input[_builtins.str]:
+    def type(self) -> pulumi.Input['HarnessType']:
         """
-        External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+        External coding harness provider to use.
         """
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: pulumi.Input[_builtins.str]):
+    def type(self, value: pulumi.Input['HarnessType']):
         pulumi.set(self, "type", value)
 
     @_builtins.property
@@ -2294,14 +2294,14 @@ class HarnessArgs:
 
     @_builtins.property
     @pulumi.getter
-    def effort(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def effort(self) -> pulumi.Input[Optional['HarnessEffort']]:
         """
-        Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+        Claude Code effort level forwarded as --effort.
         """
         return pulumi.get(self, "effort")
 
     @effort.setter
-    def effort(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def effort(self, value: pulumi.Input[Optional['HarnessEffort']]):
         pulumi.set(self, "effort", value)
 
     @_builtins.property
@@ -2345,9 +2345,9 @@ class HookDefinitionArgsDict(TypedDict):
     """
     Definition of a lifecycle hook
     """
-    type: pulumi.Input[_builtins.str]
+    type: pulumi.Input['HookType']
     """
-    Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
+    Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
     """
     args: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -2381,9 +2381,9 @@ class HookDefinitionArgsDict(TypedDict):
     """
     Optional friendly hook name used in logs and runtime hook events.
     """
-    on_error: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    on_error: NotRequired[pulumi.Input[Optional['HookErrorPolicy']]]
     """
-    Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
+    Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
     """
     prompt: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -2417,7 +2417,7 @@ class HookDefinitionArgsDict(TypedDict):
 @pulumi.input_type
 class HookDefinitionArgs:
     def __init__(__self__, *,
-                 type: pulumi.Input[_builtins.str],
+                 type: pulumi.Input['HookType'],
                  args: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  command: pulumi.Input[Optional[_builtins.str]] = None,
                  env: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -2426,7 +2426,7 @@ class HookDefinitionArgs:
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None,
                  model: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 on_error: pulumi.Input[Optional[_builtins.str]] = None,
+                 on_error: pulumi.Input[Optional['HookErrorPolicy']] = None,
                  prompt: pulumi.Input[Optional[_builtins.str]] = None,
                  routing_policy: pulumi.Input[Optional['RoutingPolicyArgs']] = None,
                  schema: pulumi.Input[Optional[_builtins.str]] = None,
@@ -2437,7 +2437,7 @@ class HookDefinitionArgs:
         """
         Definition of a lifecycle hook
 
-        :param pulumi.Input[_builtins.str] type: Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
+        :param pulumi.Input['HookType'] type: Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] args: Arbitrary string arguments passed to the hook handler. Builtin handlers receive them as a typed parameter; e.g. 'add_context' takes Go text/template strings using hook input fields such as {{ .SessionID }}, 'add_prompt_files' takes the list of prompt files to load, 'add_recent_commits' optionally takes a positive integer commit limit, 'add_git_diff' accepts 'full' to emit the full unified diff, and 'max_iterations' takes a positive integer call limit.
         :param pulumi.Input[_builtins.str] command: Shell command (type=command) or builtin name (type=builtin) to invoke. Command hooks receive JSON input via stdin with tool/session information. Ignored when type=model.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] env: Environment variables to add or override for this hook only. Values expand the plain ${env.VAR} form from the OS environment; any other $ is kept literal.
@@ -2446,7 +2446,7 @@ class HookDefinitionArgs:
         :param pulumi.Input[Mapping[str, Any]] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param pulumi.Input[_builtins.str] model: Model spec ('provider/model', e.g. 'openai/gpt-4o-mini') invoked by type=model hooks. Required for that type, ignored otherwise.
         :param pulumi.Input[_builtins.str] name: Optional friendly hook name used in logs and runtime hook events.
-        :param pulumi.Input[_builtins.str] on_error: Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
+        :param pulumi.Input['HookErrorPolicy'] on_error: Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
         :param pulumi.Input[_builtins.str] prompt: User-message template rendered for each invocation of a type=model hook. Parsed as a Go text/template with the hook Input as the data context: {{ .ToolName }}, {{ .ToolInput }}, {{ .StopResponse }}, etc. Required for type=model.
         :param pulumi.Input['RoutingPolicyArgs'] routing_policy: Maps a choice evaluator's outcomes to agents. Kept apart from the evaluator so the same assessment can drive different actions.
         :param pulumi.Input[_builtins.str] schema: Well-known response interpretation for type=model hooks. Empty: return the model's reply as additional_context. 'pre_tool_use_decision': ask the model for {decision, reason} JSON and produce a permission_decision verdict (allow|ask|deny).
@@ -2491,14 +2491,14 @@ class HookDefinitionArgs:
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> pulumi.Input[_builtins.str]:
+    def type(self) -> pulumi.Input['HookType']:
         """
-        Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
+        Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
         """
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: pulumi.Input[_builtins.str]):
+    def type(self, value: pulumi.Input['HookType']):
         pulumi.set(self, "type", value)
 
     @_builtins.property
@@ -2599,14 +2599,14 @@ class HookDefinitionArgs:
 
     @_builtins.property
     @pulumi.getter(name="onError")
-    def on_error(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def on_error(self) -> pulumi.Input[Optional['HookErrorPolicy']]:
         """
-        Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
+        Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
         """
         return pulumi.get(self, "on_error")
 
     @on_error.setter
-    def on_error(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def on_error(self, value: pulumi.Input[Optional['HookErrorPolicy']]):
         pulumi.set(self, "on_error", value)
 
     @_builtins.property
@@ -3806,17 +3806,17 @@ class LifecycleArgsDict(TypedDict):
     """
     Maximum number of consecutive restart attempts after a disconnect. 0 = use profile default (5). -1 = unlimited.
     """
-    profile: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    profile: NotRequired[pulumi.Input[Optional['LifecycleProfile']]]
     """
-    Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+    Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
     """
     required: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
     Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.
     """
-    restart: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    restart: NotRequired[pulumi.Input[Optional['RestartPolicy']]]
     """
-    How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+    How the supervisor reacts to an unexpected disconnect.
     """
     startup_timeout: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -3830,9 +3830,9 @@ class LifecycleArgs:
                  call_timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None,
                  max_restarts: pulumi.Input[Optional[_builtins.int]] = None,
-                 profile: pulumi.Input[Optional[_builtins.str]] = None,
+                 profile: pulumi.Input[Optional['LifecycleProfile']] = None,
                  required: pulumi.Input[Optional[_builtins.bool]] = None,
-                 restart: pulumi.Input[Optional[_builtins.str]] = None,
+                 restart: pulumi.Input[Optional['RestartPolicy']] = None,
                  startup_timeout: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Controls how the agent supervises a long-running toolset process (MCP server, remote MCP, LSP server). All fields are optional; pick a profile that matches your taste and override individual knobs as needed.
@@ -3841,9 +3841,9 @@ class LifecycleArgs:
         :param pulumi.Input[_builtins.str] call_timeout: Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
         :param pulumi.Input[Mapping[str, Any]] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param pulumi.Input[_builtins.int] max_restarts: Maximum number of consecutive restart attempts after a disconnect. 0 = use profile default (5). -1 = unlimited.
-        :param pulumi.Input[_builtins.str] profile: Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+        :param pulumi.Input['LifecycleProfile'] profile: Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
         :param pulumi.Input[_builtins.bool] required: Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.
-        :param pulumi.Input[_builtins.str] restart: How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+        :param pulumi.Input['RestartPolicy'] restart: How the supervisor reacts to an unexpected disconnect.
         :param pulumi.Input[_builtins.str] startup_timeout: Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. '30s', '2m'). 0 means no timeout.
         """
         if backoff is not None:
@@ -3913,14 +3913,14 @@ class LifecycleArgs:
 
     @_builtins.property
     @pulumi.getter
-    def profile(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def profile(self) -> pulumi.Input[Optional['LifecycleProfile']]:
         """
-        Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+        Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
         """
         return pulumi.get(self, "profile")
 
     @profile.setter
-    def profile(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def profile(self, value: pulumi.Input[Optional['LifecycleProfile']]):
         pulumi.set(self, "profile", value)
 
     @_builtins.property
@@ -3937,14 +3937,14 @@ class LifecycleArgs:
 
     @_builtins.property
     @pulumi.getter
-    def restart(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def restart(self) -> pulumi.Input[Optional['RestartPolicy']]:
         """
-        How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+        How the supervisor reacts to an unexpected disconnect.
         """
         return pulumi.get(self, "restart")
 
     @restart.setter
-    def restart(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def restart(self, value: pulumi.Input[Optional['RestartPolicy']]):
         pulumi.set(self, "restart", value)
 
     @_builtins.property
@@ -5610,9 +5610,9 @@ class ProviderDefArgsDict(TypedDict):
     """
     Configuration for a model provider. Defines reusable defaults that models can inherit by referencing the provider name. Supports any provider type (openai, anthropic, google, amazon-bedrock, etc.).
     """
-    api_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    api_type: NotRequired[pulumi.Input[Optional['ApiType']]]
     """
-    The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+    The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
     """
     auth: NotRequired[pulumi.Input[Optional['ModelAuthArgsDict']]]
     """
@@ -5690,7 +5690,7 @@ class ProviderDefArgsDict(TypedDict):
 @pulumi.input_type
 class ProviderDefArgs:
     def __init__(__self__, *,
-                 api_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 api_type: pulumi.Input[Optional['ApiType']] = None,
                  auth: pulumi.Input[Optional['ModelAuthArgs']] = None,
                  base_url: pulumi.Input[Optional[_builtins.str]] = None,
                  compaction_model: pulumi.Input[Optional[_builtins.str]] = None,
@@ -5712,7 +5712,7 @@ class ProviderDefArgs:
         """
         Configuration for a model provider. Defines reusable defaults that models can inherit by referencing the provider name. Supports any provider type (openai, anthropic, google, amazon-bedrock, etc.).
 
-        :param pulumi.Input[_builtins.str] api_type: The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+        :param pulumi.Input['ApiType'] api_type: The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
         :param pulumi.Input['ModelAuthArgs'] auth: Non-API-key authentication scheme. When set, the provider's regular API-key path is bypassed.
         :param pulumi.Input[_builtins.str] base_url: Base URL for the provider's API endpoint. Required for OpenAI-compatible providers, optional for native providers. Accepts ${env.VAR} / ${VAR} references, substituted from the environment when a model using this provider is loaded.
         :param pulumi.Input[_builtins.str] compaction_model: Default model used to summarize the conversation when the session of an agent whose model uses this provider is compacted. Value can be a model name from the models section or an inline 'provider/model' spec. Lowest priority in the resolution chain: an agent-level compaction_model wins, then a model-level one, then this provider-level default; when all are omitted, compaction reuses the agent's own model.
@@ -5773,14 +5773,14 @@ class ProviderDefArgs:
 
     @_builtins.property
     @pulumi.getter(name="apiType")
-    def api_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def api_type(self) -> pulumi.Input[Optional['ApiType']]:
         """
-        The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+        The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
         """
         return pulumi.get(self, "api_type")
 
     @api_type.setter
-    def api_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def api_type(self, value: pulumi.Input[Optional['ApiType']]):
         pulumi.set(self, "api_type", value)
 
     @_builtins.property
@@ -6279,9 +6279,9 @@ class RagFusionArgsDict(TypedDict):
     """
     RRF smoothing parameter k (only for RRF strategy) Defaults to `60`.
     """
-    strategy: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    strategy: NotRequired[pulumi.Input[Optional['RagFusionStrategy']]]
     """
-    Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+    Fusion strategy to use. Defaults to `rrf`.
     """
     weights: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.float]]]]]
     """
@@ -6293,14 +6293,14 @@ class RagFusionArgs:
     def __init__(__self__, *,
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None,
                  k: pulumi.Input[Optional[_builtins.int]] = None,
-                 strategy: pulumi.Input[Optional[_builtins.str]] = None,
+                 strategy: pulumi.Input[Optional['RagFusionStrategy']] = None,
                  weights: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.float]]]] = None):
         """
         Configuration for combining results from multiple strategies. If omitted and multiple strategies are configured, Reciprocal Rank Fusion (rrf) with k=60 is used.
 
         :param pulumi.Input[Mapping[str, Any]] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param pulumi.Input[_builtins.int] k: RRF smoothing parameter k (only for RRF strategy) Defaults to `60`.
-        :param pulumi.Input[_builtins.str] strategy: Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+        :param pulumi.Input['RagFusionStrategy'] strategy: Fusion strategy to use. Defaults to `rrf`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.float]]] weights: Strategy weights for weighted fusion (strategy name -> weight)
         """
         if extra is not None:
@@ -6338,14 +6338,14 @@ class RagFusionArgs:
 
     @_builtins.property
     @pulumi.getter
-    def strategy(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def strategy(self) -> pulumi.Input[Optional['RagFusionStrategy']]:
         """
-        Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+        Fusion strategy to use. Defaults to `rrf`.
         """
         return pulumi.get(self, "strategy")
 
     @strategy.setter
-    def strategy(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def strategy(self, value: pulumi.Input[Optional['RagFusionStrategy']]):
         pulumi.set(self, "strategy", value)
 
     @_builtins.property
@@ -6885,9 +6885,9 @@ class RagStrategyArgsDict(TypedDict):
     """
     Retrieval strategy configuration with type-specific parameters. Structured fields are limited; additional parameters are passed through as-is for strategy-specific use.
     """
-    type: pulumi.Input[_builtins.str]
+    type: pulumi.Input['RagStrategyType']
     """
-    Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+    Retrieval strategy type.
     """
     ast_context: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -6965,7 +6965,7 @@ class RagStrategyArgsDict(TypedDict):
 @pulumi.input_type
 class RagStrategyArgs:
     def __init__(__self__, *,
-                 type: pulumi.Input[_builtins.str],
+                 type: pulumi.Input['RagStrategyType'],
                  ast_context: pulumi.Input[Optional[_builtins.bool]] = None,
                  b: pulumi.Input[Optional[_builtins.float]] = None,
                  chat_model: pulumi.Input[Optional[_builtins.str]] = None,
@@ -6987,7 +6987,7 @@ class RagStrategyArgs:
         """
         Retrieval strategy configuration with type-specific parameters. Structured fields are limited; additional parameters are passed through as-is for strategy-specific use.
 
-        :param pulumi.Input[_builtins.str] type: Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+        :param pulumi.Input['RagStrategyType'] type: Retrieval strategy type.
         :param pulumi.Input[_builtins.bool] ast_context: Include TreeSitter-derived AST metadata in the semantic prompt (semantic-embeddings only, requires chunking.code_aware for best results) Defaults to `false`.
         :param pulumi.Input[_builtins.float] b: BM25 length normalization (bm25 only, 0-1, typically 0.75)
         :param pulumi.Input[_builtins.str] chat_model: Chat model used to generate semantic representations for each chunk (semantic-embeddings only, required)
@@ -7047,14 +7047,14 @@ class RagStrategyArgs:
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> pulumi.Input[_builtins.str]:
+    def type(self) -> pulumi.Input['RagStrategyType']:
         """
-        Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+        Retrieval strategy type.
         """
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: pulumi.Input[_builtins.str]):
+    def type(self, value: pulumi.Input['RagStrategyType']):
         pulumi.set(self, "type", value)
 
     @_builtins.property
@@ -7958,9 +7958,9 @@ class RuntimeDefaultsArgsDict(TypedDict):
     """
     Hosts to add to the sandbox's default-deny network proxy when this agent runs in a sandbox. Each entry is a hostname with an optional ':port' suffix (e.g. 'api.example.com', 'registry.npmjs.org:443'). Unioned with the gateway and tool-install hosts the runner already opens automatically. Use this for hosts the auto-installer can't infer (custom MCP endpoints, third-party APIs, registries not covered by the aqua resolver) instead of relying on the wider fallback host set.
     """
-    safety: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    safety: NotRequired[pulumi.Input[Optional['SafetyMode']]]
     """
-    Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+    Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
     """
     sandbox: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -7972,14 +7972,14 @@ class RuntimeDefaultsArgs:
     def __init__(__self__, *,
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None,
                  network_allowlist: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 safety: pulumi.Input[Optional[_builtins.str]] = None,
+                 safety: pulumi.Input[Optional['SafetyMode']] = None,
                  sandbox: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         Execution-time defaults baked into the agent config. Values act as defaults only; explicit CLI flags and user-config settings still take precedence.
 
         :param pulumi.Input[Mapping[str, Any]] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] network_allowlist: Hosts to add to the sandbox's default-deny network proxy when this agent runs in a sandbox. Each entry is a hostname with an optional ':port' suffix (e.g. 'api.example.com', 'registry.npmjs.org:443'). Unioned with the gateway and tool-install hosts the runner already opens automatically. Use this for hosts the auto-installer can't infer (custom MCP endpoints, third-party APIs, registries not covered by the aqua resolver) instead of relying on the wider fallback host set.
-        :param pulumi.Input[_builtins.str] safety: Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        :param pulumi.Input['SafetyMode'] safety: Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         :param pulumi.Input[_builtins.bool] sandbox: When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
         """
         if extra is not None:
@@ -8017,14 +8017,14 @@ class RuntimeDefaultsArgs:
 
     @_builtins.property
     @pulumi.getter
-    def safety(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def safety(self) -> pulumi.Input[Optional['SafetyMode']]:
         """
-        Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         """
         return pulumi.get(self, "safety")
 
     @safety.setter
-    def safety(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def safety(self, value: pulumi.Input[Optional['SafetyMode']]):
         pulumi.set(self, "safety", value)
 
     @_builtins.property
@@ -8268,9 +8268,9 @@ class StructuredOutputArgsDict(TypedDict):
     """
     Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
     """
-    mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    mode: NotRequired[pulumi.Input[Optional['StructuredOutputMode']]]
     """
-    How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+    How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
     """
     strict: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -8284,7 +8284,7 @@ class StructuredOutputArgs:
                  schema: pulumi.Input[Mapping[str, Any]],
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None,
-                 mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 mode: pulumi.Input[Optional['StructuredOutputMode']] = None,
                  strict: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         Structured output configuration for constraining model responses to a specific JSON schema. Supported by OpenAI (native) and Google Gemini (native). Anthropic requires prompt engineering or tool-based approaches.
@@ -8293,7 +8293,7 @@ class StructuredOutputArgs:
         :param pulumi.Input[Mapping[str, Any]] schema: JSON Schema object defining the structure of the response. Must include type, properties, and required fields.
         :param pulumi.Input[_builtins.str] description: Optional description of what the schema represents
         :param pulumi.Input[Mapping[str, Any]] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
-        :param pulumi.Input[_builtins.str] mode: How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+        :param pulumi.Input['StructuredOutputMode'] mode: How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
         :param pulumi.Input[_builtins.bool] strict: Enable strict schema adherence (OpenAI only). When true, all properties must be in required array. Defaults to `false`.
         """
         pulumi.set(__self__, "name", name)
@@ -8357,14 +8357,14 @@ class StructuredOutputArgs:
 
     @_builtins.property
     @pulumi.getter
-    def mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def mode(self) -> pulumi.Input[Optional['StructuredOutputMode']]:
         """
-        How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+        How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
         """
         return pulumi.get(self, "mode")
 
     @mode.setter
-    def mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def mode(self, value: pulumi.Input[Optional['StructuredOutputMode']]):
         pulumi.set(self, "mode", value)
 
     @_builtins.property
@@ -9272,7 +9272,7 @@ class UserAliasArgsDict(TypedDict):
     """
     Override the agent's model, in the format `[agent=]provider/model`.
     """
-    safety: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    safety: NotRequired[pulumi.Input[Optional['SafetyMode']]]
     """
     The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
     """
@@ -9291,7 +9291,7 @@ class UserAliasArgs:
                  path: pulumi.Input[_builtins.str],
                  hide_tool_results: pulumi.Input[Optional[_builtins.bool]] = None,
                  model: pulumi.Input[Optional[_builtins.str]] = None,
-                 safety: pulumi.Input[Optional[_builtins.str]] = None,
+                 safety: pulumi.Input[Optional['SafetyMode']] = None,
                  sandbox: pulumi.Input[Optional[_builtins.bool]] = None,
                  yolo: pulumi.Input[Optional[_builtins.bool]] = None):
         """
@@ -9300,7 +9300,7 @@ class UserAliasArgs:
         :param pulumi.Input[_builtins.str] path: The agent file path or OCI reference, for example `./agent.yaml` or `docker.io/myorg/agent:latest`.
         :param pulumi.Input[_builtins.bool] hide_tool_results: Hide tool call results in the TUI when running the alias.
         :param pulumi.Input[_builtins.str] model: Override the agent's model, in the format `[agent=]provider/model`.
-        :param pulumi.Input[_builtins.str] safety: The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
+        :param pulumi.Input['SafetyMode'] safety: The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
         :param pulumi.Input[_builtins.bool] sandbox: Run the alias inside a Docker sandbox by default.
         :param pulumi.Input[_builtins.bool] yolo: Auto-approve every tool call when running the alias. Legacy alias for `safety: autonomous`.
         """
@@ -9354,14 +9354,14 @@ class UserAliasArgs:
 
     @_builtins.property
     @pulumi.getter
-    def safety(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def safety(self) -> pulumi.Input[Optional['SafetyMode']]:
         """
         The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
         """
         return pulumi.get(self, "safety")
 
     @safety.setter
-    def safety(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def safety(self, value: pulumi.Input[Optional['SafetyMode']]):
         pulumi.set(self, "safety", value)
 
     @_builtins.property
@@ -9758,7 +9758,7 @@ class UserGlobalSettingsArgsDict(TypedDict):
     """
     The `settings:` block of the docker-agent user configuration: preferences that apply to every agent you run. Every field is optional; unset fields use docker-agent's defaults. See https://docs.docker.com/ai/docker-agent/configuration/user-settings/.
     """
-    busy_send_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    busy_send_mode: NotRequired[pulumi.Input[Optional['BusySendMode']]]
     """
     What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
     """
@@ -9782,7 +9782,7 @@ class UserGlobalSettingsArgsDict(TypedDict):
     """
     Global lifecycle hooks that run for every agent, in addition to the agent's own hooks, `hooks.d/` drop-ins and `--hook-*` flags.
     """
-    interrupt_confirmation: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    interrupt_confirmation: NotRequired[pulumi.Input[Optional['InterruptConfirmation']]]
     """
     How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
     """
@@ -9810,7 +9810,7 @@ class UserGlobalSettingsArgsDict(TypedDict):
     """
     Restore previously open tabs when the TUI starts (`restore_tabs`, default `false`).
     """
-    safety: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    safety: NotRequired[pulumi.Input[Optional['SafetyMode']]]
     """
     The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
     """
@@ -9862,20 +9862,20 @@ class UserGlobalSettingsArgsDict(TypedDict):
 @pulumi.input_type
 class UserGlobalSettingsArgs:
     def __init__(__self__, *,
-                 busy_send_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 busy_send_mode: pulumi.Input[Optional['BusySendMode']] = None,
                  cache_stable_prompts: pulumi.Input[Optional[_builtins.bool]] = None,
                  expand_thinking: pulumi.Input[Optional[_builtins.bool]] = None,
                  extra: pulumi.Input[Optional[Mapping[str, Any]]] = None,
                  hide_tool_results: pulumi.Input[Optional[_builtins.bool]] = None,
                  hooks: pulumi.Input[Optional['UserHooksArgs']] = None,
-                 interrupt_confirmation: pulumi.Input[Optional[_builtins.str]] = None,
+                 interrupt_confirmation: pulumi.Input[Optional['InterruptConfirmation']] = None,
                  keybindings: pulumi.Input[Optional[Sequence[pulumi.Input['UserKeybindingArgs']]]] = None,
                  layout: pulumi.Input[Optional['UserLayoutSettingsArgs']] = None,
                  lean: pulumi.Input[Optional[_builtins.bool]] = None,
                  permissions: pulumi.Input[Optional['UserPermissionsArgs']] = None,
                  render_images: pulumi.Input[Optional[_builtins.bool]] = None,
                  restore_tabs: pulumi.Input[Optional[_builtins.bool]] = None,
-                 safety: pulumi.Input[Optional[_builtins.str]] = None,
+                 safety: pulumi.Input[Optional['SafetyMode']] = None,
                  show_banner: pulumi.Input[Optional[_builtins.bool]] = None,
                  snapshot: pulumi.Input[Optional[_builtins.bool]] = None,
                  sound: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -9890,20 +9890,20 @@ class UserGlobalSettingsArgs:
         """
         The `settings:` block of the docker-agent user configuration: preferences that apply to every agent you run. Every field is optional; unset fields use docker-agent's defaults. See https://docs.docker.com/ai/docker-agent/configuration/user-settings/.
 
-        :param pulumi.Input[_builtins.str] busy_send_mode: What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
+        :param pulumi.Input['BusySendMode'] busy_send_mode: What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         :param pulumi.Input[_builtins.bool] cache_stable_prompts: Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
         :param pulumi.Input[_builtins.bool] expand_thinking: Start sessions with thinking and tool blocks expanded (`expand_thinking`, default `false`).
         :param pulumi.Input[Mapping[str, Any]] extra: Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
         :param pulumi.Input[_builtins.bool] hide_tool_results: Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
         :param pulumi.Input['UserHooksArgs'] hooks: Global lifecycle hooks that run for every agent, in addition to the agent's own hooks, `hooks.d/` drop-ins and `--hook-*` flags.
-        :param pulumi.Input[_builtins.str] interrupt_confirmation: How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
+        :param pulumi.Input['InterruptConfirmation'] interrupt_confirmation: How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
         :param pulumi.Input[Sequence[pulumi.Input['UserKeybindingArgs']]] keybindings: Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
         :param pulumi.Input['UserLayoutSettingsArgs'] layout: Sidebar position and section visibility of the TUI.
         :param pulumi.Input[_builtins.bool] lean: Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
         :param pulumi.Input['UserPermissionsArgs'] permissions: Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
         :param pulumi.Input[_builtins.bool] render_images: Render images in the TUI with the Kitty graphics protocol (`render_images`, default `true`).
         :param pulumi.Input[_builtins.bool] restore_tabs: Restore previously open tabs when the TUI starts (`restore_tabs`, default `false`).
-        :param pulumi.Input[_builtins.str] safety: The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
+        :param pulumi.Input['SafetyMode'] safety: The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
         :param pulumi.Input[_builtins.bool] show_banner: Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).
         :param pulumi.Input[_builtins.bool] snapshot: Take automatic shadow-git snapshots at turn boundaries for every agent (`snapshot`, default `false`).
         :param pulumi.Input[_builtins.bool] sound: Play a notification sound when a task succeeds or fails (`sound`, default `false`).
@@ -9969,14 +9969,14 @@ class UserGlobalSettingsArgs:
 
     @_builtins.property
     @pulumi.getter(name="busySendMode")
-    def busy_send_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def busy_send_mode(self) -> pulumi.Input[Optional['BusySendMode']]:
         """
         What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         """
         return pulumi.get(self, "busy_send_mode")
 
     @busy_send_mode.setter
-    def busy_send_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def busy_send_mode(self, value: pulumi.Input[Optional['BusySendMode']]):
         pulumi.set(self, "busy_send_mode", value)
 
     @_builtins.property
@@ -10041,14 +10041,14 @@ class UserGlobalSettingsArgs:
 
     @_builtins.property
     @pulumi.getter(name="interruptConfirmation")
-    def interrupt_confirmation(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def interrupt_confirmation(self) -> pulumi.Input[Optional['InterruptConfirmation']]:
         """
         How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
         """
         return pulumi.get(self, "interrupt_confirmation")
 
     @interrupt_confirmation.setter
-    def interrupt_confirmation(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def interrupt_confirmation(self, value: pulumi.Input[Optional['InterruptConfirmation']]):
         pulumi.set(self, "interrupt_confirmation", value)
 
     @_builtins.property
@@ -10125,14 +10125,14 @@ class UserGlobalSettingsArgs:
 
     @_builtins.property
     @pulumi.getter
-    def safety(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def safety(self) -> pulumi.Input[Optional['SafetyMode']]:
         """
         The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
         """
         return pulumi.get(self, "safety")
 
     @safety.setter
-    def safety(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def safety(self, value: pulumi.Input[Optional['SafetyMode']]):
         pulumi.set(self, "safety", value)
 
     @_builtins.property
@@ -10282,7 +10282,7 @@ class UserHookArgsDict(TypedDict):
     """
     env: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     """
-    Environment variables added for this hook only.
+    Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
     """
     evaluator: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -10300,7 +10300,7 @@ class UserHookArgsDict(TypedDict):
     """
     A label for logs and runtime events.
     """
-    on_error: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    on_error: NotRequired[pulumi.Input[Optional['HookErrorPolicy']]]
     """
     What a hook failure does: `warn` (default), `ignore` or `block`.
     """
@@ -10328,7 +10328,7 @@ class UserHookArgsDict(TypedDict):
     """
     Execution timeout in seconds (default `60`).
     """
-    type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    type: NotRequired[pulumi.Input[Optional['HookType']]]
     """
     The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
     """
@@ -10347,33 +10347,33 @@ class UserHookArgs:
                  evaluator_policy: pulumi.Input[Optional['UserHookEvaluatorPolicyArgs']] = None,
                  model: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 on_error: pulumi.Input[Optional[_builtins.str]] = None,
+                 on_error: pulumi.Input[Optional['HookErrorPolicy']] = None,
                  prompt: pulumi.Input[Optional[_builtins.str]] = None,
                  routing_policy: pulumi.Input[Optional['UserHookRoutingPolicyArgs']] = None,
                  schema: pulumi.Input[Optional[_builtins.str]] = None,
                  strict_output: pulumi.Input[Optional[_builtins.bool]] = None,
                  system_prompt: pulumi.Input[Optional[_builtins.str]] = None,
                  timeout: pulumi.Input[Optional[_builtins.int]] = None,
-                 type: pulumi.Input[Optional[_builtins.str]] = None,
+                 type: pulumi.Input[Optional['HookType']] = None,
                  working_dir: pulumi.Input[Optional[_builtins.str]] = None):
         """
         A hook: a shell command, a built-in function, an evaluator or a model call.
 
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] args: Arguments passed to the hook handler, for example to built-ins.
         :param pulumi.Input[_builtins.str] command: The shell command (`command` hooks) or the built-in name (`builtin` hooks).
-        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] env: Environment variables added for this hook only.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] env: Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
         :param pulumi.Input[_builtins.str] evaluator: The evaluator an `evaluator` hook uses.
         :param pulumi.Input['UserHookEvaluatorPolicyArgs'] evaluator_policy: How a `toolGuard` evaluator hook turns assessments into decisions.
         :param pulumi.Input[_builtins.str] model: The model (`provider/model`) a `model` hook calls.
         :param pulumi.Input[_builtins.str] name: A label for logs and runtime events.
-        :param pulumi.Input[_builtins.str] on_error: What a hook failure does: `warn` (default), `ignore` or `block`.
+        :param pulumi.Input['HookErrorPolicy'] on_error: What a hook failure does: `warn` (default), `ignore` or `block`.
         :param pulumi.Input[_builtins.str] prompt: The prompt template of a `model` hook (Go text/template over the hook input).
         :param pulumi.Input['UserHookRoutingPolicyArgs'] routing_policy: How a `beforeAgentRun`/`afterAgentComplete` evaluator hook routes to agents.
         :param pulumi.Input[_builtins.str] schema: How a `model` hook's reply is interpreted, for example `pre_tool_use_decision` or `guard_decision`. Empty returns the reply as additional context.
         :param pulumi.Input[_builtins.bool] strict_output: Require JSON output and validate it against the event's capabilities.
         :param pulumi.Input[_builtins.str] system_prompt: Overrides the default system message of a `model` hook.
         :param pulumi.Input[_builtins.int] timeout: Execution timeout in seconds (default `60`).
-        :param pulumi.Input[_builtins.str] type: The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
+        :param pulumi.Input['HookType'] type: The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
         :param pulumi.Input[_builtins.str] working_dir: The working directory of the hook.
         """
         if args is not None:
@@ -10439,7 +10439,7 @@ class UserHookArgs:
     @pulumi.getter
     def env(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
-        Environment variables added for this hook only.
+        Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
         """
         return pulumi.get(self, "env")
 
@@ -10497,14 +10497,14 @@ class UserHookArgs:
 
     @_builtins.property
     @pulumi.getter(name="onError")
-    def on_error(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def on_error(self) -> pulumi.Input[Optional['HookErrorPolicy']]:
         """
         What a hook failure does: `warn` (default), `ignore` or `block`.
         """
         return pulumi.get(self, "on_error")
 
     @on_error.setter
-    def on_error(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def on_error(self, value: pulumi.Input[Optional['HookErrorPolicy']]):
         pulumi.set(self, "on_error", value)
 
     @_builtins.property
@@ -10581,14 +10581,14 @@ class UserHookArgs:
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def type(self) -> pulumi.Input[Optional['HookType']]:
         """
         The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
         """
         return pulumi.get(self, "type")
 
     @type.setter
-    def type(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def type(self, value: pulumi.Input[Optional['HookType']]):
         pulumi.set(self, "type", value)
 
     @_builtins.property
@@ -10608,11 +10608,11 @@ class UserHookEvaluatorPolicyArgsDict(TypedDict):
     """
     Maps an evaluator's assessments to tool-guard decisions.
     """
-    decisions: pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]
+    decisions: pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]]
     """
     Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
     """
-    fallback: pulumi.Input[_builtins.str]
+    fallback: pulumi.Input['EvaluatorFallback']
     """
     The decision when the assessment is uncertain: `ask` or `deny`.
     """
@@ -10624,14 +10624,14 @@ class UserHookEvaluatorPolicyArgsDict(TypedDict):
 @pulumi.input_type
 class UserHookEvaluatorPolicyArgs:
     def __init__(__self__, *,
-                 decisions: pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]],
-                 fallback: pulumi.Input[_builtins.str],
+                 decisions: pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]],
+                 fallback: pulumi.Input['EvaluatorFallback'],
                  min_probability: pulumi.Input[_builtins.float]):
         """
         Maps an evaluator's assessments to tool-guard decisions.
 
-        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] decisions: Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
-        :param pulumi.Input[_builtins.str] fallback: The decision when the assessment is uncertain: `ask` or `deny`.
+        :param pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]] decisions: Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
+        :param pulumi.Input['EvaluatorFallback'] fallback: The decision when the assessment is uncertain: `ask` or `deny`.
         :param pulumi.Input[_builtins.float] min_probability: The lowest probability (greater than 0, at most 1) at which a decision applies.
         """
         pulumi.set(__self__, "decisions", decisions)
@@ -10640,26 +10640,26 @@ class UserHookEvaluatorPolicyArgs:
 
     @_builtins.property
     @pulumi.getter
-    def decisions(self) -> pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]:
+    def decisions(self) -> pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]]:
         """
         Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
         """
         return pulumi.get(self, "decisions")
 
     @decisions.setter
-    def decisions(self, value: pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]):
+    def decisions(self, value: pulumi.Input[Mapping[str, pulumi.Input['EvaluatorDecision']]]):
         pulumi.set(self, "decisions", value)
 
     @_builtins.property
     @pulumi.getter
-    def fallback(self) -> pulumi.Input[_builtins.str]:
+    def fallback(self) -> pulumi.Input['EvaluatorFallback']:
         """
         The decision when the assessment is uncertain: `ask` or `deny`.
         """
         return pulumi.get(self, "fallback")
 
     @fallback.setter
-    def fallback(self, value: pulumi.Input[_builtins.str]):
+    def fallback(self, value: pulumi.Input['EvaluatorFallback']):
         pulumi.set(self, "fallback", value)
 
     @_builtins.property
@@ -11472,7 +11472,7 @@ class UserIdentityTokenSourceArgsDict(TypedDict):
     """
     headers: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     """
-    HTTP headers sent with the `url` request.
+    HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
     """
     response_field: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -11498,7 +11498,7 @@ class UserIdentityTokenSourceArgs:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] command: Run this command (argv form) and read the token from stdout.
         :param pulumi.Input[_builtins.str] env: Read the token from this environment variable.
         :param pulumi.Input[_builtins.str] file: Read the token from this file.
-        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] headers: HTTP headers sent with the `url` request.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] headers: HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
         :param pulumi.Input[_builtins.str] response_field: The JSON field of the `url` response that holds the token.
         :param pulumi.Input[_builtins.str] url: Fetch the token from this URL.
         """
@@ -11555,7 +11555,7 @@ class UserIdentityTokenSourceArgs:
     @pulumi.getter
     def headers(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
-        HTTP headers sent with the `url` request.
+        HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
         """
         return pulumi.get(self, "headers")
 
@@ -11668,7 +11668,7 @@ class UserLayoutSettingsArgsDict(TypedDict):
     """
     Hide the token usage section.
     """
-    section_spacing: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    section_spacing: NotRequired[pulumi.Input[Optional['SectionSpacing']]]
     """
     Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
     """
@@ -11676,11 +11676,11 @@ class UserLayoutSettingsArgsDict(TypedDict):
     """
     Show shared plans in the sidebar (default `false`).
     """
-    sidebar_info_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    sidebar_info_mode: NotRequired[pulumi.Input[Optional['SidebarInfoMode']]]
     """
     How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
     """
-    sidebar_position: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    sidebar_position: NotRequired[pulumi.Input[Optional['SidebarPosition']]]
     """
     Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
     """
@@ -11694,10 +11694,10 @@ class UserLayoutSettingsArgs:
                  hide_todos: pulumi.Input[Optional[_builtins.bool]] = None,
                  hide_tools: pulumi.Input[Optional[_builtins.bool]] = None,
                  hide_usage: pulumi.Input[Optional[_builtins.bool]] = None,
-                 section_spacing: pulumi.Input[Optional[_builtins.str]] = None,
+                 section_spacing: pulumi.Input[Optional['SectionSpacing']] = None,
                  show_plans: pulumi.Input[Optional[_builtins.bool]] = None,
-                 sidebar_info_mode: pulumi.Input[Optional[_builtins.str]] = None,
-                 sidebar_position: pulumi.Input[Optional[_builtins.str]] = None):
+                 sidebar_info_mode: pulumi.Input[Optional['SidebarInfoMode']] = None,
+                 sidebar_position: pulumi.Input[Optional['SidebarPosition']] = None):
         """
         The TUI layout (`settings.layout`). Unset fields keep the default layout: sidebar on the right, every section except Plans visible, normal spacing.
 
@@ -11707,10 +11707,10 @@ class UserLayoutSettingsArgs:
         :param pulumi.Input[_builtins.bool] hide_todos: Hide the Todos section.
         :param pulumi.Input[_builtins.bool] hide_tools: Hide the Tools section.
         :param pulumi.Input[_builtins.bool] hide_usage: Hide the token usage section.
-        :param pulumi.Input[_builtins.str] section_spacing: Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
+        :param pulumi.Input['SectionSpacing'] section_spacing: Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
         :param pulumi.Input[_builtins.bool] show_plans: Show shared plans in the sidebar (default `false`).
-        :param pulumi.Input[_builtins.str] sidebar_info_mode: How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
-        :param pulumi.Input[_builtins.str] sidebar_position: Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
+        :param pulumi.Input['SidebarInfoMode'] sidebar_info_mode: How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
+        :param pulumi.Input['SidebarPosition'] sidebar_position: Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
         """
         if active_agents_only is not None:
             pulumi.set(__self__, "active_agents_only", active_agents_only)
@@ -11807,14 +11807,14 @@ class UserLayoutSettingsArgs:
 
     @_builtins.property
     @pulumi.getter(name="sectionSpacing")
-    def section_spacing(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def section_spacing(self) -> pulumi.Input[Optional['SectionSpacing']]:
         """
         Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
         """
         return pulumi.get(self, "section_spacing")
 
     @section_spacing.setter
-    def section_spacing(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def section_spacing(self, value: pulumi.Input[Optional['SectionSpacing']]):
         pulumi.set(self, "section_spacing", value)
 
     @_builtins.property
@@ -11831,26 +11831,26 @@ class UserLayoutSettingsArgs:
 
     @_builtins.property
     @pulumi.getter(name="sidebarInfoMode")
-    def sidebar_info_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def sidebar_info_mode(self) -> pulumi.Input[Optional['SidebarInfoMode']]:
         """
         How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
         """
         return pulumi.get(self, "sidebar_info_mode")
 
     @sidebar_info_mode.setter
-    def sidebar_info_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def sidebar_info_mode(self, value: pulumi.Input[Optional['SidebarInfoMode']]):
         pulumi.set(self, "sidebar_info_mode", value)
 
     @_builtins.property
     @pulumi.getter(name="sidebarPosition")
-    def sidebar_position(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def sidebar_position(self) -> pulumi.Input[Optional['SidebarPosition']]:
         """
         Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
         """
         return pulumi.get(self, "sidebar_position")
 
     @sidebar_position.setter
-    def sidebar_position(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def sidebar_position(self, value: pulumi.Input[Optional['SidebarPosition']]):
         pulumi.set(self, "sidebar_position", value)
 
 
@@ -12773,7 +12773,7 @@ class UserProviderArgsDict(TypedDict):
     """
     A reusable model provider (for example an OpenAI-compatible endpoint), merged into every agent configuration docker-agent loads. Definitions in an agent file win on name conflicts.
     """
-    api_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    api_type: NotRequired[pulumi.Input[Optional['ApiType']]]
     """
     The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
     """
@@ -12845,7 +12845,7 @@ class UserProviderArgsDict(TypedDict):
 @pulumi.input_type
 class UserProviderArgs:
     def __init__(__self__, *,
-                 api_type: pulumi.Input[Optional[_builtins.str]] = None,
+                 api_type: pulumi.Input[Optional['ApiType']] = None,
                  auth: pulumi.Input[Optional['UserModelAuthArgs']] = None,
                  base_url: pulumi.Input[Optional[_builtins.str]] = None,
                  compaction_model: pulumi.Input[Optional[_builtins.str]] = None,
@@ -12865,7 +12865,7 @@ class UserProviderArgs:
         """
         A reusable model provider (for example an OpenAI-compatible endpoint), merged into every agent configuration docker-agent loads. Definitions in an agent file win on name conflicts.
 
-        :param pulumi.Input[_builtins.str] api_type: The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
+        :param pulumi.Input['ApiType'] api_type: The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
         :param pulumi.Input['UserModelAuthArgs'] auth: A non-API-key authentication scheme, such as Anthropic workload identity federation.
         :param pulumi.Input[_builtins.str] base_url: The API base URL. Required for OpenAI-compatible providers.
         :param pulumi.Input[_builtins.str] compaction_model: Default compaction (summary) model for agents using this provider.
@@ -12920,14 +12920,14 @@ class UserProviderArgs:
 
     @_builtins.property
     @pulumi.getter(name="apiType")
-    def api_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def api_type(self) -> pulumi.Input[Optional['ApiType']]:
         """
         The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
         """
         return pulumi.get(self, "api_type")
 
     @api_type.setter
-    def api_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def api_type(self, value: pulumi.Input[Optional['ApiType']]):
         pulumi.set(self, "api_type", value)
 
     @_builtins.property

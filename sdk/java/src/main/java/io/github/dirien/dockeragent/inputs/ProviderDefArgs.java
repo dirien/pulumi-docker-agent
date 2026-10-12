@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.inputs;
 
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
+import io.github.dirien.dockeragent.enums.ApiType;
 import io.github.dirien.dockeragent.inputs.ModelAuthArgs;
 import java.lang.Boolean;
 import java.lang.Double;
@@ -26,17 +27,17 @@ public final class ProviderDefArgs extends com.pulumi.resources.ResourceArgs {
     public static final ProviderDefArgs Empty = new ProviderDefArgs();
 
     /**
-     * The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+     * The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
      * 
      */
     @Import(name="apiType")
-    private @Nullable Output<String> apiType;
+    private @Nullable Output<ApiType> apiType;
 
     /**
-     * @return The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+     * @return The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
      * 
      */
-    public Optional<Output<String>> apiType() {
+    public Optional<Output<ApiType>> apiType() {
         return Optional.ofNullable(this.apiType);
     }
 
@@ -353,23 +354,23 @@ public final class ProviderDefArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param apiType The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+         * @param apiType The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
          * 
          * @return builder
          * 
          */
-        public Builder apiType(@Nullable Output<String> apiType) {
+        public Builder apiType(@Nullable Output<ApiType> apiType) {
             $.apiType = apiType;
             return this;
         }
 
         /**
-         * @param apiType The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+         * @param apiType The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
          * 
          * @return builder
          * 
          */
-        public Builder apiType(String apiType) {
+        public Builder apiType(ApiType apiType) {
             return apiType(Output.of(apiType));
         }
 

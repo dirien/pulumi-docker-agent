@@ -1,0 +1,30 @@
+version: "16"
+agents:
+  root:
+    model: primary
+    description: An assistant that compacts its sessions with a cheaper model.
+    instruction: You are a helpful assistant.
+  reviewer:
+    model: anthropic/claude-sonnet-5
+    description: An assistant configuring its compaction model at the agent level.
+    instruction: You are a helpful code reviewer.
+    compaction_model: fast
+  frugal:
+    model: budget
+    description: An assistant inheriting its compaction model from the provider.
+    instruction: You are a helpful assistant.
+models:
+  budget:
+    provider: my_anthropic
+    model: claude-sonnet-4-6
+  fast:
+    provider: anthropic
+    model: claude-haiku-4-5
+  primary:
+    provider: anthropic
+    model: claude-sonnet-5
+    compaction_model: fast
+providers:
+  my_anthropic:
+    provider: anthropic
+    compaction_model: anthropic/claude-haiku-4-5

@@ -22,7 +22,7 @@ import * as utilities from "./utilities";
  * manifest digest stays stable. A refresh detects when the tag was moved by someone else.
  *
  * Registry credentials come from the provider's `registryAuth` setting, falling back to the Docker
- * credential store (`docker login`). Like the docker CLI, the provider tries HTTPS first and falls back to
+ * credential store (`docker login`). Like the `docker agent` CLI, the provider tries HTTPS first and falls back to
  * plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses; set `insecure` for any
  * other plain-HTTP or self-signed registry, and the provider's `forceHttps` option to forbid the private-address
  * fallback.
@@ -31,40 +31,65 @@ import * as utilities from "./utilities";
  * repository points to the same digest (two tags pushed with identical content in the same second) or the tags cannot
  * be listed; the provider then keeps the artifact and logs a warning.
  *
+ * Unless `skipValidation` is set, the preview validates `yaml` with docker-agent and reports every independent
+ * problem at once. The artifact is readable by everyone who can pull it, so a secret `yaml` is pushed in
+ * plaintext; the provider warns about it.
+ *
  * ## Example Usage
  * ### Push an agent to a registry
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * const assistant = new dockeragent.AgentConfig("assistant", {
- *     agents: [{
- *         name: "root",
- *         model: "openai/gpt-5-mini",
- *         instruction: "You are a helpful assistant. Answer briefly.",
- *     }],
- * });
+ * // The agent configuration, rendered and validated.
+ * const assistant = new docker_agent.AgentConfig("assistant", {agents: [{
+ *     name: "root",
+ *     model: "openai/gpt-5-mini",
+ *     instruction: "You are a helpful assistant. Answer briefly.",
+ * }]});
  *
- * const artifact = new dockeragent.AgentArtifact("assistant", {
+ * // Pushes the configuration like `docker agent share push`.
+ * const artifact = new docker_agent.AgentArtifact("artifact", {
  *     reference: "ghcr.io/my-org/agents/assistant:v1",
  *     yaml: assistant.yaml,
  * });
- *
- * // Run it with: docker agent run <pinnedReference>
  * export const pinnedReference = artifact.pinnedReference;
+ * export const digest = artifact.digest;
  * ```
  * ### Push an existing agent file
  *
  * ```typescript
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  * import * as fs from "fs";
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
  *
- * new dockeragent.AgentArtifact("pirate", {
+ * // An agent file kept as raw YAML next to the program.
+ * const agentFile = fs.readFileSync("./pirate.yaml", "utf8");
+ *
+ * // Deleted from the registry when the resource is destroyed.
+ * const pirate = new docker_agent.AgentArtifact("pirate", {
  *     reference: "localhost:5000/agents/pirate:latest",
- *     yaml: fs.readFileSync("pirate.yaml", "utf8"),
- *     annotations: { "org.opencontainers.image.source": "https://github.com/my-org/agents" },
- *     deleteBehavior: "delete",
+ *     yaml: agentFile,
+ *     annotations: {
+ *         "org.opencontainers.image.source": "https://github.com/my-org/agents",
+ *     },
+ *     deleteBehavior: docker_agent.DeleteBehavior.Delete,
  * });
+ * export const pinnedReference = pirate.pinnedReference;
+ * ```
+ *
+ * ## Import
+ *
+ * An artifact pushed with `docker agent share push` (or by another stack) can be imported by its
+ * tag, `<registry>/<repository>:<tag>`. `<registry>/<repository>:<tag>@sha256:<digest>` checks that the tag
+ * still points to that digest, and `<registry>/<repository>@sha256:<digest>` imports the one tag of the
+ * repository that points to it. The registry is read with the provider's `registryAuth` and the Docker
+ * credential store. The imported resource has the pushed `yaml`, exactly as it is stored, the annotations the
+ * provider would not have set itself and `deleteBehavior: retain`; its ID is the tag.
+ *
+ * ```sh
+ * $ pulumi import docker-agent:index:AgentArtifact assistant ghcr.io/my-org/agents/assistant:v1
  * ```
  */
 export class AgentArtifact extends pulumi.CustomResource {
@@ -119,7 +144,7 @@ export class AgentArtifact extends pulumi.CustomResource {
      */
     declare public /*out*/ readonly dockerAgentVersion: pulumi.Output<string>;
     /**
-     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
+     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
      */
     declare public readonly insecure: pulumi.Output<boolean | undefined>;
     /**
@@ -206,7 +231,7 @@ export interface AgentArtifactArgs {
      */
     deleteBehavior?: pulumi.Input<enums.DeleteBehavior | undefined>;
     /**
-     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
+     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
      */
     insecure?: pulumi.Input<boolean | undefined>;
     /**

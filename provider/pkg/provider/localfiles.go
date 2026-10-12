@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
@@ -37,6 +36,11 @@ import (
 //     `retainOnDelete` resource option keeps both.
 //   - Changing or removing the target path moves the file: the new path is claimed as on
 //     create, then the old one is released as on delete.
+//   - `pulumi import` adopts an existing file (usersettings_import.go, agentsignore_import.go):
+//     Read decodes it into the inputs without writing or backing up anything, and the
+//     resource ID becomes the file's absolute path (adoptedFile). Pulumi did not create an
+//     adopted file, so releasing it (delete, or moving the resource to another path) leaves
+//     it in place with its current content instead of removing it.
 
 const (
 	userSettingsType = tokens.Type(Name + ":index:UserSettings")
@@ -141,8 +145,11 @@ func release(path, backup string) (warning string, err error) {
 }
 
 // apply writes content to t and releases the file the previous state managed (oldPath,
-// oldBackup) when the target changed. It returns the backup for the new state.
-func (t localFileTarget) apply(content string, overwrite bool, oldPath, oldBackup string) (backup, warning string, err error) {
+// oldBackup) when the target changed; an adopted old file (oldAdopted) is left in place. It
+// returns the backup for the new state.
+func (t localFileTarget) apply(
+	content string, overwrite bool, oldPath, oldBackup string, oldAdopted bool,
+) (backup, warning string, err error) {
 	if t.path != "" && sameFile(t.path, oldPath) {
 		return oldBackup, "", localfile.Write(t.path, []byte(content), t.mode, t.dirMode)
 	}
@@ -151,10 +158,29 @@ func (t localFileTarget) apply(content string, overwrite bool, oldPath, oldBacku
 			return "", "", err
 		}
 	}
+	if oldAdopted && oldBackup == "" {
+		return backup, keptAdopted(oldPath), nil
+	}
 	if warning, err = release(oldPath, oldBackup); err != nil {
 		return backup, warning, fmt.Errorf("releasing the previously managed file %s: %w", oldPath, err)
 	}
 	return backup, warning, nil
+}
+
+// releaseFile stops managing the file of the resource with the given ID on delete: like
+// release, except that an adopted file without a backup is left in place.
+func releaseFile(ctx context.Context, id, path, backup string) error {
+	if adoptedFile(id, path) && backup == "" {
+		p.GetLogger(ctx).Info(keptAdopted(path))
+		return nil
+	}
+	warning, err := release(path, backup)
+	logWarning(ctx, warning)
+	return err
+}
+
+func keptAdopted(path string) string {
+	return fmt.Sprintf("%s was adopted with `pulumi import`, so it is left in place instead of being removed", path)
 }
 
 // checkClaim runs claimProblem during Check when the resource is about to start managing
@@ -222,9 +248,6 @@ func derefStr(s *string) string {
 	}
 	return *s
 }
-
-var errImportUnsupported = errors.New("importing is not supported: declare the resource in your program and run " +
-	"`pulumi up`, which writes the file")
 
 // withLocalFilePreview marks the rendered outputs of the local-file resources unknown
 // during previews when the inputs they are rendered from are unknown. The resources

@@ -349,11 +349,11 @@ func TestUserSettingsCheckFailures(t *testing.T) {
 	}{
 		"safety": {
 			inputs: map[string]any{"settings": map[string]any{"safety": "yolo"}},
-			want:   `settings.safety: invalid safety mode "yolo"`,
+			want:   `settings.safety: "yolo" is not a valid value for the enum "SafetyMode"`,
 		},
 		"busy send mode": {
 			inputs: map[string]any{"settings": map[string]any{"busySendMode": "later"}},
-			want:   `settings.busy_send_mode: invalid value "later" (valid: steer, queue)`,
+			want:   `settings.busySendMode: "later" is not a valid value for the enum "BusySendMode"`,
 		},
 		"alias name": {
 			inputs: map[string]any{"aliases": map[string]any{"bad name": map[string]any{"path": "a.yaml"}}},
@@ -480,7 +480,7 @@ func TestUserSettingsCheckRedactsSecrets(t *testing.T) {
 	resp, err := s.Check(p.CheckRequest{Urn: urn(userSettingsToken, "us"), Inputs: inputs})
 	require.NoError(t, err)
 	text := failureText(resp.Failures)
-	assert.Contains(t, text, "settings.safety: invalid safety mode")
+	assert.Contains(t, text, "settings.safety: [secret] is not a valid value for the enum")
 	assert.NotContains(t, text, "super-secret-mode")
 }
 
@@ -554,15 +554,6 @@ func TestAgentsIgnoreCheck(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, created.Properties.Get("content").IsComputed())
 	assert.False(t, created.Properties.Get("filePath").IsComputed())
-}
-
-func TestLocalFileImportUnsupported(t *testing.T) {
-	t.Parallel()
-	s := server(t)
-	for _, typ := range []string{userSettingsToken, agentsIgnoreToken} {
-		_, err := s.Read(p.ReadRequest{ID: "/some/path", Urn: urn(typ, "imported")})
-		assert.ErrorContains(t, err, "importing is not supported", typ)
-	}
 }
 
 // existingConfig is a hand-written user configuration with an alias that UserSettings

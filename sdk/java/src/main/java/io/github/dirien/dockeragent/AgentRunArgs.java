@@ -7,6 +7,7 @@ import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.core.internal.Codegen;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.Logging;
 import io.github.dirien.dockeragent.enums.ToolApproval;
 import java.lang.Boolean;
 import java.lang.Integer;
@@ -69,18 +70,33 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+     * Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
      * 
      */
     @Import(name="inheritEnvironment")
     private @Nullable Output<Boolean> inheritEnvironment;
 
     /**
-     * @return Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+     * @return Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
      * 
      */
     public Optional<Output<Boolean>> inheritEnvironment() {
         return Optional.ofNullable(this.inheritEnvironment);
+    }
+
+    /**
+     * What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+     * 
+     */
+    @Import(name="logging")
+    private @Nullable Output<Logging> logging;
+
+    /**
+     * @return What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+     * 
+     */
+    public Optional<Output<Logging>> logging() {
+        return Optional.ofNullable(this.logging);
     }
 
     /**
@@ -210,6 +226,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         this.allowHookApprovals = $.allowHookApprovals;
         this.env = $.env;
         this.inheritEnvironment = $.inheritEnvironment;
+        this.logging = $.logging;
         this.outputSecret = $.outputSecret;
         this.prompt = $.prompt;
         this.reference = $.reference;
@@ -302,7 +319,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
          * 
          * @return builder
          * 
@@ -313,13 +330,34 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
          * 
          * @return builder
          * 
          */
         public Builder inheritEnvironment(Boolean inheritEnvironment) {
             return inheritEnvironment(Output.of(inheritEnvironment));
+        }
+
+        /**
+         * @param logging What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder logging(@Nullable Output<Logging> logging) {
+            $.logging = logging;
+            return this;
+        }
+
+        /**
+         * @param logging What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder logging(Logging logging) {
+            return logging(Output.of(logging));
         }
 
         /**
@@ -503,6 +541,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         public AgentRunArgs build() {
             $.allowHookApprovals = Codegen.booleanProp("allowHookApprovals").output().arg($.allowHookApprovals).def(false).getNullable();
             $.inheritEnvironment = Codegen.booleanProp("inheritEnvironment").output().arg($.inheritEnvironment).def(true).getNullable();
+            $.logging = Codegen.objectProp("logging", Logging.class).output().arg($.logging).def(Logging.Status).getNullable();
             $.outputSecret = Codegen.booleanProp("outputSecret").output().arg($.outputSecret).def(false).getNullable();
             if ($.prompt == null) {
                 throw new MissingRequiredPropertyException("AgentRunArgs", "prompt");

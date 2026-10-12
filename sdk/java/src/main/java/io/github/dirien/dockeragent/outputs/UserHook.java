@@ -4,6 +4,8 @@
 package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
+import io.github.dirien.dockeragent.enums.HookErrorPolicy;
+import io.github.dirien.dockeragent.enums.HookType;
 import io.github.dirien.dockeragent.outputs.UserHookEvaluatorPolicy;
 import io.github.dirien.dockeragent.outputs.UserHookRoutingPolicy;
 import java.lang.Boolean;
@@ -28,7 +30,7 @@ public final class UserHook {
      */
     private @Nullable String command;
     /**
-     * @return Environment variables added for this hook only.
+     * @return Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
      * 
      */
     private @Nullable Map<String,String> env;
@@ -56,7 +58,7 @@ public final class UserHook {
      * @return What a hook failure does: `warn` (default), `ignore` or `block`.
      * 
      */
-    private @Nullable String onError;
+    private @Nullable HookErrorPolicy onError;
     /**
      * @return The prompt template of a `model` hook (Go text/template over the hook input).
      * 
@@ -91,7 +93,7 @@ public final class UserHook {
      * @return The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
      * 
      */
-    private @Nullable String type;
+    private @Nullable HookType type;
     /**
      * @return The working directory of the hook.
      * 
@@ -114,7 +116,7 @@ public final class UserHook {
         return Optional.ofNullable(this.command);
     }
     /**
-     * @return Environment variables added for this hook only.
+     * @return Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
      * 
      */
     public Map<String,String> env() {
@@ -152,7 +154,7 @@ public final class UserHook {
      * @return What a hook failure does: `warn` (default), `ignore` or `block`.
      * 
      */
-    public Optional<String> onError() {
+    public Optional<HookErrorPolicy> onError() {
         return Optional.ofNullable(this.onError);
     }
     /**
@@ -201,7 +203,7 @@ public final class UserHook {
      * @return The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
      * 
      */
-    public Optional<String> type() {
+    public Optional<HookType> type() {
         return Optional.ofNullable(this.type);
     }
     /**
@@ -228,14 +230,14 @@ public final class UserHook {
         private @Nullable UserHookEvaluatorPolicy evaluatorPolicy;
         private @Nullable String model;
         private @Nullable String name;
-        private @Nullable String onError;
+        private @Nullable HookErrorPolicy onError;
         private @Nullable String prompt;
         private @Nullable UserHookRoutingPolicy routingPolicy;
         private @Nullable String schema;
         private @Nullable Boolean strictOutput;
         private @Nullable String systemPrompt;
         private @Nullable Integer timeout;
-        private @Nullable String type;
+        private @Nullable HookType type;
         private @Nullable String workingDir;
         public Builder() {}
         public Builder(UserHook defaults) {
@@ -304,7 +306,7 @@ public final class UserHook {
             return this;
         }
         @CustomType.Setter
-        public Builder onError(@Nullable String onError) {
+        public Builder onError(@Nullable HookErrorPolicy onError) {
 
             this.onError = onError;
             return this;
@@ -346,7 +348,7 @@ public final class UserHook {
             return this;
         }
         @CustomType.Setter
-        public Builder type(@Nullable String type) {
+        public Builder type(@Nullable HookType type) {
 
             this.type = type;
             return this;

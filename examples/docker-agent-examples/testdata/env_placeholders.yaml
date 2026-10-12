@@ -1,0 +1,18 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Agent demonstrating environment variable placeholder expansion
+    instruction: |
+      You are a helpful assistant that responds to user requests.
+      Provide clear, concise, and actionable responses.
+    toolsets:
+      - type: filesystem
+      - type: shell
+    commands:
+      analyze: Analyze the project named ${env.PROJECT_NAME} in the ${env.ENVIRONMENT} environment and provide insights
+      greet: Say hello to ${env.USER} and ask how their day is going
+      help: Explain what you can do and how to use environment variable placeholders in commands
+      inspect: Inspect the contents of the directory at ${env.WORKING_DIR} and summarize what you find
+      report: Generate a comprehensive report for project ${env.PROJECT_NAME} owned by ${env.OWNER} deployed in ${env.LOCATION}
+      status: Check the status of the service ${env.SERVICE_NAME} and report any issues

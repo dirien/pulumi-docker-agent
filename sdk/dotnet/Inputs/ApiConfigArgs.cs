@@ -65,10 +65,10 @@ namespace ediri.DockerAgent.Inputs
         public Input<string>? Instruction { get; set; }
 
         /// <summary>
-        /// HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+        /// HTTP method.
         /// </summary>
         [Input("method", required: true)]
-        public Input<string> Method { get; set; } = null!;
+        public Input<ediri.DockerAgent.HttpMethod> Method { get; set; } = null!;
 
         /// <summary>
         /// Name of the API tool

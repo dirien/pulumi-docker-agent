@@ -1,0 +1,18 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4.1-mini
+    description: Assistant with remote MCP tools using explicit OAuth credentials
+    instruction: You are a helpful assistant with access to remote tools.
+    toolsets:
+      - type: mcp
+        remote:
+          url: https://mcp.example.com/mcp
+          transport_type: streamable
+          oauth:
+            clientId: your-client-id
+            clientSecret: your-client-secret
+            callbackPort: 8080
+            scopes:
+              - read
+              - write

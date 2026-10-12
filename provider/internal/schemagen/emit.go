@@ -47,7 +47,36 @@ func emitTypes(g *generator, version string) ([]byte, error) {
 		}
 		b.WriteString("}\n\n")
 	}
+	for _, e := range g.sortedEnums() {
+		writeEnum(&b, e)
+	}
 	return format.Source(b.Bytes())
+}
+
+// writeEnum writes a Pulumi enum: the named string type, a constant per value and the
+// Values method that makes it an infer.Enum.
+func writeEnum(b *bytes.Buffer, e *goEnum) {
+	paths := make([]string, len(e.paths))
+	for i, p := range e.paths {
+		paths[i] = "`" + p + "`"
+	}
+	writeComment(b, "", e.name+" is the Pulumi enum generated from the values of "+strings.Join(paths, " and ")+".")
+	fmt.Fprintf(b, "type %s string\n\n// %s values.\nconst (\n", e.name, e.name)
+	for _, v := range e.values {
+		writeComment(b, "\t", e.name+v.name+" is `"+v.value+"`. "+v.doc)
+		fmt.Fprintf(b, "\t%s%s %s = %s\n", e.name, v.name, e.name, strconv.Quote(v.value))
+	}
+	b.WriteString(")\n\n")
+	fmt.Fprintf(b, "// Values lists the values of %s for the Pulumi schema.\n", e.name)
+	fmt.Fprintf(b, "func (%s) Values() []infer.EnumValue[%s] {\n\treturn []infer.EnumValue[%s]{\n", e.name, e.name, e.name)
+	for _, v := range e.values {
+		fmt.Fprintf(b, "\t\t{Name: %s, Value: %s%s", strconv.Quote(v.name), e.name, v.name)
+		if v.doc != "" {
+			fmt.Fprintf(b, ", Description: %s", strconv.Quote(v.doc))
+		}
+		b.WriteString("},\n")
+	}
+	b.WriteString("\t}\n}\n\n")
 }
 
 func typeDoc(t *goType) string {

@@ -19,36 +19,13 @@ is built with (` + DockerAgentVersion + `), the same checks ` + "`docker agent d
 for unknown toolset types and model providers.
 
 Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-` + "`valid: false`" + ` and the reasons in ` + "`errors`" + `.
-
-{{% examples %}}
-## Example Usage
-{{% example %}}
-### Validate an agent file
-
-` + "```typescript" + `
-import * as fs from "fs";
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-const result = dockeragent.validateAgentConfigOutput({ yaml: fs.readFileSync("agent.yaml", "utf8") });
-
-export const valid = result.valid;
-export const errors = result.errors;
-` + "```" + `
-` + "```python" + `
-import pulumi
-import ediri_docker_agent as dockeragent
-
-result = dockeragent.validate_agent_config_output(yaml=open("agent.yaml").read())
-pulumi.export("valid", result.valid)
-` + "```" + `
-{{% /example %}}
-{{% /examples %}}`
+` + "`valid: false`" + ` and the reasons in ` + "`errors`" + `: every independent problem, not only the first one
+docker-agent stops at.`
 
 // Annotate describes the function.
 func (v *ValidateAgentConfig) Annotate(a infer.Annotator) {
 	a.SetToken("index", "validateAgentConfig")
-	a.Describe(&v, validateAgentConfigDoc)
+	a.Describe(&v, describe(validateAgentConfigDoc, validateAgentConfigExamples, ""))
 }
 
 // ValidateAgentConfigArgs are the inputs of validateAgentConfig.

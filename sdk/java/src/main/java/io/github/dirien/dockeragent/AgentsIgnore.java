@@ -39,23 +39,115 @@ import javax.annotation.Nullable;
  * 
  * If the project already has a `.agentsignore` with different content, the preview fails instead of replacing it.
  * Copy its patterns into `patterns`, or set `overwrite: true`. Either way the existing file is moved to
- * `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a
- * backup, deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+ * `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+ * resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+ * Set the `retainOnDelete` resource option to keep the file.
  * 
  * ## Example Usage
+ * ### Hide secrets from the agent
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentsIgnore;
+ * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         // Writes /home/me/src/my-service/.agentsignore.
+ *         var ignore = new AgentsIgnore("ignore", AgentsIgnoreArgs.builder()
+ *             .directory("/home/me/src/my-service")
+ *             .comment("Managed by Pulumi. Keep secrets away from docker-agent.")
+ *             .patterns(
+ *                 ".env",
+ *                 ".env.*",
+ *                 "*.pem",
+ *                 "*.key",
+ *                 "!public.key",
+ *                 ".aws/",
+ *                 "build/")
+ *             .build());
+ * 
+ *         ctx.export("agentsIgnore", ignore.content());
+ *         ctx.export("filePath", ignore.filePath());
+ *     }
+ * }
+ * }
+ * </pre>
+ * ### Render the file for a container image
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentsIgnore;
+ * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App }{{@code
+ *     public static void main(String[] args) }{{@code
+ *         Pulumi.run(App::stack);
+ *     }}{@code
+ * 
+ *     public static void stack(Context ctx) }{{@code
+ *         // No `directory`: nothing is written, the file is only rendered.
+ *         var rendered = new AgentsIgnore("rendered", AgentsIgnoreArgs.builder()
+ *             .patterns(
+ *                 ".git/",
+ *                 "node_modules/",
+ *                 "**}&#47;{@code *.pem")
+ *             .build());
+ * 
+ *         ctx.export("agentsIgnore", rendered.content());
+ *     }}{@code
+ * }}{@code
+ * }
+ * </pre>
+ * 
+ * ## Import
+ * 
+ * An existing `.agentsignore` can be imported with its project directory (or the
+ * file&#39;s path) as ID: the comment block at the top of the file becomes `comment` and every other line a
+ * pattern (comments between patterns are not imported). The file is adopted as for `UserSettings`: the import
+ * takes no backup, `overwrite` is not needed, and deleting the resource leaves the file in place. The resource
+ * ID is the file&#39;s absolute path.
+ * 
+ * ```sh
+ * $ pulumi import docker-agent:index:AgentsIgnore project ./my-service
+ * ```
  * 
  */
 @ResourceType(type="docker-agent:index:AgentsIgnore")
 public class AgentsIgnore extends com.pulumi.resources.CustomResource {
     /**
-     * Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+     * Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
      * 
      */
     @Export(name="backupPath", refs={String.class}, tree="[0]")
     private Output</* @Nullable */ String> backupPath;
 
     /**
-     * @return Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+     * @return Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
      * 
      */
     public Output<Optional<String>> backupPath() {

@@ -44,12 +44,16 @@ namespace ediri.DockerAgent.Inputs
         private InputMap<string>? _headers;
 
         /// <summary>
-        /// HTTP headers sent with the `url` request.
+        /// HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
         /// </summary>
         public InputMap<string> Headers
         {
             get => _headers ?? (_headers = new InputMap<string>());
-            set => _headers = value;
+            set
+            {
+                var emptySecret = Output.CreateSecret(ImmutableDictionary.Create<string, string>());
+                _headers = Output.All(value, emptySecret).Apply(v => v[0]);
+            }
         }
 
         /// <summary>

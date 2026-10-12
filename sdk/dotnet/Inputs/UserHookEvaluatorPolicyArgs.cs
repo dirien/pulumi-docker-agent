@@ -17,14 +17,14 @@ namespace ediri.DockerAgent.Inputs
     public sealed class UserHookEvaluatorPolicyArgs : global::Pulumi.ResourceArgs
     {
         [Input("decisions", required: true)]
-        private InputMap<string>? _decisions;
+        private InputMap<ediri.DockerAgent.EvaluatorDecision>? _decisions;
 
         /// <summary>
         /// Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
         /// </summary>
-        public InputMap<string> Decisions
+        public InputMap<ediri.DockerAgent.EvaluatorDecision> Decisions
         {
-            get => _decisions ?? (_decisions = new InputMap<string>());
+            get => _decisions ?? (_decisions = new InputMap<ediri.DockerAgent.EvaluatorDecision>());
             set => _decisions = value;
         }
 
@@ -32,7 +32,7 @@ namespace ediri.DockerAgent.Inputs
         /// The decision when the assessment is uncertain: `ask` or `deny`.
         /// </summary>
         [Input("fallback", required: true)]
-        public Input<string> Fallback { get; set; } = null!;
+        public Input<ediri.DockerAgent.EvaluatorFallback> Fallback { get; set; } = null!;
 
         /// <summary>
         /// The lowest probability (greater than 0, at most 1) at which a decision applies.

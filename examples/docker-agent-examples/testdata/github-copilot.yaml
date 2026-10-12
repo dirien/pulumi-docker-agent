@@ -1,0 +1,12 @@
+version: "16"
+agents:
+  root:
+    model: github-copilot/gpt-5.5
+    description: A helpful AI assistant powered by GitHub Copilot
+    instruction: |
+      You are a helpful AI assistant.
+      Be helpful, accurate, and concise in your responses.
+models:
+  github-copilot/gpt-5.5:
+    provider: github-copilot
+    model: gpt-5.5

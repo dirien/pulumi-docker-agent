@@ -64,7 +64,7 @@ return await Deployment.RunAsync(() =>
         {
             Sandbox = true,
             NetworkAllowlist = { "api.anthropic.com" },
-            Safety = "balanced",
+            Safety = SafetyMode.Balanced,
         },
     });
 

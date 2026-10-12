@@ -65,7 +65,7 @@ func main() {
 			Runtime: &dockeragent.RuntimeDefaultsArgs{
 				Sandbox:          pulumi.Bool(true),
 				NetworkAllowlist: pulumi.StringArray{pulumi.String("api.anthropic.com")},
-				Safety:           pulumi.String("balanced"),
+				Safety:           dockeragent.SafetyModeBalanced,
 			},
 		})
 		if err != nil {

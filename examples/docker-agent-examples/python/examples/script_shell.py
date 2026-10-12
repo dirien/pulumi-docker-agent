@@ -1,0 +1,48 @@
+# Generated from docker-agent v1.150.0 examples/script_shell.yaml by `make generate_config_types`. Do not edit.
+
+import ediri_docker_agent as dockeragent
+
+config = dockeragent.AgentConfig(
+    "script_shell",
+    agents=[
+        {
+            "name": "root",
+            "model": "gpt",
+            "description": "An agent with custom shell commands",
+            "instruction": "You are a helpful assistant with access to custom shell tools.",
+            "toolsets": [
+                {
+                    "type": "script",
+                    "shell": {
+                        "get_ip": {
+                            "cmd": "curl -s https://ipinfo.io | jq -r .ip",
+                            "description": "Get public IP",
+                        },
+                        "docker_images": {
+                            "cmd": "docker images $img",
+                            "description": "List running Docker containers",
+                            "args": {
+                                "img": {
+                                    "description": "Docker image to list",
+                                    "type": "string",
+                                },
+                            },
+                        },
+                        "github_user_repos": {
+                            "cmd": "curl -s https://api.github.com/users/$username/repos | jq '.[].name'",
+                            "description": "List GitHub repositories of the provided user",
+                            "required": ["username"],
+                            "args": {
+                                "username": {
+                                    "description": "GitHub username to get the repository list for",
+                                    "type": "string",
+                                },
+                            },
+                        },
+                    },
+                },
+            ],
+        },
+    ],
+    models={"gpt": {"provider": "openai", "model": "gpt-5.6-sol", "max_tokens": 1500}},
+)

@@ -1,0 +1,16 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Assistant that can build on earlier sessions
+    instruction: |
+      You can reuse work from earlier sessions. When the user refers to a
+      previous conversation ("like we discussed yesterday", "continue from
+      last time"), call list_sessions to find the relevant one, then
+      read_session to pull in its transcript before answering. Only read a
+      session when its content is actually relevant — do not read sessions
+      speculatively.
+    toolsets:
+      - type: session_context
+      - type: filesystem
+        readonly: true

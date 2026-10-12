@@ -3,7 +3,7 @@
 
 // Command schemagen keeps the provider in sync with the pinned docker-agent release.
 //
-//	schemagen generate   copy agent-schema.json and examples/*.yaml of the docker-agent module
+//	schemagen generate   copy agent-schema.json and the example configurations of the docker-agent module
 //	                     in provider/go.mod into the provider tree, and generate the typed
 //	                     AgentConfig inputs (pkg/render/config_types.gen.go) and the version,
 //	                     toolset and provider constants (pkg/render/version.gen.go,
@@ -132,8 +132,11 @@ func cmdGenerate(args []string) error {
 			return err
 		}
 	}
-	fmt.Printf("schemagen: docker-agent %s (config version %s): %d types, %d toolset types, %d provider types\n",
-		m.Version, configVersion, len(g.types), len(toolsets), len(providers))
+	fmt.Printf("schemagen: docker-agent %s (config version %s): %d types, %d enums, %d toolset types, %d provider types\n",
+		m.Version, configVersion, len(g.types), len(g.enums), len(toolsets), len(providers))
+	for _, n := range g.notes {
+		fmt.Println("schemagen: note:", n)
+	}
 	return nil
 }
 

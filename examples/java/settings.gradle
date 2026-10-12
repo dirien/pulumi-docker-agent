@@ -1,0 +1,9 @@
+rootProject.name = "docker-agent-java"
+
+// Build against the Java SDK in this repository (sdk/java) instead of the published
+// io.github.dirien:docker-agent. Remove this block when you copy the example elsewhere.
+includeBuild("../../sdk/java") {
+    dependencySubstitution {
+        substitute(module("io.github.dirien:docker-agent")).using(project(":"))
+    }
+}

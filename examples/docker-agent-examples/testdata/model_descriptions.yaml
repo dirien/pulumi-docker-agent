@@ -1,0 +1,19 @@
+version: "16"
+agents:
+  root:
+    model: smart
+    description: An assistant backed by documented models.
+    instruction: You are a helpful assistant.
+models:
+  fast:
+    provider: anthropic
+    model: claude-haiku-4-5
+    description: Fast and cheap; good for summaries, titles, and simple lookups.
+  local:
+    provider: dmr
+    model: ai/qwen3
+    description: Local model; no API key required, keeps data on-machine.
+  smart:
+    provider: anthropic
+    model: claude-sonnet-5
+    description: High-quality reasoning model for complex, multi-step tasks.

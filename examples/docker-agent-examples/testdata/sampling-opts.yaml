@@ -1,0 +1,17 @@
+version: "16"
+agents:
+  root:
+    model: gpt
+    description: Assistant with custom sampling parameters
+    instruction: |
+      You are a helpful assistant running on a local model with tuned sampling parameters.
+models:
+  gpt:
+    provider: openai
+    model: gpt-5.6-sol
+    temperature: 0.7
+    top_p: 0.9
+    provider_opts:
+      min_p: 0.05
+      repetition_penalty: 1.15
+      top_k: 40

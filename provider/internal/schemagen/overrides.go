@@ -198,6 +198,83 @@ var unionTypes = map[string][]fieldSpec{
 	},
 }
 
+// enumTypes names the Pulumi enums generated from the `enum` of a string property (see
+// enumValuesOf for which enums qualify). Every value becomes a typed constant in each SDK
+// (`dockeragent.SafetyModeBalanced` in Go, `SafetyMode.Balanced` in TypeScript and C#,
+// `SafetyMode.BALANCED` in Python), while TypeScript, Python, YAML and HCL programs can keep
+// passing the string.
+//
+// Paths with the same name share one type; they must have the same values. Should
+// docker-agent ever give them different values, the shared type gets all of them (so
+// docker-agent's own validation catches a value that does not fit the path) and
+// `schemagen generate` prints a note.
+//
+// A new enum without an entry here still gets a deterministic name, its owner type and the
+// property name (`HookDefinition.on_error` would be HookDefinitionOnError), so a docker-agent
+// upgrade never stops on it. Add an entry before a release ships the default name: renaming a
+// published enum type breaks Go, .NET and Java programs.
+var enumTypes = map[string]string{
+	"AgentConfig.safety":                 "SafetyMode",
+	"RuntimeDefaults.safety":             "SafetyMode",
+	"AgentConfig.structured_output.mode": "StructuredOutputMode",
+	"HookDefinition.type":                "HookType",
+	"HookDefinition.on_error":            "HookErrorPolicy",
+	"Lifecycle.profile":                  "LifecycleProfile",
+	"Lifecycle.restart":                  "RestartPolicy",
+	"ProviderConfig.api_type":            "ApiType",
+	"HarnessConfig.type":                 "HarnessType",
+	"HarnessConfig.effort":               "HarnessEffort",
+	"ApiConfig.method":                   "HttpMethod",
+	"RAGConfig.strategies[].type":        "RagStrategyType",
+	"RAGConfig.results.fusion.strategy":  "RagFusionStrategy",
+	"EvaluatorConfig.type":               "EvaluatorType",
+	"EvaluatorPolicy.decisions{}":        "EvaluatorDecision",
+	"EvaluatorPolicy.fallback":           "EvaluatorFallback",
+}
+
+// volatileEnums stay plain strings even when agent-schema.json gives them an `enum`: their
+// description lists the allowed values instead. A Pulumi enum is closed: the C# and Java
+// enums cannot hold any other value, and Check rejects other values in every language
+// unless `skipValidation` is set. That is wrong for sets that grow with most docker-agent
+// releases (a program would need a provider upgrade for every new value) and for values
+// that may name user-defined things.
+var volatileEnums = map[string]string{
+	"Toolset.type": "about 30 toolset types, and most docker-agent releases add one; the provider checks " +
+		"them against the pinned docker-agent's registered toolsets instead (validate.ToolsetTypes)",
+	"WebhookConfig.provider": "payload shapes of chat and automation services; new integrations are " +
+		"added regularly and `generic` covers the rest",
+	// The schema has no enum for the model providers today. They stay strings if it gets one.
+	"ModelConfig.provider": "custom provider names from the `providers` section and built-in aliases " +
+		"are allowed",
+	"ProviderConfig.provider":  "built-in aliases are allowed, and the list grows with docker-agent",
+	"EvaluatorConfig.provider": "a named provider from the `providers` section is allowed",
+}
+
+// enumValueNames override the PascalCase name of an enum value (see enumValueName).
+var enumValueNames = map[string]string{
+	"bm25":                   "BM25",
+	"openai_chatcompletions": "OpenAIChatCompletions",
+	"openai_responses":       "OpenAIResponses",
+	"opencode":               "OpenCode",
+	"rrf":                    "RRF",
+	"xhigh":                  "XHigh",
+}
+
+// enumValueDocs document enum values, by enum name and value. They replace the descriptions
+// valueDocs extracts from the schema text (`'value' does ...`), which do not cover every
+// value.
+var enumValueDocs = map[string]map[string]string{
+	// From docker-agent's latest.SafetyMode constants.
+	"SafetyMode": {
+		"strict":   "Prompt for every tool call.",
+		"balanced": "Auto-approve the tool calls docker-agent's classifier considers safe; prompt for the others.",
+		"restricted": "Auto-approve the calls the classifier considers safe and deny every other unmatched call " +
+			"without prompting: the fail-closed profile for unattended runs. Custom permission rules still win.",
+		"autonomous": "Auto-approve every tool call (the legacy YOLO mode). Review configurations from URLs or " +
+			"OCI registries before running them.",
+	},
+}
+
 // requiredOverrides marks properties as required Pulumi inputs although the schema does
 // not list them in `required` (docker-agent's loader requires them).
 var requiredOverrides = map[string]bool{

@@ -6,6 +6,7 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.EvaluatorType;
 import io.github.dirien.dockeragent.inputs.CostArgs;
 import java.lang.Boolean;
 import java.lang.Object;
@@ -206,17 +207,17 @@ public final class EvaluatorArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+     * The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
      * 
      */
     @Import(name="type", required=true)
-    private Output<String> type;
+    private Output<EvaluatorType> type;
 
     /**
-     * @return The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+     * @return The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
      * 
      */
-    public Output<String> type() {
+    public Output<EvaluatorType> type() {
         return this.type;
     }
 
@@ -519,23 +520,23 @@ public final class EvaluatorArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param type The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+         * @param type The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
          * 
          * @return builder
          * 
          */
-        public Builder type(Output<String> type) {
+        public Builder type(Output<EvaluatorType> type) {
             $.type = type;
             return this;
         }
 
         /**
-         * @param type The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+         * @param type The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
          * 
          * @return builder
          * 
          */
-        public Builder type(String type) {
+        public Builder type(EvaluatorType type) {
             return type(Output.of(type));
         }
 

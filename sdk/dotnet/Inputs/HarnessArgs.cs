@@ -23,10 +23,10 @@ namespace ediri.DockerAgent.Inputs
         public Input<string>? Agent { get; set; }
 
         /// <summary>
-        /// Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+        /// Claude Code effort level forwarded as --effort.
         /// </summary>
         [Input("effort")]
-        public Input<string>? Effort { get; set; }
+        public Input<ediri.DockerAgent.HarnessEffort>? Effort { get; set; }
 
         [Input("extra")]
         private InputMap<object>? _extra;
@@ -53,10 +53,10 @@ namespace ediri.DockerAgent.Inputs
         public Input<bool>? Thinking { get; set; }
 
         /// <summary>
-        /// External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+        /// External coding harness provider to use.
         /// </summary>
         [Input("type", required: true)]
-        public Input<string> Type { get; set; } = null!;
+        public Input<ediri.DockerAgent.HarnessType> Type { get; set; } = null!;
 
         public HarnessArgs()
         {

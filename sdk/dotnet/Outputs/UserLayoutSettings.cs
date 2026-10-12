@@ -44,7 +44,7 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
         /// </summary>
-        public readonly string? SectionSpacing;
+        public readonly ediri.DockerAgent.SectionSpacing? SectionSpacing;
         /// <summary>
         /// Show shared plans in the sidebar (default `false`).
         /// </summary>
@@ -52,11 +52,11 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
         /// </summary>
-        public readonly string? SidebarInfoMode;
+        public readonly ediri.DockerAgent.SidebarInfoMode? SidebarInfoMode;
         /// <summary>
         /// Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
         /// </summary>
-        public readonly string? SidebarPosition;
+        public readonly ediri.DockerAgent.SidebarPosition? SidebarPosition;
 
         [OutputConstructor]
         private UserLayoutSettings(
@@ -72,13 +72,13 @@ namespace ediri.DockerAgent.Outputs
 
             bool? hideUsage,
 
-            string? sectionSpacing,
+            ediri.DockerAgent.SectionSpacing? sectionSpacing,
 
             bool? showPlans,
 
-            string? sidebarInfoMode,
+            ediri.DockerAgent.SidebarInfoMode? sidebarInfoMode,
 
-            string? sidebarPosition)
+            ediri.DockerAgent.SidebarPosition? sidebarPosition)
         {
             ActiveAgentsOnly = activeAgentsOnly;
             HideAgents = hideAgents;

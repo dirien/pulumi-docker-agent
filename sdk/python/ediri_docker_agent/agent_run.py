@@ -26,6 +26,7 @@ class AgentRunArgs:
                  allow_hook_approvals: pulumi.Input[Optional[_builtins.bool]] = None,
                  env: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  inherit_environment: pulumi.Input[Optional[_builtins.bool]] = None,
+                 logging: pulumi.Input[Optional['Logging']] = None,
                  output_secret: pulumi.Input[Optional[_builtins.bool]] = None,
                  reference: pulumi.Input[Optional[_builtins.str]] = None,
                  timeout_seconds: pulumi.Input[Optional[_builtins.int]] = None,
@@ -40,7 +41,8 @@ class AgentRunArgs:
         :param pulumi.Input[_builtins.str] agent: The agent to run. Defaults to `root`, or else the first agent of the configuration.
         :param pulumi.Input[_builtins.bool] allow_hook_approvals: Let the configuration's hooks approve tool calls under `toolApproval: deny`. docker-agent runs a tool call that a `pre_tool_use` hook (`permission_decision: allow`) or a `permission_request` hook approves; by default AgentRun ignores such approvals and rejects the call, so `deny` only runs what docker-agent approves by its rules. Hook denials always apply. It has no effect with `toolApproval: allow`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] env: Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks. Other processes get them only through their toolset's own `env` (`${env.NAME}`).
-        :param pulumi.Input[_builtins.bool] inherit_environment: Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+        :param pulumi.Input[_builtins.bool] inherit_environment: Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+        :param pulumi.Input['Logging'] logging: What `pulumi up` shows while the agent runs. `status` (default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
         :param pulumi.Input[_builtins.bool] output_secret: Mark `output` and `structuredOutput` as secret. They are also secret when `prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
         :param pulumi.Input[_builtins.str] reference: An agent shared through an OCI registry (`registry/repository:tag` or `@sha256:...`), pulled like `getAgent` with the provider's `registryAuth`. Pin it by digest, or use `triggers`, to control when a moved tag reruns the agent: only input changes do.
         :param pulumi.Input[_builtins.int] timeout_seconds: How long the run may take, in seconds, before it fails. Changing it updates the state without running the agent again.
@@ -62,6 +64,10 @@ class AgentRunArgs:
             inherit_environment = True
         if inherit_environment is not None:
             pulumi.set(__self__, "inherit_environment", inherit_environment)
+        if logging is None:
+            logging = 'status'
+        if logging is not None:
+            pulumi.set(__self__, "logging", logging)
         if output_secret is None:
             output_secret = False
         if output_secret is not None:
@@ -135,13 +141,25 @@ class AgentRunArgs:
     @pulumi.getter(name="inheritEnvironment")
     def inherit_environment(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
-        Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+        Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
         """
         return pulumi.get(self, "inherit_environment")
 
     @inherit_environment.setter
     def inherit_environment(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "inherit_environment", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def logging(self) -> pulumi.Input[Optional['Logging']]:
+        """
+        What `pulumi up` shows while the agent runs. `status` (default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+        """
+        return pulumi.get(self, "logging")
+
+    @logging.setter
+    def logging(self, value: pulumi.Input[Optional['Logging']]):
+        pulumi.set(self, "logging", value)
 
     @_builtins.property
     @pulumi.getter(name="outputSecret")
@@ -238,6 +256,7 @@ class AgentRun(pulumi.CustomResource):
                  allow_hook_approvals: pulumi.Input[Optional[_builtins.bool]] = None,
                  env: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  inherit_environment: pulumi.Input[Optional[_builtins.bool]] = None,
+                 logging: pulumi.Input[Optional['Logging']] = None,
                  output_secret: pulumi.Input[Optional[_builtins.bool]] = None,
                  prompt: pulumi.Input[Optional[_builtins.str]] = None,
                  reference: pulumi.Input[Optional[_builtins.str]] = None,
@@ -257,7 +276,8 @@ class AgentRun(pulumi.CustomResource):
         outputs are unknown until the update. A change of `yaml`, `reference`, `agent`,
         `prompt`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval`,
         `allowHookApprovals` or `triggers` (including a value that is unknown during the preview) runs the
-        agent again; a change of `timeoutSeconds` or `outputSecret` alone only updates the state.
+        agent again; a change of `timeoutSeconds`, `outputSecret` or `logging` alone only updates
+        the state.
         `pulumi up` without changes and `pulumi refresh` reuse the stored answer, deleting the resource
         does nothing, and importing is not supported.
 
@@ -285,8 +305,9 @@ class AgentRun(pulumi.CustomResource):
         `background_jobs` tools and MCP and LSP servers started with `command` also lose that environment:
         they see the system variables (`PATH`, `HOME`, `USER`, `SHELL`,
         `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get
-        `env`). `docker:` MCP servers, filesystem `post_edit` commands and the
-        `open_url` launcher always inherit it. Errors, warnings and logs are redacted: the values of
+        `env`). `docker:` MCP servers, filesystem `post_edit` commands, the
+        `open_url` launcher and docker-agent's on-demand tool installation always inherit it.
+        Errors, warnings and logs are redacted: the values of
         `env`, secret inputs, credential-named variables of the environment (`*_API_KEY`,
         `*_TOKEN`, `*SECRET*`, `*PASSWORD*`, ...) and the variables the configuration names as
         `token_key`. When the answer contains one of these values, `output` and
@@ -298,16 +319,37 @@ class AgentRun(pulumi.CustomResource):
         works in a fresh temporary directory unless `workingDir` is set. Runs of one provider process execute one at
         a time.
 
+        `logging` controls what `pulumi up` shows while the agent runs. `status` (the default) shows the
+        run's progress as status messages that the next one replaces (an agent started, a task was transferred or the
+        conversation handed off, each tool call and whether it was approved or rejected, and why, a model that fell back to
+        the next one) and ends with one summary line: duration, tool calls, input and output tokens and the estimated cost.
+        `tools` also logs every tool call with its arguments, and `full` also logs the agents' messages and
+        the tools' results. `none` shows nothing. Messages are redacted like errors. When the answer is secret
+        (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no
+        arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or
+        models.
+
+        An AgentRun has two time limits. `timeoutSeconds` (default 300) limits the agent run itself: when it runs
+        out, the run is cancelled and the create or update fails with "the agent did not finish within ... (timeoutSeconds)".
+        The `customTimeouts` resource option (`create`, `update`) limits the whole provider operation,
+        including pulling a `reference` and waiting for another AgentRun of the same provider process to finish; when
+        it runs out, Pulumi cancels the operation and the run fails as cancelled. The shorter limit wins. Use
+        `customTimeouts` to bound the deployment step as a whole and keep `timeoutSeconds` as the per-run safety
+        limit.
+
         ## Example Usage
         ### Structured output from an agent
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
         config = pulumi.Config()
 
+        # Set it with `pulumi config set --secret openaiApiKey <key>`.
+        openai_api_key = config.require_secret("openaiApiKey")
+
         # The agent: its answer must match a JSON schema.
-        reviewer = dockeragent.AgentConfig("reviewer", agents=[{
+        reviewer = docker_agent.AgentConfig("reviewer", agents=[{
             "name": "root",
             "model": "openai/gpt-5-mini",
             "instruction": "Rate the risk of the infrastructure change and explain it in one sentence.",
@@ -316,31 +358,77 @@ class AgentRun(pulumi.CustomResource):
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "risk": {"type": "string", "enum": ["low", "medium", "high"]},
-                        "summary": {"type": "string"},
+                        "risk": {
+                            "type": "string",
+                            "enum": [
+                                "low",
+                                "medium",
+                                "high",
+                            ],
+                        },
+                        "summary": {
+                            "type": "string",
+                        },
                     },
-                    "required": ["risk", "summary"],
+                    "required": [
+                        "risk",
+                        "summary",
+                    ],
                     "additionalProperties": False,
                 },
             },
         }])
 
         # Runs the agent during `pulumi up` (never during a preview) and keeps its answer in the state.
-        review = dockeragent.AgentRun("review",
+        review = docker_agent.AgentRun("review",
             yaml=reviewer.yaml,
             prompt="Upgrade the production PostgreSQL cluster from version 15 to 17.",
-            env={"OPENAI_API_KEY": config.require_secret("openaiApiKey")})
-
-        pulumi.export("risk", review.structured_output.apply(lambda o: o["risk"]))
-        pulumi.export("summary", review.structured_output.apply(lambda o: o["summary"]))
+            env={
+                "OPENAI_API_KEY": openai_api_key,
+            })
+        pulumi.export("verdict", review.structured_output)
+        pulumi.export("usage", review.usage)
         ```
+        ### Run a shared agent and log its tool calls
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        config = pulumi.Config()
+
+        # Set it with `pulumi config set --secret anthropicApiKey <key>`.
+        anthropic_api_key = config.require_secret("anthropicApiKey")
+
+        # The commit range to summarise, for example `v1.2.0..HEAD`.
+        commits = config.require("commits")
+
+        # Pulls the agent from a registry, pinned by digest, and runs it.
+        notes = docker_agent.AgentRun("notes",
+            reference="docker.io/my-org/release-notes@sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+            prompt=f"Write the release notes for {commits}.",
+            inherit_environment=False,
+            env={
+                "ANTHROPIC_API_KEY": anthropic_api_key,
+            },
+            tool_approval=docker_agent.ToolApproval.DENY,
+            logging=docker_agent.Logging.TOOLS,
+            timeout_seconds=600)
+        pulumi.export("releaseNotes", notes.output)
+        pulumi.export("toolCalls", notes.tool_calls)
+        ```
+
+        ## Import
+
+        An AgentRun cannot be imported: a run has nothing to read back. Declare the resource instead; the
+        next `pulumi up` runs the agent.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] agent: The agent to run. Defaults to `root`, or else the first agent of the configuration.
         :param pulumi.Input[_builtins.bool] allow_hook_approvals: Let the configuration's hooks approve tool calls under `toolApproval: deny`. docker-agent runs a tool call that a `pre_tool_use` hook (`permission_decision: allow`) or a `permission_request` hook approves; by default AgentRun ignores such approvals and rejects the call, so `deny` only runs what docker-agent approves by its rules. Hook denials always apply. It has no effect with `toolApproval: allow`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] env: Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks. Other processes get them only through their toolset's own `env` (`${env.NAME}`).
-        :param pulumi.Input[_builtins.bool] inherit_environment: Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+        :param pulumi.Input[_builtins.bool] inherit_environment: Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+        :param pulumi.Input['Logging'] logging: What `pulumi up` shows while the agent runs. `status` (default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
         :param pulumi.Input[_builtins.bool] output_secret: Mark `output` and `structuredOutput` as secret. They are also secret when `prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
         :param pulumi.Input[_builtins.str] prompt: The user message sent to the agent.
         :param pulumi.Input[_builtins.str] reference: An agent shared through an OCI registry (`registry/repository:tag` or `@sha256:...`), pulled like `getAgent` with the provider's `registryAuth`. Pin it by digest, or use `triggers`, to control when a moved tag reruns the agent: only input changes do.
@@ -366,7 +454,8 @@ class AgentRun(pulumi.CustomResource):
         outputs are unknown until the update. A change of `yaml`, `reference`, `agent`,
         `prompt`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval`,
         `allowHookApprovals` or `triggers` (including a value that is unknown during the preview) runs the
-        agent again; a change of `timeoutSeconds` or `outputSecret` alone only updates the state.
+        agent again; a change of `timeoutSeconds`, `outputSecret` or `logging` alone only updates
+        the state.
         `pulumi up` without changes and `pulumi refresh` reuse the stored answer, deleting the resource
         does nothing, and importing is not supported.
 
@@ -394,8 +483,9 @@ class AgentRun(pulumi.CustomResource):
         `background_jobs` tools and MCP and LSP servers started with `command` also lose that environment:
         they see the system variables (`PATH`, `HOME`, `USER`, `SHELL`,
         `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get
-        `env`). `docker:` MCP servers, filesystem `post_edit` commands and the
-        `open_url` launcher always inherit it. Errors, warnings and logs are redacted: the values of
+        `env`). `docker:` MCP servers, filesystem `post_edit` commands, the
+        `open_url` launcher and docker-agent's on-demand tool installation always inherit it.
+        Errors, warnings and logs are redacted: the values of
         `env`, secret inputs, credential-named variables of the environment (`*_API_KEY`,
         `*_TOKEN`, `*SECRET*`, `*PASSWORD*`, ...) and the variables the configuration names as
         `token_key`. When the answer contains one of these values, `output` and
@@ -407,16 +497,37 @@ class AgentRun(pulumi.CustomResource):
         works in a fresh temporary directory unless `workingDir` is set. Runs of one provider process execute one at
         a time.
 
+        `logging` controls what `pulumi up` shows while the agent runs. `status` (the default) shows the
+        run's progress as status messages that the next one replaces (an agent started, a task was transferred or the
+        conversation handed off, each tool call and whether it was approved or rejected, and why, a model that fell back to
+        the next one) and ends with one summary line: duration, tool calls, input and output tokens and the estimated cost.
+        `tools` also logs every tool call with its arguments, and `full` also logs the agents' messages and
+        the tools' results. `none` shows nothing. Messages are redacted like errors. When the answer is secret
+        (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no
+        arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or
+        models.
+
+        An AgentRun has two time limits. `timeoutSeconds` (default 300) limits the agent run itself: when it runs
+        out, the run is cancelled and the create or update fails with "the agent did not finish within ... (timeoutSeconds)".
+        The `customTimeouts` resource option (`create`, `update`) limits the whole provider operation,
+        including pulling a `reference` and waiting for another AgentRun of the same provider process to finish; when
+        it runs out, Pulumi cancels the operation and the run fails as cancelled. The shorter limit wins. Use
+        `customTimeouts` to bound the deployment step as a whole and keep `timeoutSeconds` as the per-run safety
+        limit.
+
         ## Example Usage
         ### Structured output from an agent
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
         config = pulumi.Config()
 
+        # Set it with `pulumi config set --secret openaiApiKey <key>`.
+        openai_api_key = config.require_secret("openaiApiKey")
+
         # The agent: its answer must match a JSON schema.
-        reviewer = dockeragent.AgentConfig("reviewer", agents=[{
+        reviewer = docker_agent.AgentConfig("reviewer", agents=[{
             "name": "root",
             "model": "openai/gpt-5-mini",
             "instruction": "Rate the risk of the infrastructure change and explain it in one sentence.",
@@ -425,24 +536,69 @@ class AgentRun(pulumi.CustomResource):
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "risk": {"type": "string", "enum": ["low", "medium", "high"]},
-                        "summary": {"type": "string"},
+                        "risk": {
+                            "type": "string",
+                            "enum": [
+                                "low",
+                                "medium",
+                                "high",
+                            ],
+                        },
+                        "summary": {
+                            "type": "string",
+                        },
                     },
-                    "required": ["risk", "summary"],
+                    "required": [
+                        "risk",
+                        "summary",
+                    ],
                     "additionalProperties": False,
                 },
             },
         }])
 
         # Runs the agent during `pulumi up` (never during a preview) and keeps its answer in the state.
-        review = dockeragent.AgentRun("review",
+        review = docker_agent.AgentRun("review",
             yaml=reviewer.yaml,
             prompt="Upgrade the production PostgreSQL cluster from version 15 to 17.",
-            env={"OPENAI_API_KEY": config.require_secret("openaiApiKey")})
-
-        pulumi.export("risk", review.structured_output.apply(lambda o: o["risk"]))
-        pulumi.export("summary", review.structured_output.apply(lambda o: o["summary"]))
+            env={
+                "OPENAI_API_KEY": openai_api_key,
+            })
+        pulumi.export("verdict", review.structured_output)
+        pulumi.export("usage", review.usage)
         ```
+        ### Run a shared agent and log its tool calls
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        config = pulumi.Config()
+
+        # Set it with `pulumi config set --secret anthropicApiKey <key>`.
+        anthropic_api_key = config.require_secret("anthropicApiKey")
+
+        # The commit range to summarise, for example `v1.2.0..HEAD`.
+        commits = config.require("commits")
+
+        # Pulls the agent from a registry, pinned by digest, and runs it.
+        notes = docker_agent.AgentRun("notes",
+            reference="docker.io/my-org/release-notes@sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+            prompt=f"Write the release notes for {commits}.",
+            inherit_environment=False,
+            env={
+                "ANTHROPIC_API_KEY": anthropic_api_key,
+            },
+            tool_approval=docker_agent.ToolApproval.DENY,
+            logging=docker_agent.Logging.TOOLS,
+            timeout_seconds=600)
+        pulumi.export("releaseNotes", notes.output)
+        pulumi.export("toolCalls", notes.tool_calls)
+        ```
+
+        ## Import
+
+        An AgentRun cannot be imported: a run has nothing to read back. Declare the resource instead; the
+        next `pulumi up` runs the agent.
 
         :param str resource_name: The name of the resource.
         :param AgentRunArgs args: The arguments to use to populate this resource's properties.
@@ -463,6 +619,7 @@ class AgentRun(pulumi.CustomResource):
                  allow_hook_approvals: pulumi.Input[Optional[_builtins.bool]] = None,
                  env: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  inherit_environment: pulumi.Input[Optional[_builtins.bool]] = None,
+                 logging: pulumi.Input[Optional['Logging']] = None,
                  output_secret: pulumi.Input[Optional[_builtins.bool]] = None,
                  prompt: pulumi.Input[Optional[_builtins.str]] = None,
                  reference: pulumi.Input[Optional[_builtins.str]] = None,
@@ -488,6 +645,9 @@ class AgentRun(pulumi.CustomResource):
             if inherit_environment is None:
                 inherit_environment = True
             __props__.__dict__["inherit_environment"] = inherit_environment
+            if logging is None:
+                logging = 'status'
+            __props__.__dict__["logging"] = logging
             if output_secret is None:
                 output_secret = False
             __props__.__dict__["output_secret"] = output_secret
@@ -539,6 +699,7 @@ class AgentRun(pulumi.CustomResource):
         __props__.__dict__["allow_hook_approvals"] = None
         __props__.__dict__["env"] = None
         __props__.__dict__["inherit_environment"] = None
+        __props__.__dict__["logging"] = None
         __props__.__dict__["output"] = None
         __props__.__dict__["output_secret"] = None
         __props__.__dict__["prompt"] = None
@@ -590,9 +751,17 @@ class AgentRun(pulumi.CustomResource):
     @pulumi.getter(name="inheritEnvironment")
     def inherit_environment(self) -> pulumi.Output[_builtins.bool]:
         """
-        Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+        Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
         """
         return pulumi.get(self, "inherit_environment")
+
+    @_builtins.property
+    @pulumi.getter
+    def logging(self) -> pulumi.Output['Logging']:
+        """
+        What `pulumi up` shows while the agent runs. `status` (default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+        """
+        return pulumi.get(self, "logging")
 
     @_builtins.property
     @pulumi.getter

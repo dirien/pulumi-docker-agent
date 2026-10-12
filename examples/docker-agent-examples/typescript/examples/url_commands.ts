@@ -1,0 +1,41 @@
+// Generated from docker-agent v1.150.0 examples/url_commands.yaml by `make generate_config_types`. Do not edit.
+//
+// This example demonstrates slash commands that open a URL in the user's
+// default browser instead of sending a prompt to the agent.
+//
+// Type "/feedback" in the TUI to open the feedback site, "/docs" to open the
+// documentation, or "/desktop" to deep-link into Docker Desktop via its custom
+// URI scheme. Any URI scheme the OS knows how to handle works.
+//
+// The token {{session_id}} in a url is replaced at invocation time with the
+// current session ID (URL-query-escaped), so a command can link to something
+// scoped to the conversation.
+
+import * as dockeragent from "@ediri/pulumi-docker-agent";
+
+export const config = new dockeragent.AgentConfig("url_commands", {
+    models: { claude: { provider: "anthropic", model: "claude-sonnet-5" } },
+    agents: [
+        {
+            name: "root",
+            model: "claude",
+            description: "An agent with handy URL shortcuts.",
+            instruction: `\
+You are a helpful assistant.
+`,
+            commands: {
+                feedback: {
+                    description: "Open the feedback site for this session",
+                    url: "https://example.com/feedback?session={{session_id}}",
+                },
+                docs: { description: "Open the documentation", url: "https://docs.docker.com/" },
+                desktop: {
+                    description: "Open this session in Docker Desktop",
+                    url: "docker-desktop://dashboard/session/{{session_id}}",
+                },
+            },
+        },
+    ],
+});
+
+export const yaml = config.yaml;

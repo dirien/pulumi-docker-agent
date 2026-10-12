@@ -6,6 +6,8 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.core.internal.Codegen;
+import io.github.dirien.dockeragent.enums.HookErrorPolicy;
+import io.github.dirien.dockeragent.enums.HookType;
 import io.github.dirien.dockeragent.inputs.UserHookEvaluatorPolicyArgs;
 import io.github.dirien.dockeragent.inputs.UserHookRoutingPolicyArgs;
 import java.lang.Boolean;
@@ -57,14 +59,14 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Environment variables added for this hook only.
+     * Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
      * 
      */
     @Import(name="env")
     private @Nullable Output<Map<String,String>> env;
 
     /**
-     * @return Environment variables added for this hook only.
+     * @return Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
      * 
      */
     public Optional<Output<Map<String,String>>> env() {
@@ -136,13 +138,13 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
      * 
      */
     @Import(name="onError")
-    private @Nullable Output<String> onError;
+    private @Nullable Output<HookErrorPolicy> onError;
 
     /**
      * @return What a hook failure does: `warn` (default), `ignore` or `block`.
      * 
      */
-    public Optional<Output<String>> onError() {
+    public Optional<Output<HookErrorPolicy>> onError() {
         return Optional.ofNullable(this.onError);
     }
 
@@ -241,13 +243,13 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
      * 
      */
     @Import(name="type")
-    private @Nullable Output<String> type;
+    private @Nullable Output<HookType> type;
 
     /**
      * @return The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
      * 
      */
-    public Optional<Output<String>> type() {
+    public Optional<Output<HookType>> type() {
         return Optional.ofNullable(this.type);
     }
 
@@ -358,7 +360,7 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param env Environment variables added for this hook only.
+         * @param env Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
          * 
          * @return builder
          * 
@@ -369,7 +371,7 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param env Environment variables added for this hook only.
+         * @param env Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
          * 
          * @return builder
          * 
@@ -468,7 +470,7 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
          * @return builder
          * 
          */
-        public Builder onError(@Nullable Output<String> onError) {
+        public Builder onError(@Nullable Output<HookErrorPolicy> onError) {
             $.onError = onError;
             return this;
         }
@@ -479,7 +481,7 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
          * @return builder
          * 
          */
-        public Builder onError(String onError) {
+        public Builder onError(HookErrorPolicy onError) {
             return onError(Output.of(onError));
         }
 
@@ -615,7 +617,7 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
          * @return builder
          * 
          */
-        public Builder type(@Nullable Output<String> type) {
+        public Builder type(@Nullable Output<HookType> type) {
             $.type = type;
             return this;
         }
@@ -626,7 +628,7 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
          * @return builder
          * 
          */
-        public Builder type(String type) {
+        public Builder type(HookType type) {
             return type(Output.of(type));
         }
 
@@ -652,7 +654,7 @@ public final class UserHookArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         public UserHookArgs build() {
-            $.type = Codegen.stringProp("type").output().arg($.type).def("command").getNullable();
+            $.type = Codegen.objectProp("type", HookType.class).output().arg($.type).def(HookType.Command).getNullable();
             return $;
         }
     }

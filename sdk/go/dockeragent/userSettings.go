@@ -30,20 +30,152 @@ import (
 // If a file already exists at the path when the resource is created, the preview fails when its content differs
 // from the rendered file, so existing aliases and settings are never replaced silently. Copy what you want to keep
 // into the inputs, or set `overwrite: true`. Either way the existing file is moved to
-// `<file>.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a backup,
-// deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+// `<file>.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+// resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+// Set the `retainOnDelete` resource option to keep the file.
 //
 // The resource owns the whole file. Changes docker-agent makes itself (`docker agent alias add`, the TUI's
 // `/settings` dialog, `docker agent sandbox allow`) show up as drift and are reverted by the next
 // `pulumi up --refresh`, so manage those settings here instead.
 //
 // ## Example Usage
+// ### Write the user configuration
+// ```go
+// package main
+//
+// import (
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			// Docker Agent's user configuration, validated with docker-agent's own checks.
+//			settings, err := dockeragent.NewUserSettings(ctx, "settings", &dockeragent.UserSettingsArgs{
+//				Path: pulumi.String("~/.config/cagent/config.yaml"),
+//				Settings: &dockeragent.UserGlobalSettingsArgs{
+//					Theme:     pulumi.String("auto"),
+//					ThemeDark: pulumi.String("dracula"),
+//					Safety:    dockeragent.SafetyModeBalanced,
+//					Sound:     pulumi.Bool(true),
+//					Layout: &dockeragent.UserLayoutSettingsArgs{
+//						SidebarPosition: dockeragent.SidebarPositionLeft,
+//						HideUsage:       pulumi.Bool(true),
+//					},
+//					Permissions: &dockeragent.UserPermissionsArgs{
+//						Deny: pulumi.StringArray{
+//							pulumi.String("shell:cmd=sudo*"),
+//						},
+//						Allow: pulumi.StringArray{
+//							pulumi.String("read_*"),
+//						},
+//					},
+//					Keybindings: dockeragent.UserKeybindingArray{
+//						&dockeragent.UserKeybindingArgs{
+//							Action: pulumi.String("commands"),
+//							Keys: pulumi.StringArray{
+//								pulumi.String("f2"),
+//								pulumi.String("ctrl+k"),
+//							},
+//						},
+//					},
+//				},
+//				Aliases: dockeragent.UserAliasMap{
+//					"reviewer": &dockeragent.UserAliasArgs{
+//						Path:   pulumi.String("docker.io/myorg/reviewer:latest"),
+//						Safety: dockeragent.SafetyModeRestricted,
+//					},
+//				},
+//			})
+//			if err != nil {
+//				return err
+//			}
+//			ctx.Export("configPath", settings.FilePath)
+//			ctx.Export("configSha256", settings.Sha256)
+//			return nil
+//		})
+//	}
+//
+// ```
+// ### Render only, with a global provider and hooks
+// ```go
+// package main
+//
+// import (
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			// No `path`: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
+//			rendered, err := dockeragent.NewUserSettings(ctx, "rendered", &dockeragent.UserSettingsArgs{
+//				Providers: dockeragent.UserProviderMap{
+//					"gateway": &dockeragent.UserProviderArgs{
+//						BaseUrl:  pulumi.String("https://llm.example.com/v1"),
+//						TokenKey: pulumi.String("GATEWAY_API_KEY"),
+//					},
+//				},
+//				DefaultModel: &dockeragent.UserModelArgs{
+//					Provider: pulumi.String("gateway"),
+//					Model:    pulumi.String("qwen3-coder"),
+//				},
+//				SandboxAllowlist: pulumi.StringArray{
+//					pulumi.String("registry.npmjs.org:443"),
+//				},
+//				Settings: &dockeragent.UserGlobalSettingsArgs{
+//					Hooks: &dockeragent.UserHooksArgs{
+//						SessionStart: dockeragent.UserHookArray{
+//							&dockeragent.UserHookArgs{
+//								Type:    dockeragent.HookTypeCommand,
+//								Command: pulumi.String("~/.config/cagent/hooks/session-start.sh"),
+//							},
+//						},
+//						PreToolUse: dockeragent.UserHookMatcherArray{
+//							&dockeragent.UserHookMatcherArgs{
+//								Matcher: pulumi.String("shell"),
+//								Hooks: dockeragent.UserHookArray{
+//									&dockeragent.UserHookArgs{
+//										Type:    dockeragent.HookTypeBuiltin,
+//										Command: pulumi.String("redact_secrets"),
+//									},
+//								},
+//							},
+//						},
+//					},
+//				},
+//			})
+//			if err != nil {
+//				return err
+//			}
+//			ctx.Export("userConfigYaml", rendered.Yaml)
+//			return nil
+//		})
+//	}
+//
+// ```
+//
+// ## Import
+//
+// An existing user configuration can be imported with its path (or `file://<path>`)
+// as ID. It is read with docker-agent's own types, and `pulumi import` generates the typed inputs,
+// `path` included. The file is adopted: the import writes nothing and takes no backup, `overwrite` is
+// not needed, and deleting the resource leaves the file in place (with the content Pulumi last wrote) instead of
+// removing it. The resource ID is the file's absolute path.
+//
+// ```sh
+// $ pulumi import docker-agent:index:UserSettings settings ~/.config/cagent/config.yaml
+// ```
 type UserSettings struct {
 	pulumi.CustomResourceState
 
 	// Agent aliases (`aliases:`), keyed by alias name, as created by `docker agent alias add`.
 	Aliases UserAliasMapOutput `pulumi:"aliases"`
-	// Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+	// Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
 	BackupPath pulumi.StringPtrOutput `pulumi:"backupPath"`
 	// The `docker agent board` Kanban configuration (`board:`).
 	Board UserBoardPtrOutput `pulumi:"board"`
@@ -264,7 +396,7 @@ func (o UserSettingsOutput) Aliases() UserAliasMapOutput {
 	return o.ApplyT(func(v *UserSettings) UserAliasMapOutput { return v.Aliases }).(UserAliasMapOutput)
 }
 
-// Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+// Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
 func (o UserSettingsOutput) BackupPath() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *UserSettings) pulumi.StringPtrOutput { return v.BackupPath }).(pulumi.StringPtrOutput)
 }

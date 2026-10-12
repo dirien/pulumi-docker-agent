@@ -38,12 +38,16 @@ namespace ediri.DockerAgent.Inputs
         private InputMap<string>? _env;
 
         /// <summary>
-        /// Environment variables added for this hook only.
+        /// Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
         /// </summary>
         public InputMap<string> Env
         {
             get => _env ?? (_env = new InputMap<string>());
-            set => _env = value;
+            set
+            {
+                var emptySecret = Output.CreateSecret(ImmutableDictionary.Create<string, string>());
+                _env = Output.All(value, emptySecret).Apply(v => v[0]);
+            }
         }
 
         /// <summary>
@@ -74,7 +78,7 @@ namespace ediri.DockerAgent.Inputs
         /// What a hook failure does: `warn` (default), `ignore` or `block`.
         /// </summary>
         [Input("onError")]
-        public Input<string>? OnError { get; set; }
+        public Input<ediri.DockerAgent.HookErrorPolicy>? OnError { get; set; }
 
         /// <summary>
         /// The prompt template of a `model` hook (Go text/template over the hook input).
@@ -116,7 +120,7 @@ namespace ediri.DockerAgent.Inputs
         /// The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
         /// </summary>
         [Input("type")]
-        public Input<string>? Type { get; set; }
+        public Input<ediri.DockerAgent.HookType>? Type { get; set; }
 
         /// <summary>
         /// The working directory of the hook.
@@ -126,7 +130,7 @@ namespace ediri.DockerAgent.Inputs
 
         public UserHookArgs()
         {
-            Type = "command";
+            Type = ediri.DockerAgent.HookType.Command;
         }
         public static new UserHookArgs Empty => new UserHookArgs();
     }

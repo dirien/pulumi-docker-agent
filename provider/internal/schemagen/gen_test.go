@@ -4,6 +4,7 @@
 package main
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,7 +95,9 @@ func TestGenerateMiniSchema(t *testing.T) {
 		"Sandbox          bool           `pulumi:\"sandbox\" yaml:\"sandbox\"`",
 		"NetworkAllowlist []string       `pulumi:\"networkAllowlist,optional\" yaml:\"network_allowlist\"`",
 		"Extra            map[string]any `pulumi:\"extra,optional\" yaml:\"-\" render:\"extra\"`",
-		"Allowed values: `strict`, `balanced`.",
+		"Safety           *SafetyMode    `pulumi:\"safety,optional\" yaml:\"safety\"`",
+		"SafetyModeStrict SafetyMode = \"strict\"",
+		"func (SafetyMode) Values() []infer.EnumValue[SafetyMode] {",
 		"Defaults to `false`.",
 		"a.SetDefault(&x.Version, DefaultConfigVersion)",
 	} {
@@ -121,6 +124,112 @@ func TestGenerateRequiresRules(t *testing.T) {
 	} {
 		if _, err := generate(t, schema); err == nil || !strings.Contains(err.Error(), "without a generator rule") {
 			t.Errorf("%s: want a missing-rule error, got %v", name, err)
+		}
+	}
+}
+
+const enumSchema = `{
+  "properties": {
+    "version": {"type": "string", "enum": ["1", "2"]},
+    "agents": {"type": "object", "additionalProperties": {"$ref": "#/definitions/AgentConfig"}},
+    "runtime": {"$ref": "#/definitions/RuntimeDefaults"},
+    "toolsets": {"type": "array", "items": {"$ref": "#/definitions/Toolset"}},
+    "lifecycle": {"$ref": "#/definitions/Lifecycle"}
+  },
+  "definitions": {
+    "AgentConfig": {"type": "object", "properties": {
+      "safety": {"type": "string", "enum": ["strict", "balanced"],
+        "description": "The mode. 'strict' asks first. 'balanced' (default): asks less, e.g. for reads, and"},
+      "mode": {"type": "string", "enum": ["fast-path", "GET", "on_failure"]},
+      "single": {"type": "string", "enum": ["only"]},
+      "empty": {"type": "string", "enum": ["", "set"]},
+      "levels": {"type": "array", "items": {"type": "string", "enum": ["a", "b"]}},
+      "decisions": {"type": "object", "additionalProperties": {"type": "string", "enum": ["allow", "deny"]}}
+    }},
+    "RuntimeDefaults": {"type": "object", "properties": {
+      "safety": {"type": "string", "enum": ["strict", "balanced", "yolo"]}
+    }},
+    "Toolset": {"type": "object", "properties": {"type": {"type": "string", "enum": ["mcp", "shell"]}}},
+    "Lifecycle": {"type": "object", "properties": {"backoff": {"type": "string", "enum": ["x", "y"]}}}
+  }
+}`
+
+// TestGenerateEnums covers which enums become Pulumi enums, their names, value names and
+// value descriptions.
+func TestGenerateEnums(t *testing.T) {
+	t.Parallel()
+	g, err := generate(t, enumSchema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src, err := emitTypes(g, "v0.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	flat := strings.Join(strings.Fields(string(src)), " ")
+	for _, want := range []string{
+		// Named in enumTypes and shared by two paths: the union of their values.
+		"Safety *SafetyMode `pulumi:\"safety,optional\" yaml:\"safety\"`",
+		"SafetyModeYolo SafetyMode = \"yolo\"",
+		`{Name: "Strict", Value: SafetyModeStrict, Description: "Prompt for every tool call."}`,
+		// Default names: owner type + property; value names in PascalCase.
+		"Mode *AgentMode `pulumi:\"mode,optional\" yaml:\"mode\"`",
+		`AgentModeFastPath AgentMode = "fast-path"`, `AgentModeGet AgentMode = "GET"`,
+		`AgentModeOnFailure AgentMode = "on_failure"`,
+		"Levels []AgentLevels `pulumi:\"levels,optional\" yaml:\"levels\"`",
+		"Decisions map[string]AgentDecisions `pulumi:\"decisions,optional\" yaml:\"decisions\"`",
+		// A default name that is taken by an object type gets a number.
+		"Backoff *LifecycleBackoff2 `pulumi:\"backoff,optional\" yaml:\"backoff\"`",
+		// Plain strings: a single value, an empty value, numeric values and a volatile set.
+		"Single *string `pulumi:\"single,optional\" yaml:\"single\"`", "Allowed values: `only`.",
+		"Empty *string `pulumi:\"empty,optional\" yaml:\"empty\"`",
+		"Version *string `pulumi:\"version,optional\" yaml:\"version\"`",
+		"Type string `pulumi:\"type\" yaml:\"type\"`", "Allowed values: `mcp`, `shell`.",
+		// The property description no longer lists the values of a Pulumi enum.
+		`a.Describe(&x.Mode, "The ` + "`mode`" + ` setting (no description in agent-schema.json).")`,
+	} {
+		if !strings.Contains(flat, strings.Join(strings.Fields(want), " ")) {
+			t.Errorf("generated source lacks %q:\n%s", want, src)
+		}
+	}
+	if len(g.notes) != 1 || !strings.Contains(g.notes[0], "enum SafetyMode: AgentConfig.safety has the values") {
+		t.Errorf("notes = %q, want one about the values of SafetyMode", g.notes)
+	}
+}
+
+func TestEnumValueNames(t *testing.T) {
+	t.Parallel()
+	for value, want := range map[string]string{
+		"claude-code": "ClaudeCode", "on_failure": "OnFailure", "GET": "Get", "best-effort": "BestEffort",
+		"openai_chatcompletions": "OpenAIChatCompletions", "xhigh": "XHigh", "2fa": "Value2fa", "a.b/c d": "ABCD",
+	} {
+		if got := enumValueName(value); got != want {
+			t.Errorf("enumValueName(%q) = %q, want %q", value, got, want)
+		}
+	}
+}
+
+func TestValueDocs(t *testing.T) {
+	t.Parallel()
+	for desc, want := range map[string]map[string]string{
+		"Shorthand. 'resilient' (default): auto-restart on failure. 'strict': fail fast — no start. 'best-effort': once.": {
+			"resilient": "Auto-restart on failure (the default).", "strict": "Fail fast — no start.", "best-effort": "Once.",
+		},
+		"Policy. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies events. Other.": {
+			"warn": "Reports and continues (default).", "ignore": "Continues silently.", "block": "Denies events.",
+		},
+		"Type. 'command' runs a shell, e.g. bash; 'model' asks an LLM (used for judges, etc., no code). Other 'x' text.": {
+			"command": "Runs a shell, e.g. bash.", "model": "Asks an LLM (used for judges, etc., no code).",
+		},
+		`Mode. Trust warning: "restricted" is the fail-closed profile: safe calls pass.`: {
+			"restricted": "The fail-closed profile: safe calls pass.",
+		},
+		"No quoted values here.": {},
+	} {
+		got := valueDocs(desc, []string{"resilient", "strict", "best-effort", "warn", "ignore", "block", "command",
+			"model", "restricted"})
+		if !maps.Equal(got, want) {
+			t.Errorf("valueDocs(%q) = %q, want %q", desc, got, want)
 		}
 	}
 }

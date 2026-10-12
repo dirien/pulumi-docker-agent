@@ -20,7 +20,7 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
         /// </summary>
-        public readonly string? ApiType;
+        public readonly ediri.DockerAgent.ApiType? ApiType;
         /// <summary>
         /// A non-API-key authentication scheme, such as Anthropic workload identity federation.
         /// </summary>
@@ -88,7 +88,7 @@ namespace ediri.DockerAgent.Outputs
 
         [OutputConstructor]
         private UserProvider(
-            string? apiType,
+            ediri.DockerAgent.ApiType? apiType,
 
             Outputs.UserModelAuth? auth,
 

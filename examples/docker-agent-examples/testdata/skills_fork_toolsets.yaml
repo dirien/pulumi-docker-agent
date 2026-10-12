@@ -1,0 +1,35 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o-mini
+    description: An agent that demonstrates tool-scoped fork skills.
+    instruction: |
+      You are a helpful assistant. Use the available skills when the user's
+      request matches one.
+    toolsets:
+      - type: filesystem
+      - type: shell
+    skills:
+      - name: audit
+        description: Review the repository layout without modifying anything.
+        instructions: |
+          Inspect the repository structure and summarise how it is organised.
+          You can only read files; do not attempt to modify anything.
+        context: fork
+        allowed_tools:
+          - read_file
+          - list_directory
+          - directory_tree
+      - name: research
+        description: Research a topic using web fetches in an isolated context.
+        instructions: |
+          Research the requested topic.
+
+          - Fetch the most authoritative sources you can find.
+          - Summarise findings with links.
+        context: fork
+        toolsets:
+          - web
+toolsets:
+  web:
+    type: fetch

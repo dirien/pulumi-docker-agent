@@ -33,7 +33,7 @@ class AgentArtifactArgs:
         :param pulumi.Input[_builtins.str] yaml: The docker-agent configuration to push, usually the `yaml` output of an `AgentConfig` or the contents of an agent file. The bytes are pushed unchanged.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] annotations: Additional manifest annotations. They can override the description and the annotations derived from `metadata`, but not `io.docker.agent.version`, `io.docker.cagent.version` or `org.opencontainers.image.created`.
         :param pulumi.Input['DeleteBehavior'] delete_behavior: What to do with the pushed manifest when the resource is deleted. Defaults to `retain`. With `delete`, the manifest is kept (with a warning) if another tag of the repository points to the same digest, if the tags cannot be listed, or if the registry does not support deletion.
-        :param pulumi.Input[_builtins.bool] insecure: Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
+        :param pulumi.Input[_builtins.bool] insecure: Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
         :param pulumi.Input[_builtins.bool] skip_validation: Skip validating `yaml` with the docker-agent library before pushing.
         """
         pulumi.set(__self__, "reference", reference)
@@ -101,7 +101,7 @@ class AgentArtifactArgs:
     @pulumi.getter
     def insecure(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
-        Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
+        Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
         """
         return pulumi.get(self, "insecure")
 
@@ -150,7 +150,7 @@ class AgentArtifact(pulumi.CustomResource):
         manifest digest stays stable. A refresh detects when the tag was moved by someone else.
 
         Registry credentials come from the provider's `registryAuth` setting, falling back to the Docker
-        credential store (`docker login`). Like the docker CLI, the provider tries HTTPS first and falls back to
+        credential store (`docker login`). Like the `docker agent` CLI, the provider tries HTTPS first and falls back to
         plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses; set `insecure` for any
         other plain-HTTP or self-signed registry, and the provider's `forceHttps` option to forbid the private-address
         fallback.
@@ -159,30 +159,67 @@ class AgentArtifact(pulumi.CustomResource):
         repository points to the same digest (two tags pushed with identical content in the same second) or the tags cannot
         be listed; the provider then keeps the artifact and logs a warning.
 
+        Unless `skipValidation` is set, the preview validates `yaml` with docker-agent and reports every independent
+        problem at once. The artifact is readable by everyone who can pull it, so a secret `yaml` is pushed in
+        plaintext; the provider warns about it.
+
         ## Example Usage
         ### Push an agent to a registry
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
-        assistant = dockeragent.AgentConfig("assistant", agents=[{
+        # The agent configuration, rendered and validated.
+        assistant = docker_agent.AgentConfig("assistant", agents=[{
             "name": "root",
             "model": "openai/gpt-5-mini",
             "instruction": "You are a helpful assistant. Answer briefly.",
         }])
 
-        artifact = dockeragent.AgentArtifact("assistant",
+        # Pushes the configuration like `docker agent share push`.
+        artifact = docker_agent.AgentArtifact("artifact",
             reference="ghcr.io/my-org/agents/assistant:v1",
             yaml=assistant.yaml)
-
         pulumi.export("pinnedReference", artifact.pinned_reference)
+        pulumi.export("digest", artifact.digest)
+        ```
+        ### Push an existing agent file
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # An agent file kept as raw YAML next to the program.
+        agent_file = (lambda path: open(path).read())("./pirate.yaml")
+
+        # Deleted from the registry when the resource is destroyed.
+        pirate = docker_agent.AgentArtifact("pirate",
+            reference="localhost:5000/agents/pirate:latest",
+            yaml=agent_file,
+            annotations={
+                "org.opencontainers.image.source": "https://github.com/my-org/agents",
+            },
+            delete_behavior=docker_agent.DeleteBehavior.DELETE)
+        pulumi.export("pinnedReference", pirate.pinned_reference)
+        ```
+
+        ## Import
+
+        An artifact pushed with `docker agent share push` (or by another stack) can be imported by its
+        tag, `<registry>/<repository>:<tag>`. `<registry>/<repository>:<tag>@sha256:<digest>` checks that the tag
+        still points to that digest, and `<registry>/<repository>@sha256:<digest>` imports the one tag of the
+        repository that points to it. The registry is read with the provider's `registryAuth` and the Docker
+        credential store. The imported resource has the pushed `yaml`, exactly as it is stored, the annotations the
+        provider would not have set itself and `deleteBehavior: retain`; its ID is the tag.
+
+        ```sh
+        $ pulumi import docker-agent:index:AgentArtifact assistant ghcr.io/my-org/agents/assistant:v1
         ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] annotations: Additional manifest annotations. They can override the description and the annotations derived from `metadata`, but not `io.docker.agent.version`, `io.docker.cagent.version` or `org.opencontainers.image.created`.
         :param pulumi.Input['DeleteBehavior'] delete_behavior: What to do with the pushed manifest when the resource is deleted. Defaults to `retain`. With `delete`, the manifest is kept (with a warning) if another tag of the repository points to the same digest, if the tags cannot be listed, or if the registry does not support deletion.
-        :param pulumi.Input[_builtins.bool] insecure: Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
+        :param pulumi.Input[_builtins.bool] insecure: Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
         :param pulumi.Input[_builtins.str] reference: The tag to push to, as `registry/repository:tag`, for example `ghcr.io/my-org/agents/assistant:v1`. The tag defaults to `latest`. Changing it replaces the resource. Registries on `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses may be reached over plain HTTP when HTTPS fails (see `insecure` and the provider's `forceHttps`).
         :param pulumi.Input[_builtins.bool] skip_validation: Skip validating `yaml` with the docker-agent library before pushing.
         :param pulumi.Input[_builtins.str] yaml: The docker-agent configuration to push, usually the `yaml` output of an `AgentConfig` or the contents of an agent file. The bytes are pushed unchanged.
@@ -208,7 +245,7 @@ class AgentArtifact(pulumi.CustomResource):
         manifest digest stays stable. A refresh detects when the tag was moved by someone else.
 
         Registry credentials come from the provider's `registryAuth` setting, falling back to the Docker
-        credential store (`docker login`). Like the docker CLI, the provider tries HTTPS first and falls back to
+        credential store (`docker login`). Like the `docker agent` CLI, the provider tries HTTPS first and falls back to
         plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses; set `insecure` for any
         other plain-HTTP or self-signed registry, and the provider's `forceHttps` option to forbid the private-address
         fallback.
@@ -217,23 +254,60 @@ class AgentArtifact(pulumi.CustomResource):
         repository points to the same digest (two tags pushed with identical content in the same second) or the tags cannot
         be listed; the provider then keeps the artifact and logs a warning.
 
+        Unless `skipValidation` is set, the preview validates `yaml` with docker-agent and reports every independent
+        problem at once. The artifact is readable by everyone who can pull it, so a secret `yaml` is pushed in
+        plaintext; the provider warns about it.
+
         ## Example Usage
         ### Push an agent to a registry
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
-        assistant = dockeragent.AgentConfig("assistant", agents=[{
+        # The agent configuration, rendered and validated.
+        assistant = docker_agent.AgentConfig("assistant", agents=[{
             "name": "root",
             "model": "openai/gpt-5-mini",
             "instruction": "You are a helpful assistant. Answer briefly.",
         }])
 
-        artifact = dockeragent.AgentArtifact("assistant",
+        # Pushes the configuration like `docker agent share push`.
+        artifact = docker_agent.AgentArtifact("artifact",
             reference="ghcr.io/my-org/agents/assistant:v1",
             yaml=assistant.yaml)
-
         pulumi.export("pinnedReference", artifact.pinned_reference)
+        pulumi.export("digest", artifact.digest)
+        ```
+        ### Push an existing agent file
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # An agent file kept as raw YAML next to the program.
+        agent_file = (lambda path: open(path).read())("./pirate.yaml")
+
+        # Deleted from the registry when the resource is destroyed.
+        pirate = docker_agent.AgentArtifact("pirate",
+            reference="localhost:5000/agents/pirate:latest",
+            yaml=agent_file,
+            annotations={
+                "org.opencontainers.image.source": "https://github.com/my-org/agents",
+            },
+            delete_behavior=docker_agent.DeleteBehavior.DELETE)
+        pulumi.export("pinnedReference", pirate.pinned_reference)
+        ```
+
+        ## Import
+
+        An artifact pushed with `docker agent share push` (or by another stack) can be imported by its
+        tag, `<registry>/<repository>:<tag>`. `<registry>/<repository>:<tag>@sha256:<digest>` checks that the tag
+        still points to that digest, and `<registry>/<repository>@sha256:<digest>` imports the one tag of the
+        repository that points to it. The registry is read with the provider's `registryAuth` and the Docker
+        credential store. The imported resource has the pushed `yaml`, exactly as it is stored, the annotations the
+        provider would not have set itself and `deleteBehavior: retain`; its ID is the tag.
+
+        ```sh
+        $ pulumi import docker-agent:index:AgentArtifact assistant ghcr.io/my-org/agents/assistant:v1
         ```
 
         :param str resource_name: The name of the resource.
@@ -374,7 +448,7 @@ class AgentArtifact(pulumi.CustomResource):
     @pulumi.getter
     def insecure(self) -> pulumi.Output[Optional[_builtins.bool]]:
         """
-        Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
+        Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
         """
         return pulumi.get(self, "insecure")
 

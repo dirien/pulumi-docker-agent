@@ -6,6 +6,7 @@ GOPKG            := dockeragent
 ORG              := dirien
 PROJECT          := github.com/$(ORG)/pulumi-$(PACK)
 PROVIDER         := pulumi-resource-$(PACK)
+CONVERTER        := pulumi-converter-$(PACK)
 PROVIDER_PATH    := provider
 # The provider is its own Go module (github.com/dirien/pulumi-docker-agent/provider); the version
 # variable lives in its root package.
@@ -27,12 +28,13 @@ VERSION_PYTHON    = $(shell pulumictl convert-version --language python  --versi
 VERSION_DOTNET    = $(shell pulumictl convert-version --language dotnet  --version "$(PROVIDER_VERSION)" | sed 's/+.*//')
 LDFLAGS           = -s -w -X $(VERSION_PATH)=$(VERSION_GENERIC)
 
-.PHONY: help ensure provider provider_debug schema codegen generate_sdks generate_config_types check_config_types \
+.PHONY: help ensure provider provider_debug schema docs codegen generate_sdks generate_config_types check_config_types \
         upgrade_docker_agent check_docker_agent_upgrade \
         generate_nodejs generate_python generate_dotnet generate_go generate_java \
         build build_sdks build_nodejs build_python build_dotnet build_go build_java \
+        converter install_converter \
         install install_plugin install_nodejs_sdk install_dotnet_sdk \
-        test test_provider test_compat test_examples lint goreleaser_check snapshot clean
+        test test_provider test_compat test_examples test_policy lint goreleaser_check snapshot clean
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -48,13 +50,35 @@ provider: ## Build bin/pulumi-resource-docker-agent
 provider_debug: ## Build the provider without optimizations (for debuggers)
 	cd $(PROVIDER_PATH) && go build -o $(WORKING_DIR)/bin/$(PROVIDER) -gcflags="all=-N -l" -ldflags "-X $(VERSION_PATH)=$(VERSION_GENERIC)" ./cmd/$(PROVIDER)
 
+# The converter plugin (`pulumi convert --from docker-agent`) is released next to the provider,
+# with the same version. It does not link the docker-agent runtime.
+converter: ## Build bin/pulumi-converter-docker-agent (the `pulumi convert --from docker-agent` plugin)
+	cd $(PROVIDER_PATH) && go build -o $(WORKING_DIR)/bin/$(CONVERTER) -ldflags "$(LDFLAGS)" ./cmd/$(CONVERTER)
+
 schema: provider ## Regenerate the committed schema.json (version stripped)
 	$(PULUMI) package get-schema $(WORKING_DIR)/bin/$(PROVIDER) | jq 'del(.version)' > $(SCHEMA_FILE)
+
+# ---------------------------------------------------------------- docs (committed)
+# The Example Usage sections of the API docs (provider/pkg/provider/embed/*-examples.md, embedded in
+# the resource and function descriptions) and of docs/_index.md are generated from the Pulumi YAML
+# programs in docs/yaml by provider/internal/docsgen: `pulumi convert --generate-only` against bin/
+# turns each one into TypeScript, Python, Go, C#, Java and HCL. The YAML converter and the HCL
+# language plugin are pinned so that their releases do not change the output (the other program
+# generators come with the Pulumi CLI of .pulumi.version). bin/ is built again afterwards because
+# it embeds the examples that `schema` reads.
+PULUMI_CONVERTER_YAML_VERSION ?= 1.38.9
+PULUMI_HCL_VERSION            ?= 0.18.4
+
+docs: provider ## Regenerate the Example Usage sections from docs/yaml (all languages), then rebuild bin/
+	$(PULUMI) plugin install converter yaml $(PULUMI_CONVERTER_YAML_VERSION)
+	$(PULUMI) plugin install language hcl $(PULUMI_HCL_VERSION)
+	cd $(PROVIDER_PATH) && go run ./internal/docsgen
+	@$(MAKE) --no-print-directory provider
 
 # ---------------------------------------------------------------- codegen (committed, version-agnostic)
 # SDKs are generated WITHOUT --version so the committed tree never changes between releases
 # (same model as dirien/pulumi-fly). The version is injected only into build outputs (bin/, gitignored).
-codegen: generate_config_types schema generate_sdks ## Typed config inputs + schema.json + all SDK sources
+codegen: generate_config_types docs schema generate_sdks ## Typed config inputs + examples + schema.json + all SDK sources
 
 generate_sdks: generate_nodejs generate_python generate_dotnet generate_go generate_java ## Generate all SDK sources from schema.json
 
@@ -71,19 +95,25 @@ generate_go:
 # The typed AgentConfig inputs (provider/pkg/render/config_types.gen.go) and the version, toolset
 # and provider constants are generated from agent-schema.json of the docker-agent module pinned in
 # provider/go.mod, by provider/internal/schemagen. The generator also vendors that schema and the
-# upstream example configurations, which the coverage and round-trip tests read.
+# upstream example configurations, which the coverage and round-trip tests read. Then
+# provider/internal/examplegen turns every vendored example into a TypeScript and a Python program
+# (examples/docker-agent-examples; the hand-written project files there are not generated).
+EXAMPLES_GEN     := examples/docker-agent-examples
 GENERATED_CONFIG := $(PROVIDER_PATH)/pkg/render/config_types.gen.go $(PROVIDER_PATH)/pkg/render/version.gen.go \
 	$(PROVIDER_PATH)/pkg/render/schema $(PROVIDER_PATH)/pkg/render/testdata/upstream \
-	$(PROVIDER_PATH)/pkg/validate/upstream.gen.go
+	$(PROVIDER_PATH)/pkg/validate/upstream.gen.go \
+	$(EXAMPLES_GEN)/README.md $(EXAMPLES_GEN)/testdata \
+	$(EXAMPLES_GEN)/typescript/index.ts $(EXAMPLES_GEN)/typescript/examples \
+	$(EXAMPLES_GEN)/python/__main__.py $(EXAMPLES_GEN)/python/examples
 DOCKER_AGENT_VERSION ?=
 
-generate_config_types: ## Regenerate the typed AgentConfig inputs from the pinned docker-agent schema
-	cd $(PROVIDER_PATH) && go run ./internal/schemagen generate
+generate_config_types: ## Regenerate the typed AgentConfig inputs and the example programs from the pinned docker-agent
+	cd $(PROVIDER_PATH) && go run ./internal/schemagen generate && go run ./internal/examplegen
 
-check_config_types: generate_config_types ## Fail if the generated config types differ from provider/go.mod's docker-agent
+check_config_types: generate_config_types ## Fail if the generated config types or example programs differ from provider/go.mod's docker-agent
 	@git update-index -q --refresh; \
 	if [ -n "$$(git status --porcelain -- $(GENERATED_CONFIG))" ]; then \
-		echo "::error title=Stale config types::the generated config types do not match the docker-agent version in provider/go.mod. Run 'make generate_config_types' (or 'make upgrade_docker_agent') and commit the result."; \
+		echo "::error title=Stale config types::the generated config types or example programs do not match the docker-agent version in provider/go.mod. Run 'make generate_config_types' (or 'make upgrade_docker_agent') and commit the result."; \
 		git status --porcelain -- $(GENERATED_CONFIG); \
 		git --no-pager diff --stat -- $(GENERATED_CONFIG); \
 		exit 1; \
@@ -97,7 +127,7 @@ check_docker_agent_upgrade: ## Print whether a newer docker-agent release than p
 
 # ---------------------------------------------------------------- build (version injected)
 build: provider build_sdks ## Provider + all SDKs
-build_sdks: build_nodejs build_python build_dotnet build_go ## Build the nodejs, python, dotnet and go SDKs
+build_sdks: build_nodejs build_python build_dotnet build_go build_java ## Build the nodejs, python, dotnet, go and java SDKs
 
 build_nodejs: generate_nodejs ## -> sdk/nodejs/bin (npm publish dir)
 	cd sdk/nodejs && \
@@ -122,8 +152,12 @@ build_dotnet: generate_dotnet ## -> sdk/dotnet/bin/Debug/*.nupkg
 build_go: generate_go ## Compile check; consumers fetch the SDK via the sdk/vX.Y.Z tag
 	cd sdk && go build ./...
 
-build_java: generate_java ## -> sdk/java/build/libs (best effort, not published)
-	cd sdk/java && PACKAGE_VERSION=$(VERSION_GENERIC) gradle --console=plain build
+# Builds exactly what the release publishes to Maven Central (io.github.dirien:docker-agent): the
+# jar, the sources and javadoc jars and the POM. scripts/java-sdk.init.gradle completes the POM
+# metadata that Central requires and pulumi-java leaves empty (sdk/java/build.gradle is generated).
+build_java: generate_java ## -> sdk/java/build/libs (jar, sources, javadoc) and sdk/java/build/publications (POM)
+	cd sdk/java && PACKAGE_VERSION=$(VERSION_GENERIC) gradle --console=plain --init-script ../../scripts/java-sdk.init.gradle \
+		build sourcesJar javadocJar generatePomFileForMainPublicationPublication
 
 # ---------------------------------------------------------------- local install / test
 install_plugin: provider ## Install bin/ as plugin docker-agent v$(VERSION_GENERIC) for local `pulumi up`
@@ -131,6 +165,10 @@ install_plugin: provider ## Install bin/ as plugin docker-agent v$(VERSION_GENER
 	$(PULUMI) plugin install resource $(PACK) $(VERSION_GENERIC) --file $(WORKING_DIR)/bin/$(PROVIDER) --reinstall
 	@echo "Installed docker-agent $(VERSION_GENERIC). Programs without an explicit provider version can also"
 	@echo "use the dev binary by putting $(WORKING_DIR)/bin first on PATH."
+
+install_converter: converter ## Install bin/ as converter plugin docker-agent v$(VERSION_GENERIC) for local `pulumi convert --from docker-agent`
+	-$(PULUMI) plugin rm converter $(PACK) $(VERSION_GENERIC) --yes >/dev/null 2>&1
+	$(PULUMI) plugin install converter $(PACK) $(VERSION_GENERIC) --file $(WORKING_DIR)/bin/$(CONVERTER) --reinstall
 
 install_nodejs_sdk: build_nodejs ## yarn link the built nodejs SDK
 	-yarn unlink --cwd $(WORKING_DIR)/sdk/nodejs/bin
@@ -154,7 +192,7 @@ test_compat: ## Compatibility tests against the real docker-agent CLI and a regi
 EXAMPLES_REGISTRY_IMAGE ?= registry:2
 EXAMPLES_RUN            ?= .
 
-test_examples: provider build_nodejs build_python build_dotnet ## E2E: up/preview/refresh/destroy every program in examples/ against a registry
+test_examples: provider converter build_nodejs build_python build_dotnet ## E2E: run every program in examples/ (and the generated docker-agent examples) against a registry
 	@set -euo pipefail; \
 	registry="$${DOCKER_AGENT_TEST_REGISTRY:-}"; \
 	if [ -z "$$registry" ]; then \
@@ -169,6 +207,10 @@ test_examples: provider build_nodejs build_python build_dotnet ## E2E: up/previe
 	cd examples && DOCKER_AGENT_TEST_REGISTRY="$$registry" PULUMI_SKIP_UPDATE_CHECK=true \
 		go test -v -count=1 -timeout 1h -parallel $(TESTPARALLELISM) -run '$(EXAMPLES_RUN)' ./...
 
+# The policy pack in policy/ depends on the Node.js SDK built into sdk/nodejs/bin.
+test_policy: ## Type-check and unit-test the policy pack in policy/ (needs `make build_nodejs`)
+	cd policy && npm install --no-audit --no-fund && npm test
+
 test: test_provider
 
 lint: ## golangci-lint on the provider module
@@ -182,4 +224,5 @@ snapshot: ## Cross-compile all archives into dist/ without publishing
 
 clean:
 	rm -rf bin dist nuget sdk/nodejs/bin sdk/nodejs/node_modules sdk/python/bin sdk/python/venv \
-		sdk/dotnet/bin sdk/dotnet/obj sdk/java/build sdk/java/.gradle
+		sdk/dotnet/bin sdk/dotnet/obj sdk/java/build sdk/java/.gradle \
+		policy/node_modules policy/bin examples/automation-ts/node_modules examples/automation-ts/bin

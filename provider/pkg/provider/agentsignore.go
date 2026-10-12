@@ -39,60 +39,20 @@ written.
 
 If the project already has a ` + "`.agentsignore`" + ` with different content, the preview fails instead of replacing it.
 Copy its patterns into ` + "`patterns`" + `, or set ` + "`overwrite: true`" + `. Either way the existing file is moved to
-` + "`.agentsignore.pulumi-backup`" + ` (output ` + "`backupPath`" + `), and deleting the resource moves it back; without a
-backup, deleting the resource removes the file. Set the ` + "`retainOnDelete`" + ` resource option to keep the file.
+` + "`.agentsignore.pulumi-backup`" + ` (output ` + "`backupPath`" + `), and deleting the resource moves it back. Deleting the
+resource removes a file that the provider created, and leaves a file adopted with ` + "`pulumi import`" + ` in place.
+Set the ` + "`retainOnDelete`" + ` resource option to keep the file.`
 
-{{% examples %}}
-## Example Usage
-{{% example %}}
-### Hide secrets from the agent
-
-` + "```typescript" + `
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-const ignore = new dockeragent.AgentsIgnore("project", {
-    directory: "/home/me/src/my-service",
-    comment: "Managed by Pulumi. Keep secrets away from docker-agent.",
-    patterns: [".env", ".env.*", "*.pem", "*.key", "!public.key", ".aws/", "build/"],
-});
-
-export const agentsIgnore = ignore.content;
-` + "```" + `
-` + "```python" + `
-import pulumi
-import ediri_docker_agent as dockeragent
-
-ignore = dockeragent.AgentsIgnore("project",
-    directory="/home/me/src/my-service",
-    comment="Managed by Pulumi. Keep secrets away from docker-agent.",
-    patterns=[".env", ".env.*", "*.pem", "*.key", "!public.key", ".aws/", "build/"])
-
-pulumi.export("agentsIgnore", ignore.content)
-` + "```" + `
-` + "```yaml" + `
-resources:
-  project:
-    type: docker-agent:index:AgentsIgnore
-    properties:
-      directory: /home/me/src/my-service
-      comment: Managed by Pulumi. Keep secrets away from docker-agent.
-      patterns:
-        - .env
-        - .env.*
-        - "*.pem"
-        - "*.key"
-        - "!public.key"
-        - .aws/
-        - build/
-outputs:
-  agentsIgnore: ${project.content}
-` + "```" + `
-{{% /example %}}
-{{% /examples %}}`
+var agentsIgnoreImportDoc = `An existing ` + "`.agentsignore`" + ` can be imported with its project directory (or the
+file's path) as ID: the comment block at the top of the file becomes ` + "`comment`" + ` and every other line a
+pattern (comments between patterns are not imported). The file is adopted as for ` + "`UserSettings`" + `: the import
+takes no backup, ` + "`overwrite`" + ` is not needed, and deleting the resource leaves the file in place. The resource
+ID is the file's absolute path.` +
+	importCommand("docker-agent:index:AgentsIgnore", "project", "./my-service")
 
 // Annotate describes the resource.
 func (r *AgentsIgnore) Annotate(a infer.Annotator) {
-	a.Describe(&r, agentsIgnoreDoc)
+	a.Describe(&r, describe(agentsIgnoreDoc, agentsIgnoreExamples, agentsIgnoreImportDoc))
 }
 
 // AgentsIgnoreArgs are the inputs of AgentsIgnore.
@@ -135,7 +95,7 @@ func (s *AgentsIgnoreState) Annotate(an infer.Annotator) {
 	an.Describe(&s.SHA256, "The hex-encoded SHA-256 of `content`.")
 	an.Describe(&s.FilePath, "The absolute path of the written file. Unset when `directory` is unset.")
 	an.Describe(&s.BackupPath, "Where the `.agentsignore` that already existed was moved when the resource took it "+
-		"over. Deleting the resource moves it back. Unset when there was no file.")
+		"over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.")
 }
 
 // Check validates the patterns.
@@ -207,7 +167,7 @@ func (*AgentsIgnore) Create(
 	if err != nil {
 		return infer.CreateResponse[AgentsIgnoreState]{}, err
 	}
-	backup, warning, err := target.apply(state.Content, isTrue(req.Inputs.Overwrite), "", "")
+	backup, warning, err := target.apply(state.Content, isTrue(req.Inputs.Overwrite), "", "", false)
 	if err != nil {
 		return infer.CreateResponse[AgentsIgnoreState]{}, err
 	}
@@ -228,8 +188,9 @@ func (*AgentsIgnore) Update(
 	if err != nil {
 		return infer.UpdateResponse[AgentsIgnoreState]{}, err
 	}
+	oldPath := derefStr(req.State.FilePath)
 	backup, warning, err := target.apply(state.Content, isTrue(req.Inputs.Overwrite),
-		derefStr(req.State.FilePath), derefStr(req.State.BackupPath))
+		oldPath, derefStr(req.State.BackupPath), adoptedFile(req.ID, oldPath))
 	if err != nil {
 		return infer.UpdateResponse[AgentsIgnoreState]{}, err
 	}
@@ -238,13 +199,14 @@ func (*AgentsIgnore) Update(
 	return infer.UpdateResponse[AgentsIgnoreState]{Output: state}, nil
 }
 
-// Read detects drift between the state and the file.
+// Read detects drift between the state and the file. Without a state, it imports (adopts)
+// the existing file named by the ID.
 func (*AgentsIgnore) Read(
-	_ context.Context, req infer.ReadRequest[AgentsIgnoreArgs, AgentsIgnoreState],
+	ctx context.Context, req infer.ReadRequest[AgentsIgnoreArgs, AgentsIgnoreState],
 ) (infer.ReadResponse[AgentsIgnoreArgs, AgentsIgnoreState], error) {
 	state := req.State
 	if state.SHA256 == "" {
-		return infer.ReadResponse[AgentsIgnoreArgs, AgentsIgnoreState]{}, errImportUnsupported
+		return importAgentsIgnore(ctx, req.ID)
 	}
 	if path := derefStr(state.FilePath); path != "" {
 		content, changed, gone, err := refreshContent(path, state.Content)
@@ -262,11 +224,9 @@ func (*AgentsIgnore) Read(
 }
 
 // Delete moves the backup of the file that existed before back, or removes the managed
-// file.
+// file. An adopted file (imported with `pulumi import`) is left in place.
 func (*AgentsIgnore) Delete(ctx context.Context, req infer.DeleteRequest[AgentsIgnoreState]) (infer.DeleteResponse, error) {
-	warning, err := release(derefStr(req.State.FilePath), derefStr(req.State.BackupPath))
-	logWarning(ctx, warning)
-	return infer.DeleteResponse{}, err
+	return infer.DeleteResponse{}, releaseFile(ctx, req.ID, derefStr(req.State.FilePath), derefStr(req.State.BackupPath))
 }
 
 // Diff compares the inputs and detects drift found by a refresh.

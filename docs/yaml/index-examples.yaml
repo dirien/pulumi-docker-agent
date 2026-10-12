@@ -1,0 +1,199 @@
+# The examples of docs/_index.md, the package overview page. `make docs` writes each one into the
+# region `<!-- docsgen begin: <name> -->` ... `<!-- docsgen end -->` of docs/_index.md, as a
+# language chooser. See agentconfig-examples.yaml for the format; `notes` adds a paragraph after
+# the code of one language.
+---
+description: A research assistant, shared through a registry
+notes:
+  hcl: >-
+    In HCL, `AgentConfig` and `AgentArtifact` are the `docker-agent_agent_config` and
+    `docker-agent_agent_artifact` resources, `getAgent` and `validateAgentConfig` are the
+    `docker-agent_agent` and `docker-agent_validate_agent_config` data sources, and property names
+    are snake_case. Lists of objects, such as `agents` and an agent's `toolsets`, are written as
+    repeated nested blocks.
+name: research-assistant
+runtime: yaml
+
+resources:
+  # A typed docker-agent configuration, validated during `pulumi preview`.
+  assistant:
+    type: docker-agent:index:AgentConfig
+    properties:
+      models:
+        fast:
+          provider: openai
+          model: gpt-5-mini
+          maxTokens: 16000
+      agents:
+        - name: root
+          model: fast
+          description: Answers questions and delegates web research
+          instruction: >-
+            You are a helpful assistant. Delegate questions that need current
+            information to the researcher agent, then summarise its findings.
+          subAgents:
+            - researcher
+        - name: researcher
+          model: fast
+          description: Searches the web with DuckDuckGo
+          instruction: Search the web and answer with short summaries that cite their sources.
+          toolsets:
+            - type: mcp
+              ref: docker:duckduckgo
+      metadata:
+        author: Jane Doe
+        license: Apache-2.0
+        version: 1.0.0
+        tags:
+          - research
+          - demo
+
+  # Share the configuration as an OCI artifact, like `docker agent share push`.
+  artifact:
+    type: docker-agent:index:AgentArtifact
+    properties:
+      reference: localhost:5000/agents/research-assistant:v1
+      yaml: ${assistant.yaml}
+
+variables:
+  # Read the shared agent back from the registry, like `docker agent share pull`.
+  pulled:
+    fn::invoke:
+      function: docker-agent:index:getAgent
+      arguments:
+        reference: ${artifact.pinnedReference}
+
+outputs:
+  digest: ${artifact.digest}
+  pinnedReference: ${artifact.pinnedReference}
+  requiredEnvVars: ${assistant.requiredEnvVars}
+  pulledAgents: ${pulled.agentNames}
+---
+description: Sandbox mode, a safety mode, hooks, commands and a budget
+notes:
+  hcl: >-
+    In HCL, objects such as `runtime`, `hooks` and `budget` are attributes, while `agents` and
+    `toolsets` are repeated nested blocks.
+name: test-fixer
+runtime: yaml
+
+resources:
+  fixer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      runtime:
+        sandbox: true
+        safety: restricted
+        networkAllowlist:
+          - api.github.com
+          - registry.npmjs.org:443
+      agents:
+        - name: root
+          model: anthropic/claude-sonnet-4-5
+          instruction: Run the test suite and fix the failing tests.
+          toolsets:
+            - type: shell
+            - type: filesystem
+          hooks:
+            sessionStart:
+              - type: builtin
+                command: add_environment_info
+          simpleCommands:
+            test: Run the tests and summarise the failures
+      budget:
+        maxCost: 5
+        maxTime: 30m
+
+outputs:
+  agentYaml: ${fixer.yaml}
+---
+description: Docker Agent's user configuration and a project's .agentsignore
+notes:
+  hcl: >-
+    In HCL, `UserSettings` and `AgentsIgnore` are the `docker-agent_user_settings` and
+    `docker-agent_agents_ignore` resources. `settings`, `aliases` and the other object and map
+    inputs are attributes, with snake_case keys at every level.
+name: agent-local-config
+runtime: yaml
+
+resources:
+  # Docker Agent's user configuration, validated with docker-agent's own checks.
+  settings:
+    type: docker-agent:index:UserSettings
+    properties:
+      path: ~/.config/cagent/config.yaml
+      settings:
+        theme: auto
+        safety: balanced
+        layout:
+          sidebarPosition: left
+        permissions:
+          deny: ["shell:cmd=sudo*"]
+          allow: ["read_*"]
+        keybindings:
+          - action: commands
+            keys: [f2, ctrl+k]
+      aliases:
+        reviewer:
+          path: docker.io/myorg/reviewer:latest
+          safety: restricted
+
+  # Hide secrets from the agent's filesystem tools in a project.
+  ignore:
+    type: docker-agent:index:AgentsIgnore
+    properties:
+      directory: ~/src/my-service
+      patterns: [".env", ".env.*", "*.pem", "*.key", "!public.key", "build/"]
+
+outputs:
+  configPath: ${settings.filePath}
+  agentsIgnore: ${ignore.content}
+---
+description: Structured output from an agent run during pulumi up
+notes:
+  hcl: >-
+    In HCL, `AgentRun` is the `docker-agent_agent_run` resource, and its properties are snake_case
+    (`structured_output`, `tool_calls`, `inherit_environment`). `env` and an agent's
+    `structured_output` are attributes; `agents` are repeated nested blocks. HCL variables are
+    Pulumi config values.
+name: change-review
+runtime: yaml
+
+config:
+  # Set it with `pulumi config set --secret openaiApiKey <key>`.
+  openaiApiKey:
+    type: string
+    secret: true
+
+resources:
+  # The agent: its answer must match a JSON schema.
+  reviewer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          model: openai/gpt-5-mini
+          instruction: Rate the risk of the infrastructure change and explain it in one sentence.
+          structuredOutput:
+            name: change_review
+            schema:
+              type: object
+              properties:
+                risk: {type: string, enum: [low, medium, high]}
+                summary: {type: string}
+              required: [risk, summary]
+              additionalProperties: false
+
+  # Runs the agent during `pulumi up` (never during a preview) and keeps its answer in the state.
+  review:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${reviewer.yaml}
+      prompt: Upgrade the production PostgreSQL cluster from version 15 to 17.
+      env:
+        OPENAI_API_KEY: ${openaiApiKey}
+
+outputs:
+  # The answer as an object, for example {"risk": "high", "summary": "..."}.
+  verdict: ${review.structuredOutput}
+  usage: ${review.usage}

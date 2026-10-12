@@ -1,0 +1,20 @@
+version: "16"
+agents:
+  root:
+    model: primary
+    description: |
+      An assistant that uses a fast model for simple tool operations and the primary model for complex reasoning.
+    instruction: |
+      You are a helpful assistant. Use the available tools to help the user.
+    toolsets:
+      - type: filesystem
+        model: fast
+      - type: shell
+        model: fast
+models:
+  fast:
+    provider: anthropic
+    model: claude-haiku-4-5
+  primary:
+    provider: anthropic
+    model: claude-sonnet-5

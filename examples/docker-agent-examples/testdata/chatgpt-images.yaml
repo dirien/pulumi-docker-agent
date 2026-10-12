@@ -1,0 +1,10 @@
+version: "16"
+agents:
+  root:
+    model: vision
+    description: ChatGPT image-input example
+    instruction: Describe the attached image accurately and concisely.
+models:
+  vision:
+    provider: chatgpt
+    model: gpt-6.1-sol

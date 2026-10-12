@@ -1,0 +1,28 @@
+# Generated from docker-agent v1.150.0 examples/monorepo_prompt_files.yaml by `make generate_config_types`. Do not edit.
+
+import ediri_docker_agent as dockeragent
+
+config = dockeragent.AgentConfig(
+    "monorepo_prompt_files",
+    agents=[
+        {
+            "name": "root",
+            "model": "anthropic/claude-sonnet-4-5",
+            "description": "A coding assistant for a monorepo",
+            "instruction": "You are an expert software developer.",
+            "toolsets": [{"type": "filesystem"}],
+            # Loaded in full: the closest AGENTS.md found walking up from the
+            # working directory.
+            "add_prompt_files": ["AGENTS.md"],
+            # Listed by path only, up to 2 directory levels below the working
+            # directory — the sub-project AGENTS.md files the upward lookup never
+            # sees. The agent reads the ones it needs:
+            #
+            #   Prompt files found in subdirectories of /repo. Their contents are NOT loaded:
+            #
+            #   - services/api/AGENTS.md
+            #   - services/web/AGENTS.md
+            "add_prompt_files_depth": 2,
+        },
+    ],
+)

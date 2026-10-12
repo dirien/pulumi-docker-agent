@@ -1,0 +1,57 @@
+version: "16"
+agents:
+  root:
+    model: claude
+    description: Anthropic Claude using Workload Identity Federation.
+    instruction: |
+      You are a helpful AI assistant authenticated via Anthropic Workload
+      Identity Federation — no long-lived API key needed.
+models:
+  claude:
+    provider: anthropic-wif-k8s
+    model: claude-sonnet-5
+providers:
+  anthropic-wif-env:
+    provider: anthropic
+    auth:
+      type: workload_identity_federation
+      workload_identity_federation:
+        federation_rule_id: fdrl_REPLACE_ME
+        organization_id: 00000000-0000-0000-0000-000000000000
+        identity_token:
+          env: ANTHROPIC_OIDC_ID_TOKEN
+  anthropic-wif-gcloud:
+    provider: anthropic
+    auth:
+      type: workload_identity_federation
+      workload_identity_federation:
+        federation_rule_id: fdrl_REPLACE_ME
+        organization_id: 00000000-0000-0000-0000-000000000000
+        identity_token:
+          command:
+            - gcloud
+            - auth
+            - print-identity-token
+            - --audiences=https://api.anthropic.com
+  anthropic-wif-github-actions:
+    provider: anthropic
+    auth:
+      type: workload_identity_federation
+      workload_identity_federation:
+        federation_rule_id: fdrl_REPLACE_ME
+        organization_id: 00000000-0000-0000-0000-000000000000
+        identity_token:
+          url: ${env.ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://api.anthropic.com
+          headers:
+            Authorization: bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}
+          response_field: value
+  anthropic-wif-k8s:
+    provider: anthropic
+    auth:
+      type: workload_identity_federation
+      workload_identity_federation:
+        federation_rule_id: fdrl_REPLACE_ME
+        organization_id: 00000000-0000-0000-0000-000000000000
+        service_account_id: svac_REPLACE_ME
+        identity_token:
+          file: /var/run/secrets/anthropic.com/token

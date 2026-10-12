@@ -1,0 +1,19 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-5.6-sol
+    description: Agent whose deferred tools are discovered by OpenAI's hosted tool search
+    instruction: Use native tool search to find filesystem and shell tools, then call them directly.
+    toolsets:
+      - type: filesystem
+        defer: true
+      - type: shell
+        defer: true
+models:
+  openai/gpt-5.6-sol:
+    provider: openai
+    model: gpt-5.6-sol
+    provider_opts:
+      cache_diagnostics: true
+      native_tool_search: true
+      preserve_reasoning: true

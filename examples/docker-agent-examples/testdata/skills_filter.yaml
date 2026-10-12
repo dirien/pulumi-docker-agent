@@ -1,0 +1,14 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o-mini
+    description: A small agent that demonstrates filtering skills by name.
+    instruction: |
+      You are a helpful assistant. Use the available skills when the user's
+      request matches one.
+    toolsets:
+      - type: shell
+      - type: filesystem
+    skills:
+      - commit
+      - poem

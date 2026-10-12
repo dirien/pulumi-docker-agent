@@ -1,0 +1,13 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-5-mini
+    description: An assistant whose tool results are capped at ~2000 tokens each.
+    instruction: |
+      You are a helpful assistant with shell access. Use it to inspect the
+      system when asked. Very large command outputs are truncated in the
+      middle — the beginning and end are always preserved, and a marker shows
+      where content was removed.
+    toolsets:
+      - type: shell
+    max_tool_result_tokens: 2000

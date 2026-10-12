@@ -4,6 +4,7 @@
 package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
+import io.github.dirien.dockeragent.enums.ApiType;
 import io.github.dirien.dockeragent.outputs.UserModelAuth;
 import io.github.dirien.dockeragent.outputs.UserTaskBudget;
 import io.github.dirien.dockeragent.outputs.UserThinkingBudget;
@@ -23,7 +24,7 @@ public final class UserProvider {
      * @return The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
      * 
      */
-    private @Nullable String apiType;
+    private @Nullable ApiType apiType;
     /**
      * @return A non-API-key authentication scheme, such as Anthropic workload identity federation.
      * 
@@ -110,7 +111,7 @@ public final class UserProvider {
      * @return The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
      * 
      */
-    public Optional<String> apiType() {
+    public Optional<ApiType> apiType() {
         return Optional.ofNullable(this.apiType);
     }
     /**
@@ -235,7 +236,7 @@ public final class UserProvider {
     }
     @CustomType.Builder
     public static final class Builder {
-        private @Nullable String apiType;
+        private @Nullable ApiType apiType;
         private @Nullable UserModelAuth auth;
         private @Nullable String baseUrl;
         private @Nullable String compactionModel;
@@ -275,7 +276,7 @@ public final class UserProvider {
         }
 
         @CustomType.Setter
-        public Builder apiType(@Nullable String apiType) {
+        public Builder apiType(@Nullable ApiType apiType) {
 
             this.apiType = apiType;
             return this;

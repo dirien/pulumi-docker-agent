@@ -4,7 +4,11 @@
 # Produces the six plugin archives the Pulumi CLI downloads through
 # pluginDownloadURL github://api.github.com/dirien/pulumi-docker-agent:
 #   pulumi-resource-docker-agent-v<version>-<os>-<arch>.tar.gz
-# with the binary at the archive root (pulumi-resource-docker-agent[.exe]).
+# with the binary at the archive root (pulumi-resource-docker-agent[.exe]), and the six
+# archives of the converter plugin (`pulumi convert --from docker-agent`), which
+# `pulumi plugin install converter docker-agent v<version> --server github://api.github.com/dirien/pulumi-docker-agent`
+# downloads:
+#   pulumi-converter-docker-agent-v<version>-<os>-<arch>.tar.gz
 version: 2
 project_name: pulumi-docker-agent
 
@@ -29,13 +33,41 @@ builds:
     ldflags:
       # MUST match the package that declares `var Version string` (see Makefile LDFLAGS).
       - -s -w -X github.com/dirien/pulumi-docker-agent/provider.Version={{ .Version }}
+  # The converter plugin. It shares the provider's version and does not link the docker-agent
+  # runtime, so it is a fraction of the provider's size.
+  - id: converter
+    binary: pulumi-converter-docker-agent
+    dir: provider
+    main: ./cmd/pulumi-converter-docker-agent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    ldflags:
+      - -s -w -X github.com/dirien/pulumi-docker-agent/provider.Version={{ .Version }}
 
 archives:
   - id: archive
+    ids:
+      - provider
     # Pulumi expects .tar.gz on every OS, including Windows.
     formats:
       - tar.gz
     name_template: "pulumi-resource-docker-agent-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+  - id: converter-archive
+    ids:
+      - converter
+    formats:
+      - tar.gz
+    name_template: "pulumi-converter-docker-agent-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
@@ -95,7 +127,14 @@ release:
     pulumi plugin install resource docker-agent v{{ .Version }} --server github://api.github.com/dirien/pulumi-docker-agent
     ```
 
+    Converter for `pulumi convert --from docker-agent` (optional):
+
+    ```bash
+    pulumi plugin install converter docker-agent v{{ .Version }} --server github://api.github.com/dirien/pulumi-docker-agent
+    ```
+
     SDKs: [`@ediri/pulumi-docker-agent`](https://www.npmjs.com/package/@ediri/pulumi-docker-agent) (npm),
     [`ediri_docker_agent`](https://pypi.org/project/ediri_docker_agent/) (PyPI),
     [`ediri.DockerAgent`](https://www.nuget.org/packages/ediri.DockerAgent) (NuGet),
-    `github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent@v{{ .Version }}` (Go).
+    `github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent@v{{ .Version }}` (Go),
+    [`io.github.dirien:docker-agent`](https://central.sonatype.com/artifact/io.github.dirien/docker-agent) (Maven Central, Java).

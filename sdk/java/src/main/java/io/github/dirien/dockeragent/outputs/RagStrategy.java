@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.RagStrategyType;
 import io.github.dirien.dockeragent.outputs.RagChunking;
 import java.lang.Boolean;
 import java.lang.Double;
@@ -105,10 +106,10 @@ public final class RagStrategy {
      */
     private @Nullable Double threshold;
     /**
-     * @return Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+     * @return Retrieval strategy type.
      * 
      */
-    private String type;
+    private RagStrategyType type;
     /**
      * @return Vector dimensions for embeddings (chunked-embeddings only). Must match your embedding model&#39;s output dimensions and is required for chunked-embeddings strategies.
      * 
@@ -236,10 +237,10 @@ public final class RagStrategy {
         return Optional.ofNullable(this.threshold);
     }
     /**
-     * @return Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+     * @return Retrieval strategy type.
      * 
      */
-    public String type() {
+    public RagStrategyType type() {
         return this.type;
     }
     /**
@@ -276,7 +277,7 @@ public final class RagStrategy {
         private @Nullable String semanticPrompt;
         private @Nullable String similarityMetric;
         private @Nullable Double threshold;
-        private String type;
+        private RagStrategyType type;
         private @Nullable Integer vectorDimensions;
         public Builder() {}
         public Builder(RagStrategy defaults) {
@@ -408,7 +409,7 @@ public final class RagStrategy {
             return this;
         }
         @CustomType.Setter
-        public Builder type(String type) {
+        public Builder type(RagStrategyType type) {
             if (type == null) {
               throw new MissingRequiredPropertyException("RagStrategy", "type");
             }

@@ -4,6 +4,9 @@
 package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
+import io.github.dirien.dockeragent.enums.BusySendMode;
+import io.github.dirien.dockeragent.enums.InterruptConfirmation;
+import io.github.dirien.dockeragent.enums.SafetyMode;
 import io.github.dirien.dockeragent.outputs.UserHooks;
 import io.github.dirien.dockeragent.outputs.UserKeybinding;
 import io.github.dirien.dockeragent.outputs.UserLayoutSettings;
@@ -24,7 +27,7 @@ public final class UserGlobalSettings {
      * @return What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
      * 
      */
-    private @Nullable String busySendMode;
+    private @Nullable BusySendMode busySendMode;
     /**
      * @return Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
      * 
@@ -54,7 +57,7 @@ public final class UserGlobalSettings {
      * @return How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
      * 
      */
-    private @Nullable String interruptConfirmation;
+    private @Nullable InterruptConfirmation interruptConfirmation;
     /**
      * @return Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
      * 
@@ -89,7 +92,7 @@ public final class UserGlobalSettings {
      * @return The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent&#39;s config loading, so the provider rejects it.
      * 
      */
-    private @Nullable String safety;
+    private @Nullable SafetyMode safety;
     /**
      * @return Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).
      * 
@@ -151,7 +154,7 @@ public final class UserGlobalSettings {
      * @return What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
      * 
      */
-    public Optional<String> busySendMode() {
+    public Optional<BusySendMode> busySendMode() {
         return Optional.ofNullable(this.busySendMode);
     }
     /**
@@ -193,7 +196,7 @@ public final class UserGlobalSettings {
      * @return How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
      * 
      */
-    public Optional<String> interruptConfirmation() {
+    public Optional<InterruptConfirmation> interruptConfirmation() {
         return Optional.ofNullable(this.interruptConfirmation);
     }
     /**
@@ -242,7 +245,7 @@ public final class UserGlobalSettings {
      * @return The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent&#39;s config loading, so the provider rejects it.
      * 
      */
-    public Optional<String> safety() {
+    public Optional<SafetyMode> safety() {
         return Optional.ofNullable(this.safety);
     }
     /**
@@ -332,20 +335,20 @@ public final class UserGlobalSettings {
     }
     @CustomType.Builder
     public static final class Builder {
-        private @Nullable String busySendMode;
+        private @Nullable BusySendMode busySendMode;
         private @Nullable Boolean cacheStablePrompts;
         private @Nullable Boolean expandThinking;
         private @Nullable Map<String,Object> extra;
         private @Nullable Boolean hideToolResults;
         private @Nullable UserHooks hooks;
-        private @Nullable String interruptConfirmation;
+        private @Nullable InterruptConfirmation interruptConfirmation;
         private @Nullable List<UserKeybinding> keybindings;
         private @Nullable UserLayoutSettings layout;
         private @Nullable Boolean lean;
         private @Nullable UserPermissions permissions;
         private @Nullable Boolean renderImages;
         private @Nullable Boolean restoreTabs;
-        private @Nullable String safety;
+        private @Nullable SafetyMode safety;
         private @Nullable Boolean showBanner;
         private @Nullable Boolean snapshot;
         private @Nullable Boolean sound;
@@ -388,7 +391,7 @@ public final class UserGlobalSettings {
         }
 
         @CustomType.Setter
-        public Builder busySendMode(@Nullable String busySendMode) {
+        public Builder busySendMode(@Nullable BusySendMode busySendMode) {
 
             this.busySendMode = busySendMode;
             return this;
@@ -424,7 +427,7 @@ public final class UserGlobalSettings {
             return this;
         }
         @CustomType.Setter
-        public Builder interruptConfirmation(@Nullable String interruptConfirmation) {
+        public Builder interruptConfirmation(@Nullable InterruptConfirmation interruptConfirmation) {
 
             this.interruptConfirmation = interruptConfirmation;
             return this;
@@ -469,7 +472,7 @@ public final class UserGlobalSettings {
             return this;
         }
         @CustomType.Setter
-        public Builder safety(@Nullable String safety) {
+        public Builder safety(@Nullable SafetyMode safety) {
 
             this.safety = safety;
             return this;

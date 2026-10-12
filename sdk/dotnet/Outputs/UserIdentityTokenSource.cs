@@ -30,7 +30,7 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly string? File;
         /// <summary>
-        /// HTTP headers sent with the `url` request.
+        /// HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
         /// </summary>
         public readonly ImmutableDictionary<string, string>? Headers;
         /// <summary>

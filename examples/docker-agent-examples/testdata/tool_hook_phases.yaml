@@ -1,0 +1,58 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-5-mini
+    description: Separate input normalization, mandatory checks, and approval assistance
+    instruction: Help with shell commands. Respect tool policy rejections.
+    toolsets:
+      - type: shell
+    hooks:
+      pre_tool_use:
+        - matcher: shell
+          hooks:
+            - type: model
+              name: approval assistant
+              timeout: 15
+              model: openai/gpt-4o-mini
+              prompt: |
+                Decide allow, ask, or deny for this tool call.
+                Allow only clearly read-only operations; ask when uncertain.
+                Tool: {{ .ToolName }}
+                Arguments: {{ .ToolInput | toJSON }}
+              schema: pre_tool_use_decision
+      tool_input_transform:
+        - matcher: shell
+          hooks:
+            - type: command
+              name: normalize whitespace
+              command: |
+                python3 -c '
+                import json, sys
+                payload = json.load(sys.stdin)
+                command = payload["tool_input"].get("cmd", "")
+                print(json.dumps({"hook_specific_output": {
+                    "updated_input": {"cmd": command.strip()}
+                }}))
+                '
+              on_error: block
+              strict_output: true
+      tool_guard:
+        - matcher: shell
+          hooks:
+            - type: command
+              name: require confirmation for project commands
+              command: |
+                python3 -c '
+                import json, sys
+                payload = json.load(sys.stdin)
+                command = payload["tool_input"].get("cmd", "")
+                # Exact matches, not a shell-prefix allowlist.
+                decision = "allow" if command in ("pwd", "git status") else "ask"
+                print(json.dumps({"hook_specific_output": {
+                    "permission_decision": decision,
+                    "permission_decision_reason": "Review commands beyond the read-only allowlist",
+                    "metadata": {"policy": "project command review"}
+                }}))
+                '
+              timeout: 5
+              strict_output: true

@@ -1,0 +1,22 @@
+version: "16"
+agents:
+  root:
+    model: primary
+    description: An assistant that compacts earlier than the default.
+    instruction: You are a helpful assistant.
+    sub_agents:
+      - archivist
+  archivist:
+    model: primary
+    description: An assistant that never auto-compacts its sessions.
+    instruction: You keep full conversation history and never lose context.
+    session_compaction: false
+models:
+  fast:
+    provider: anthropic
+    model: claude-haiku-4-5
+  primary:
+    provider: anthropic
+    model: claude-sonnet-5
+    compaction_model: fast
+    compaction_threshold: 0.8

@@ -30,7 +30,7 @@ func TestRenderSandbox(t *testing.T) {
 	renderValid(t, "sandbox", Document{
 		Runtime: &RuntimeDefaults{
 			Sandbox:          ptr(true),
-			Safety:           ptr("restricted"),
+			Safety:           ptr(SafetyModeRestricted),
 			NetworkAllowlist: []string{"api.github.com", "registry.npmjs.org:443"},
 		},
 		Agents: []Agent{{
@@ -38,7 +38,7 @@ func TestRenderSandbox(t *testing.T) {
 			Model:       ptr("anthropic/claude-sonnet-4-5"),
 			Description: ptr("Works on the repository inside a sandbox"),
 			Instruction: ptr("Fix the failing tests. Only talk to GitHub and npm."),
-			Safety:      ptr("balanced"),
+			Safety:      ptr(SafetyModeBalanced),
 			Toolsets: []Toolset{
 				{Type: "shell"},
 				{Type: "filesystem", Readonly: ptr(true)},
@@ -73,7 +73,7 @@ func TestRenderHooks(t *testing.T) {
 						Matcher: ptr("shell"),
 						Hooks: []HookDefinition{{
 							Type: "command", Command: ptr("./scripts/check.sh"), Args: []string{"--strict"},
-							Timeout: ptr(30), OnError: ptr("block"), Env: map[string]string{"MODE": "ci"},
+							Timeout: ptr(30), OnError: ptr(HookErrorPolicyBlock), Env: map[string]string{"MODE": "ci"},
 						}},
 					}},
 					PostToolUse: []HookMatcher{{Matcher: ptr("*"), Hooks: []HookDefinition{{Type: "command", Command: ptr("echo done")}}}},
@@ -121,7 +121,7 @@ func TestRenderRAG(t *testing.T) {
 				},
 				Results: &RagResults{
 					Limit:       ptr(5),
-					Fusion:      &RagFusion{Strategy: ptr("rrf"), K: ptr(60)},
+					Fusion:      &RagFusion{Strategy: ptr(RagFusionStrategyRRF), K: ptr(60)},
 					Deduplicate: ptr(true),
 				},
 			},

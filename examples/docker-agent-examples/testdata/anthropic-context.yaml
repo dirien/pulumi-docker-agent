@@ -1,0 +1,21 @@
+version: "16"
+agents:
+  root:
+    model: claude
+    description: Coding assistant with native Claude context management
+    instruction: Help with the project. Inspect files before suggesting changes.
+    toolsets:
+      - type: filesystem
+      - type: shell
+models:
+  claude:
+    provider: anthropic
+    model: claude-fable-5-1
+    thinking_budget: high
+    provider_opts:
+      cache_diagnostics: true
+      cache_preserving_updates: true
+      native_compaction: true
+      strict_tools: true
+      thinking_display: updates
+      thinking_prefix_mismatch: drop_block

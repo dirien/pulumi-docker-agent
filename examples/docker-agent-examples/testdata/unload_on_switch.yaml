@@ -1,0 +1,33 @@
+version: "16"
+agents:
+  coder:
+    model: qwen3-large
+    description: Writes Go code on demand.
+    instruction: |
+      You write idiomatic, well-tested Go.
+      When you finish a change, hand off to `reviewer`.
+    handoffs:
+      - reviewer
+    hooks:
+      on_agent_switch:
+        - type: builtin
+          command: unload
+  reviewer:
+    model: qwen3-coder
+    description: Reviews code for clarity and correctness.
+    instruction: |
+      You critique Go code written by `coder`. Be concise.
+      Hand back to `coder` with concrete change requests.
+    handoffs:
+      - coder
+    hooks:
+      on_agent_switch:
+        - type: builtin
+          command: unload
+models:
+  qwen3-coder:
+    provider: dmr
+    model: ai/smollm2
+  qwen3-large:
+    provider: dmr
+    model: ai/qwen3

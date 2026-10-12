@@ -25,6 +25,7 @@ import (
 // runLog is the log sink of one run.
 type runLog struct {
 	secrets []string
+	names   *nameHider
 	log     func(slog.Level, string)
 	mu      sync.Mutex
 	closed  bool
@@ -39,7 +40,7 @@ func (r *runLog) handle(rec slog.Record, attrs []slog.Attr) {
 	if r.closed || r.log == nil {
 		return
 	}
-	r.log(rec.Level, redact(format(rec, attrs), r.secrets))
+	r.log(rec.Level, redact(r.names.hide(format(rec, attrs)), r.secrets))
 }
 
 func (r *runLog) close() {
@@ -54,9 +55,10 @@ type runLogKey struct{}
 var activeLog atomic.Pointer[runLog]
 
 // startRunLog installs the log routing and returns the run's context.
-func startRunLog(ctx context.Context, secrets []string, log func(slog.Level, string)) (context.Context, func()) {
+func startRunLog(ctx context.Context, secrets []string, names *nameHider, log func(slog.Level, string),
+) (context.Context, func()) {
 	installLogHandler()
-	rl := &runLog{secrets: secrets, log: log}
+	rl := &runLog{secrets: secrets, names: names, log: log}
 	activeLog.Store(rl)
 	return context.WithValue(ctx, runLogKey{}, rl), func() {
 		rl.close()

@@ -1,0 +1,58 @@
+// Generated from docker-agent v1.150.0 examples/websocket_transport.yaml by `make generate_config_types`. Do not edit.
+//
+// Example: WebSocket Transport for OpenAI Responses API
+//
+// This example demonstrates how to use WebSocket streaming instead of
+// Server-Sent Events (SSE) for the OpenAI Responses API.
+//
+// WebSocket transport maintains a persistent connection across tool-call
+// rounds, reducing per-turn overhead and improving end-to-end latency
+// for agentic workflows with many tool calls.
+//
+// Benefits of WebSocket over SSE:
+//   - ~40% faster end-to-end execution for workflows with 20+ tool calls
+//   - Persistent connection reduces per-turn continuation overhead
+//   - Connection-local state caching on the server
+//   - Falls back to SSE automatically if WebSocket connection fails
+//
+// Requirements:
+//   - Works only with OpenAI Responses API models (gpt-4.1+, o-series, gpt-5)
+//   - Requires OPENAI_API_KEY environment variable (or use token_key)
+//   - NOT compatible with --gateway flag (automatically falls back to SSE)
+//
+// Run with:
+//   docker agent run websocket_transport.yaml
+
+import * as dockeragent from "@ediri/pulumi-docker-agent";
+
+export const config = new dockeragent.AgentConfig("websocket_transport", {
+    models: {
+        "gpt-ws": {
+            provider: "openai",
+            model: "gpt-4.1",
+            providerOpts: {
+                transport: "websocket", // Use WebSocket instead of SSE
+            },
+        },
+    },
+    agents: [
+        {
+            name: "root",
+            model: "gpt-ws",
+            description: "Assistant using WebSocket streaming",
+            instruction: `\
+You are a helpful assistant. Answer questions concisely.
+`,
+            toolsets: [
+                {
+                    type: "shell", // Real toolset for demonstrating multi-turn tool calls
+                },
+            ],
+            simpleCommands: {
+                demo: "List the files in the current directory, then count how many are YAML files",
+            },
+        },
+    ],
+});
+
+export const yaml = config.yaml;

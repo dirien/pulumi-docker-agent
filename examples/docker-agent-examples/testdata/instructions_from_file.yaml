@@ -1,0 +1,14 @@
+version: "16"
+agents:
+  root:
+    model: auto
+    description: Agent that loads its system prompt from a separate file
+    welcome_message: Hi! My instructions were loaded from instructions_from_file.md
+    instruction: |
+      You are a helpful assistant for developers.
+
+      When you answer:
+      - be concise
+      - prefer bullet points when listing steps
+      - ask for clarification only if necessary
+      - mention when you are making an assumption

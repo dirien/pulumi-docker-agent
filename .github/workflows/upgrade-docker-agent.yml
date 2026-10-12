@@ -1,9 +1,9 @@
 name: upgrade-docker-agent
 
 # Daily check for a new docker/docker-agent release. When there is one, `make
-# upgrade_docker_agent` bumps the pinned Go module and regenerates the typed config inputs,
-# schema.json and the SDKs, and the result is opened as a pull request whose description is the
-# configuration schema change report.
+# upgrade_docker_agent` bumps the pinned Go module and regenerates the typed config inputs, the
+# example programs in examples/docker-agent-examples, schema.json and the SDKs, and the result is
+# opened as a pull request whose description is the configuration schema change report.
 #
 # Every step of the upgrade records its result (scripts/upgrade-docker-agent.sh). When any of
 # them fails (`go get`, the generator meeting a schema construct without a rule, a compile break
@@ -14,9 +14,17 @@ name: upgrade-docker-agent
 # Security: the `upgrade` job builds and tests code from the new docker-agent release, so it has
 # a read-only token, no secrets and no persisted credentials; it hands its result to `publish` as
 # a patch artifact. `publish` runs no code from the release: it applies the patch to a fresh
-# checkout, refuses changes outside provider/, sdk/ and CHANGELOG.md, and pushes with git hooks
-# disabled. It uses the GH_TOKEN secret (a bot token) so that the build workflow runs on the pull
-# request; without it, it falls back to GITHUB_TOKEN, which does not trigger workflows.
+# checkout, refuses changes outside provider/, sdk/, CHANGELOG.md, docs/_index.md (whose Example
+# Usage regions `make docs` regenerates) and the generated files of examples/docker-agent-examples
+# (never its package.json, requirements.txt, Pulumi.yaml or tsconfig.json), and pushes with git
+# hooks disabled. It uses the GH_TOKEN secret (a bot token) so that the build workflow runs on
+# the pull request; without it, it falls back to GITHUB_TOKEN, which does not trigger workflows.
+#
+# `publish` also compares the regenerated Pulumi schema.json with the base branch's using
+# pulumi/schema-tools (scripts/schema-compare.sh, a pinned and checksum-verified binary that only
+# reads the two files). The report is appended to the pull request description, and an upgrade
+# that breaks SDK users (a removed property, a string that became an enum, ...) is labelled
+# `breaking-sdk-change`.
 on:
   schedule:
     - cron: "0 4 * * *"
@@ -160,10 +168,12 @@ jobs:
       - name: Package the result
         if: always()
         # bin/ is gitignored, so the patch holds only the upgrade's changes to tracked and new files.
+        # --no-renames lists a renamed file as a deletion and an addition, so `publish` checks
+        # both paths.
         run: |
           mkdir -p bin
           git add --all
-          git diff --cached --binary > bin/upgrade.patch
+          git diff --cached --binary --no-renames > bin/upgrade.patch
           git diff --cached --stat
           [ -s bin/upgrade-status ] || echo "script-failed" > bin/upgrade-status
           [ -s bin/upgrade-report.md ] || printf '# docker-agent → %s: upgrade failed\n\nThe upgrade job failed before it wrote a report.\n' "${LATEST}" > bin/upgrade-report.md
@@ -225,12 +235,20 @@ jobs:
           # shellcheck disable=SC2016 # literal Markdown backticks
           if [ -s "${RESULT}/upgrade.patch" ]; then
             # Only the paths an upgrade regenerates may change; anything else would be code
-            # from the new release writing into the repository (for example .github/).
-            outside="$(git apply --numstat "${RESULT}/upgrade.patch" | cut -f3 | grep -Ev '^(provider/|sdk/|CHANGELOG\.md$)' || true)"
+            # from the new release writing into the repository (for example .github/). Outside
+            # provider/ and sdk/, `make docs` (part of `make codegen`) writes only docs/_index.md.
+            # Under examples/docker-agent-examples that is only what examplegen writes (generatedFile
+            # in provider/internal/examplegen/main.go, which a test keeps in sync with this pattern):
+            # the README, the golden YAML files, index.ts, __main__.py, the programs in the examples/
+            # directories of both projects and the copies of the .md and .txt files HCL examples
+            # read (also in subdirectories, without hidden or `..` segments), but none of the project
+            # files (package.json, requirements.txt, Pulumi.yaml, tsconfig.json, .npmrc).
+            allowed='^(provider/|sdk/|CHANGELOG\.md$|docs/_index\.md$|examples/docker-agent-examples/(README\.md|testdata/[^/]+\.yaml|typescript/index\.ts|typescript/examples/[^/]+\.ts|python/__main__\.py|python/examples/[^/]+\.py|(typescript|python)/examples/([A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.(md|txt))$)'
+            outside="$(git apply --numstat "${RESULT}/upgrade.patch" | cut -f3 | grep -Ev "${allowed}" || true)"
             if [ -n "${outside}" ]; then
               status="patch-rejected"
               failed_step="apply the upgrade patch"
-              printf '\n## Rejected changes\n\nThe upgrade changed files outside `provider/`, `sdk/` and `CHANGELOG.md`, so nothing was applied:\n\n```text\n%s\n```\n' \
+              printf '\n## Rejected changes\n\nThe upgrade changed files outside `provider/`, `sdk/`, `CHANGELOG.md`, `docs/_index.md` and the generated example programs, so nothing was applied:\n\n```text\n%s\n```\n' \
                 "${outside}" >> "${RESULT}/upgrade-report.md"
             else
               git apply --index --binary "${RESULT}/upgrade.patch"
@@ -239,6 +257,25 @@ jobs:
           echo "status=${status}" >> "$GITHUB_OUTPUT"
           echo "failed-step=${failed_step}" >> "$GITHUB_OUTPUT"
           echo "Upgrade status: ${status}"
+
+      - name: Compare the Pulumi schema with the base branch
+        id: schema
+        # scripts/ is outside the paths the patch may change, so this is the base branch's script.
+        # A failed comparison only leaves a note in the description: it never blocks the pull request.
+        run: |
+          schema=provider/cmd/pulumi-resource-docker-agent/schema.json
+          report="${RUNNER_TEMP}/schema-report.md"
+          : > "${report}"
+          if git diff --cached --quiet -- "${schema}"; then
+            echo "schema.json is unchanged (or the upgrade was not applied); nothing to compare"
+            exit 0
+          fi
+          git show "HEAD:${schema}" > "${RUNNER_TEMP}/schema-base.json"
+          if ! scripts/schema-compare.sh "${RUNNER_TEMP}/schema-base.json" "${schema}" "${report}"; then
+            printf 'schema-tools could not compare the schemas; see %s.\n' "${RUN_URL}" > "${report}"
+            echo "breaking=unknown" >> "$GITHUB_OUTPUT"
+          fi
+          cat "${report}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit and push the upgrade branch
         env:
@@ -268,6 +305,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
           STATUS: ${{ steps.apply.outputs.status }}
           FAILED_STEP: ${{ steps.apply.outputs.failed-step }}
+          BREAKING: ${{ steps.schema.outputs.breaking }}
         run: |
           RESULT="${RUNNER_TEMP}/upgrade"
           title="chore(deps): upgrade docker-agent to ${LATEST}"
@@ -280,6 +318,11 @@ jobs:
             gh label create needs-attention --force --color d93f0b \
               --description "Automated change that needs a human to finish it"
           fi
+          if [ "${BREAKING}" = "true" ]; then
+            labels="${labels},breaking-sdk-change"
+            gh label create breaking-sdk-change --force --color b60205 \
+              --description "Changes the Pulumi schema in a way that breaks SDK users"
+          fi
 
           # shellcheck disable=SC2016 # literal Markdown backticks
           {
@@ -287,7 +330,16 @@ jobs:
               printf '> [!WARNING]\n> The upgrade needs attention: `%s` failed (status `%s`). ' "${FAILED_STEP}" "${STATUS}"
               printf 'The failing step and its output are below; push fixes to this branch.\n\n'
             fi
+            if [ "${BREAKING}" = "true" ]; then
+              printf '> [!CAUTION]\n> The regenerated Pulumi schema breaks SDK users (see "Pulumi SDK compatibility" below). '
+              printf 'Call the changes out in CHANGELOG.md.\n\n'
+            fi
             cat "${RESULT}/upgrade-report.md"
+            if [ -s "${RUNNER_TEMP}/schema-report.md" ]; then
+              printf '\n## Pulumi SDK compatibility\n\n'
+              printf '`schema-tools compare` of `schema.json` against `%s`:\n\n' "${GITHUB_REF_NAME}"
+              cat "${RUNNER_TEMP}/schema-report.md"
+            fi
             printf '\n---\n\nGenerated by [upgrade-docker-agent](%s) with `make upgrade_docker_agent DOCKER_AGENT_VERSION=%s`.\n' \
               "${RUN_URL}" "${LATEST}"
           } > "${RUNNER_TEMP}/pr-body-full.md"

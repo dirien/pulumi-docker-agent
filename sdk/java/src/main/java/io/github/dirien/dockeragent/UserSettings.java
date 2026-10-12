@@ -43,14 +43,155 @@ import javax.annotation.Nullable;
  * If a file already exists at the path when the resource is created, the preview fails when its content differs
  * from the rendered file, so existing aliases and settings are never replaced silently. Copy what you want to keep
  * into the inputs, or set `overwrite: true`. Either way the existing file is moved to
- * `&lt;file&gt;.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a backup,
- * deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+ * `&lt;file&gt;.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+ * resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+ * Set the `retainOnDelete` resource option to keep the file.
  * 
  * The resource owns the whole file. Changes docker-agent makes itself (`docker agent alias add`, the TUI&#39;s
  * `/settings` dialog, `docker agent sandbox allow`) show up as drift and are reverted by the next
  * `pulumi up --refresh`, so manage those settings here instead.
  * 
  * ## Example Usage
+ * ### Write the user configuration
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.UserSettings;
+ * import io.github.dirien.dockeragent.UserSettingsArgs;
+ * import io.github.dirien.dockeragent.inputs.UserGlobalSettingsArgs;
+ * import io.github.dirien.dockeragent.inputs.UserLayoutSettingsArgs;
+ * import io.github.dirien.dockeragent.inputs.UserPermissionsArgs;
+ * import io.github.dirien.dockeragent.inputs.UserKeybindingArgs;
+ * import io.github.dirien.dockeragent.inputs.UserAliasArgs;
+ * import io.github.dirien.dockeragent.enums.SafetyMode;
+ * import io.github.dirien.dockeragent.enums.SidebarPosition;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         // Docker Agent's user configuration, validated with docker-agent's own checks.
+ *         var settings = new UserSettings("settings", UserSettingsArgs.builder()
+ *             .path("~/.config/cagent/config.yaml")
+ *             .settings(UserGlobalSettingsArgs.builder()
+ *                 .theme("auto")
+ *                 .themeDark("dracula")
+ *                 .safety(SafetyMode.Balanced)
+ *                 .sound(true)
+ *                 .layout(UserLayoutSettingsArgs.builder()
+ *                     .sidebarPosition(SidebarPosition.Left)
+ *                     .hideUsage(true)
+ *                     .build())
+ *                 .permissions(UserPermissionsArgs.builder()
+ *                     .deny("shell:cmd=sudo*")
+ *                     .allow("read_*")
+ *                     .build())
+ *                 .keybindings(UserKeybindingArgs.builder()
+ *                     .action("commands")
+ *                     .keys(
+ *                         "f2",
+ *                         "ctrl+k")
+ *                     .build())
+ *                 .build())
+ *             .aliases(Map.of("reviewer", UserAliasArgs.builder()
+ *                 .path("docker.io/myorg/reviewer:latest")
+ *                 .safety(SafetyMode.Restricted)
+ *                 .build()))
+ *             .build());
+ * 
+ *         ctx.export("configPath", settings.filePath());
+ *         ctx.export("configSha256", settings.sha256());
+ *     }
+ * }
+ * }
+ * </pre>
+ * ### Render only, with a global provider and hooks
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.UserSettings;
+ * import io.github.dirien.dockeragent.UserSettingsArgs;
+ * import io.github.dirien.dockeragent.inputs.UserProviderArgs;
+ * import io.github.dirien.dockeragent.inputs.UserModelArgs;
+ * import io.github.dirien.dockeragent.inputs.UserGlobalSettingsArgs;
+ * import io.github.dirien.dockeragent.inputs.UserHooksArgs;
+ * import io.github.dirien.dockeragent.inputs.UserHookArgs;
+ * import io.github.dirien.dockeragent.inputs.UserHookMatcherArgs;
+ * import io.github.dirien.dockeragent.enums.HookType;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         // No `path`: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
+ *         var rendered = new UserSettings("rendered", UserSettingsArgs.builder()
+ *             .providers(Map.of("gateway", UserProviderArgs.builder()
+ *                 .baseUrl("https://llm.example.com/v1")
+ *                 .tokenKey("GATEWAY_API_KEY")
+ *                 .build()))
+ *             .defaultModel(UserModelArgs.builder()
+ *                 .provider("gateway")
+ *                 .model("qwen3-coder")
+ *                 .build())
+ *             .sandboxAllowlist("registry.npmjs.org:443")
+ *             .settings(UserGlobalSettingsArgs.builder()
+ *                 .hooks(UserHooksArgs.builder()
+ *                     .sessionStart(UserHookArgs.builder()
+ *                         .type(HookType.Command)
+ *                         .command("~/.config/cagent/hooks/session-start.sh")
+ *                         .build())
+ *                     .preToolUse(UserHookMatcherArgs.builder()
+ *                         .matcher("shell")
+ *                         .hooks(UserHookArgs.builder()
+ *                             .type(HookType.Builtin)
+ *                             .command("redact_secrets")
+ *                             .build())
+ *                         .build())
+ *                     .build())
+ *                 .build())
+ *             .build());
+ * 
+ *         ctx.export("userConfigYaml", rendered.yaml());
+ *     }
+ * }
+ * }
+ * </pre>
+ * 
+ * ## Import
+ * 
+ * An existing user configuration can be imported with its path (or `file://&lt;path&gt;`)
+ * as ID. It is read with docker-agent&#39;s own types, and `pulumi import` generates the typed inputs,
+ * `path` included. The file is adopted: the import writes nothing and takes no backup, `overwrite` is
+ * not needed, and deleting the resource leaves the file in place (with the content Pulumi last wrote) instead of
+ * removing it. The resource ID is the file&#39;s absolute path.
+ * 
+ * ```sh
+ * $ pulumi import docker-agent:index:UserSettings settings ~/.config/cagent/config.yaml
+ * ```
  * 
  */
 @ResourceType(type="docker-agent:index:UserSettings")
@@ -70,14 +211,14 @@ public class UserSettings extends com.pulumi.resources.CustomResource {
         return Codegen.optional(this.aliases);
     }
     /**
-     * Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+     * Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
      * 
      */
     @Export(name="backupPath", refs={String.class}, tree="[0]")
     private Output</* @Nullable */ String> backupPath;
 
     /**
-     * @return Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+     * @return Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
      * 
      */
     public Output<Optional<String>> backupPath() {

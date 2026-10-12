@@ -25,7 +25,7 @@ namespace ediri.DockerAgent
     /// manifest digest stays stable. A refresh detects when the tag was moved by someone else.
     /// 
     /// Registry credentials come from the provider's `registryAuth` setting, falling back to the Docker
-    /// credential store (`docker login`). Like the docker CLI, the provider tries HTTPS first and falls back to
+    /// credential store (`docker login`). Like the `docker agent` CLI, the provider tries HTTPS first and falls back to
     /// plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses; set `insecure` for any
     /// other plain-HTTP or self-signed registry, and the provider's `forceHttps` option to forbid the private-address
     /// fallback.
@@ -34,7 +34,92 @@ namespace ediri.DockerAgent
     /// repository points to the same digest (two tags pushed with identical content in the same second) or the tags cannot
     /// be listed; the provider then keeps the artifact and logs a warning.
     /// 
+    /// Unless `skipValidation` is set, the preview validates `yaml` with docker-agent and reports every independent
+    /// problem at once. The artifact is readable by everyone who can pull it, so a secret `yaml` is pushed in
+    /// plaintext; the provider warns about it.
+    /// 
     /// ## Example Usage
+    /// ### Push an agent to a registry
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // The agent configuration, rendered and validated.
+    ///     var assistant = new DockerAgent.AgentConfig("assistant", new()
+    ///     {
+    ///         Agents = new[]
+    ///         {
+    ///             new DockerAgent.Inputs.AgentArgs
+    ///             {
+    ///                 Name = "root",
+    ///                 Model = "openai/gpt-5-mini",
+    ///                 Instruction = "You are a helpful assistant. Answer briefly.",
+    ///             },
+    ///         },
+    ///     });
+    /// 
+    ///     // Pushes the configuration like `docker agent share push`.
+    ///     var artifact = new DockerAgent.AgentArtifact("artifact", new()
+    ///     {
+    ///         Reference = "ghcr.io/my-org/agents/assistant:v1",
+    ///         Yaml = assistant.Yaml,
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["pinnedReference"] = artifact.PinnedReference,
+    ///         ["digest"] = artifact.Digest,
+    ///     };
+    /// });
+    /// ```
+    /// ### Push an existing agent file
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.IO;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // An agent file kept as raw YAML next to the program.
+    ///     var agentFile = File.ReadAllText("./pirate.yaml");
+    /// 
+    ///     // Deleted from the registry when the resource is destroyed.
+    ///     var pirate = new DockerAgent.AgentArtifact("pirate", new()
+    ///     {
+    ///         Reference = "localhost:5000/agents/pirate:latest",
+    ///         Yaml = agentFile,
+    ///         Annotations =
+    ///         {
+    ///             { "org.opencontainers.image.source", "https://github.com/my-org/agents" },
+    ///         },
+    ///         DeleteBehavior = DockerAgent.DeleteBehavior.Delete,
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["pinnedReference"] = pirate.PinnedReference,
+    ///     };
+    /// });
+    /// ```
+    /// 
+    /// ## Import
+    /// 
+    /// An artifact pushed with `docker agent share push` (or by another stack) can be imported by its
+    /// tag, `&lt;registry&gt;/&lt;repository&gt;:&lt;tag&gt;`. `&lt;registry&gt;/&lt;repository&gt;:&lt;tag&gt;@sha256:&lt;digest&gt;` checks that the tag
+    /// still points to that digest, and `&lt;registry&gt;/&lt;repository&gt;@sha256:&lt;digest&gt;` imports the one tag of the
+    /// repository that points to it. The registry is read with the provider's `registryAuth` and the Docker
+    /// credential store. The imported resource has the pushed `yaml`, exactly as it is stored, the annotations the
+    /// provider would not have set itself and `deleteBehavior: retain`; its ID is the tag.
+    /// 
+    /// ```sh
+    /// $ pulumi import docker-agent:index:AgentArtifact assistant ghcr.io/my-org/agents/assistant:v1
+    /// ```
     /// </summary>
     [DockerAgentResourceType("docker-agent:index:AgentArtifact")]
     public partial class AgentArtifact : global::Pulumi.CustomResource
@@ -76,7 +161,7 @@ namespace ediri.DockerAgent
         public Output<string> DockerAgentVersion { get; private set; } = null!;
 
         /// <summary>
-        /// Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
+        /// Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
         /// </summary>
         [Output("insecure")]
         public Output<bool?> Insecure { get; private set; } = null!;
@@ -180,7 +265,7 @@ namespace ediri.DockerAgent
         public Input<ediri.DockerAgent.DeleteBehavior>? DeleteBehavior { get; set; }
 
         /// <summary>
-        /// Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
+        /// Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider's `forceHttps` option turns that fallback off except for localhost and loopback.
         /// </summary>
         [Input("insecure")]
         public Input<bool>? Insecure { get; set; }

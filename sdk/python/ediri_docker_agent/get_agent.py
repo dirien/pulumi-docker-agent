@@ -136,13 +136,41 @@ def get_agent(insecure: Optional[_builtins.bool] = None,
     ### Read a shared agent
     ```python
     import pulumi
-    import ediri_docker_agent as dockeragent
+    import ediri_docker_agent as docker_agent
 
-    agent = dockeragent.get_agent_output(reference="docker.io/my-org/assistant:latest")
+    # Reads the artifact like `docker agent share pull`, without writing a file.
+    agent = docker_agent.get_agent_output(reference="docker.io/my-org/assistant:latest")
     pulumi.export("agentYaml", agent.yaml)
+    pulumi.export("agentNames", agent.agent_names)
+    pulumi.export("pinnedReference", agent.pinned_reference)
+    ```
+    ### Read back an agent pushed by the same program
+    ```python
+    import pulumi
+    import ediri_docker_agent as docker_agent
+
+    assistant = docker_agent.AgentConfig("assistant",
+        metadata={
+            "author": "platform-team",
+            "version": "1.0.0",
+        },
+        agents=[{
+            "name": "root",
+            "model": "openai/gpt-5-mini",
+            "instruction": "You are a helpful assistant. Answer briefly.",
+        }])
+    artifact = docker_agent.AgentArtifact("artifact",
+        reference="localhost:5000/agents/assistant:v1",
+        yaml=assistant.yaml)
+
+    # Reads the pushed artifact by digest once the push is done.
+    pulled = docker_agent.get_agent_output(reference=artifact.pinned_reference)
+    pulumi.export("digest", pulled.digest)
+    pulumi.export("defaultAgent", pulled.default_agent)
+    pulumi.export("annotations", pulled.annotations)
     ```
 
-    :param _builtins.bool insecure: Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+    :param _builtins.bool insecure: Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
     :param _builtins.str reference: The artifact to read: `registry/repository:tag` (the tag defaults to `latest`) or `registry/repository@sha256:...`.
     """
     __args__ = dict()
@@ -176,13 +204,41 @@ def get_agent_output(insecure: pulumi.Input[Optional[Optional[_builtins.bool]]] 
     ### Read a shared agent
     ```python
     import pulumi
-    import ediri_docker_agent as dockeragent
+    import ediri_docker_agent as docker_agent
 
-    agent = dockeragent.get_agent_output(reference="docker.io/my-org/assistant:latest")
+    # Reads the artifact like `docker agent share pull`, without writing a file.
+    agent = docker_agent.get_agent_output(reference="docker.io/my-org/assistant:latest")
     pulumi.export("agentYaml", agent.yaml)
+    pulumi.export("agentNames", agent.agent_names)
+    pulumi.export("pinnedReference", agent.pinned_reference)
+    ```
+    ### Read back an agent pushed by the same program
+    ```python
+    import pulumi
+    import ediri_docker_agent as docker_agent
+
+    assistant = docker_agent.AgentConfig("assistant",
+        metadata={
+            "author": "platform-team",
+            "version": "1.0.0",
+        },
+        agents=[{
+            "name": "root",
+            "model": "openai/gpt-5-mini",
+            "instruction": "You are a helpful assistant. Answer briefly.",
+        }])
+    artifact = docker_agent.AgentArtifact("artifact",
+        reference="localhost:5000/agents/assistant:v1",
+        yaml=assistant.yaml)
+
+    # Reads the pushed artifact by digest once the push is done.
+    pulled = docker_agent.get_agent_output(reference=artifact.pinned_reference)
+    pulumi.export("digest", pulled.digest)
+    pulumi.export("defaultAgent", pulled.default_agent)
+    pulumi.export("annotations", pulled.annotations)
     ```
 
-    :param _builtins.bool insecure: Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+    :param _builtins.bool insecure: Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
     :param _builtins.str reference: The artifact to read: `registry/repository:tag` (the tag defaults to `latest`) or `registry/repository@sha256:...`.
     """
     __args__ = dict()

@@ -1,0 +1,12 @@
+name: docker-agent-examples-typescript
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+description: Every example configuration of docker-agent as a typed AgentConfig (generated, see ../README.md).
+plugins:
+  # Use the provider binary built by `make provider` in this repository. Remove this
+  # block when you copy the program elsewhere; the SDK then downloads the released plugin.
+  providers:
+    - name: docker-agent
+      path: ../../../bin

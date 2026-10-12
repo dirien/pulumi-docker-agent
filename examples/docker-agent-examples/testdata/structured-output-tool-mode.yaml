@@ -1,0 +1,35 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o
+    description: Agent that inspects files and reports findings as JSON
+    instruction: |
+      Inspect the files the user asks about, then report your findings.
+      Deliver the final report through the structured output tool.
+    toolsets:
+      - type: filesystem
+    structured_output:
+      name: file_report
+      description: Findings about the inspected files
+      mode: tool
+      schema:
+        additionalProperties: false
+        properties:
+          files:
+            items:
+              properties:
+                path:
+                  type: string
+                summary:
+                  type: string
+              required:
+                - path
+                - summary
+              type: object
+            type: array
+          overall_summary:
+            type: string
+        required:
+          - files
+          - overall_summary
+        type: object

@@ -1,0 +1,52 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o
+    description: Agent supervised by an LLM judge for tool calls.
+    instruction: |
+      You are a helpful assistant with access to shell and filesystem tools.
+      Use them to help the user. The user's machine is supervised by an
+      LLM judge that decides which of your tool calls are auto-approved.
+    toolsets:
+      - type: shell
+      - type: filesystem
+    hooks:
+      pre_tool_use:
+        - matcher: shell|edit_file|mcp:.*
+          hooks:
+            - type: model
+              timeout: 15
+              model: openai/gpt-4o-mini
+              prompt: |
+                You are a security judge for an autonomous agent.
+                Decide whether this tool call is safe to auto-approve.
+
+                Tool: {{ .ToolName }}
+                Args: {{ .ToolInput | toJSON }}
+
+                Project rules:
+                - Reads under the working directory are safe.
+                - Network egress to anything other than github.com or
+                  pypi.org should be `ask`.
+                - Any write under ~/.ssh, ~/.aws, or ~/.docker is `deny`.
+                - When in doubt, prefer `ask` (the user is then asked).
+              schema: pre_tool_use_decision
+      post_tool_use:
+        - matcher: '*'
+          hooks:
+            - type: command
+              command: |
+                INPUT=$(cat)
+                TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                TOOL=$(echo "$INPUT" | jq -r '.tool_name')
+                echo "[$TS] $TOOL completed" >> /tmp/agent-judge-audit.log
+              timeout: 5
+permissions:
+  allow:
+    - read_*
+  deny:
+    - shell:cmd=*sudo*
+    - shell:cmd=*rm -rf*
+    - shell:cmd=*mkfs*
+    - shell:cmd=*dd if=*
+    - edit_file:path=/etc/*

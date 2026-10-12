@@ -41,10 +41,10 @@ namespace ediri.DockerAgent.Inputs
         }
 
         /// <summary>
-        /// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+        /// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         /// </summary>
         [Input("safety")]
-        public Input<string>? Safety { get; set; }
+        public Input<ediri.DockerAgent.SafetyMode>? Safety { get; set; }
 
         /// <summary>
         /// When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.

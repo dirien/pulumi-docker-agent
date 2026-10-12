@@ -19,14 +19,14 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     public static final ProviderArgs Empty = new ProviderArgs();
 
     /**
-     * Refuse plain-HTTP connections to registries. Like the docker CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
+     * Refuse plain-HTTP connections to registries. Like the `docker agent` CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
      * 
      */
     @Import(name="forceHttps", json=true)
     private @Nullable Output<Boolean> forceHttps;
 
     /**
-     * @return Refuse plain-HTTP connections to registries. Like the docker CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
+     * @return Refuse plain-HTTP connections to registries. Like the `docker agent` CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
      * 
      */
     public Optional<Output<Boolean>> forceHttps() {
@@ -90,7 +90,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param forceHttps Refuse plain-HTTP connections to registries. Like the docker CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
+         * @param forceHttps Refuse plain-HTTP connections to registries. Like the `docker agent` CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
          * 
          * @return builder
          * 
@@ -101,7 +101,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param forceHttps Refuse plain-HTTP connections to registries. Like the docker CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
+         * @param forceHttps Refuse plain-HTTP connections to registries. Like the `docker agent` CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
          * 
          * @return builder
          * 

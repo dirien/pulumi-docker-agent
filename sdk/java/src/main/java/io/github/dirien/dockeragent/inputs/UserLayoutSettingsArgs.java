@@ -5,8 +5,10 @@ package io.github.dirien.dockeragent.inputs;
 
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
+import io.github.dirien.dockeragent.enums.SectionSpacing;
+import io.github.dirien.dockeragent.enums.SidebarInfoMode;
+import io.github.dirien.dockeragent.enums.SidebarPosition;
 import java.lang.Boolean;
-import java.lang.String;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -115,13 +117,13 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
      * 
      */
     @Import(name="sectionSpacing")
-    private @Nullable Output<String> sectionSpacing;
+    private @Nullable Output<SectionSpacing> sectionSpacing;
 
     /**
      * @return Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
      * 
      */
-    public Optional<Output<String>> sectionSpacing() {
+    public Optional<Output<SectionSpacing>> sectionSpacing() {
         return Optional.ofNullable(this.sectionSpacing);
     }
 
@@ -145,13 +147,13 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
      * 
      */
     @Import(name="sidebarInfoMode")
-    private @Nullable Output<String> sidebarInfoMode;
+    private @Nullable Output<SidebarInfoMode> sidebarInfoMode;
 
     /**
      * @return How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
      * 
      */
-    public Optional<Output<String>> sidebarInfoMode() {
+    public Optional<Output<SidebarInfoMode>> sidebarInfoMode() {
         return Optional.ofNullable(this.sidebarInfoMode);
     }
 
@@ -160,13 +162,13 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
      * 
      */
     @Import(name="sidebarPosition")
-    private @Nullable Output<String> sidebarPosition;
+    private @Nullable Output<SidebarPosition> sidebarPosition;
 
     /**
      * @return Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
      * 
      */
-    public Optional<Output<String>> sidebarPosition() {
+    public Optional<Output<SidebarPosition>> sidebarPosition() {
         return Optional.ofNullable(this.sidebarPosition);
     }
 
@@ -335,7 +337,7 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder sectionSpacing(@Nullable Output<String> sectionSpacing) {
+        public Builder sectionSpacing(@Nullable Output<SectionSpacing> sectionSpacing) {
             $.sectionSpacing = sectionSpacing;
             return this;
         }
@@ -346,7 +348,7 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder sectionSpacing(String sectionSpacing) {
+        public Builder sectionSpacing(SectionSpacing sectionSpacing) {
             return sectionSpacing(Output.of(sectionSpacing));
         }
 
@@ -377,7 +379,7 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder sidebarInfoMode(@Nullable Output<String> sidebarInfoMode) {
+        public Builder sidebarInfoMode(@Nullable Output<SidebarInfoMode> sidebarInfoMode) {
             $.sidebarInfoMode = sidebarInfoMode;
             return this;
         }
@@ -388,7 +390,7 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder sidebarInfoMode(String sidebarInfoMode) {
+        public Builder sidebarInfoMode(SidebarInfoMode sidebarInfoMode) {
             return sidebarInfoMode(Output.of(sidebarInfoMode));
         }
 
@@ -398,7 +400,7 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder sidebarPosition(@Nullable Output<String> sidebarPosition) {
+        public Builder sidebarPosition(@Nullable Output<SidebarPosition> sidebarPosition) {
             $.sidebarPosition = sidebarPosition;
             return this;
         }
@@ -409,7 +411,7 @@ public final class UserLayoutSettingsArgs extends com.pulumi.resources.ResourceA
          * @return builder
          * 
          */
-        public Builder sidebarPosition(String sidebarPosition) {
+        public Builder sidebarPosition(SidebarPosition sidebarPosition) {
             return sidebarPosition(Output.of(sidebarPosition));
         }
 

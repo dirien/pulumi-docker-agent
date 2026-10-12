@@ -11,8 +11,9 @@ import (
 )
 
 // TestAgentConfigCheckFailureProperty is the regression test for render failures that were
-// always attributed to `agents`, and for a top-level `extra.agents` that silently replaced the
-// typed agents (while `agentNames` kept the typed names).
+// always attributed to `agents` (they now name the exact input), and for a top-level
+// `extra.agents` that silently replaced the typed agents (while `agentNames` kept the typed
+// names).
 func TestAgentConfigCheckFailureProperty(t *testing.T) {
 	t.Parallel()
 	root := map[string]any{"name": "root", "model": "m", "instruction": "Help."}
@@ -28,7 +29,7 @@ func TestAgentConfigCheckFailureProperty(t *testing.T) {
 					"provider": "openai", "model": "gpt-5", "thinkingBudget": "low", "thinkingBudgetTokens": 1024,
 				}},
 			},
-			property: "models",
+			property: `models["m"]`,
 			reason:   "`thinkingBudget` and `thinkingBudgetTokens` are mutually exclusive",
 		},
 		"typed key in extra": {
@@ -46,7 +47,7 @@ func TestAgentConfigCheckFailureProperty(t *testing.T) {
 					map[string]any{"type": "shell", "defer": true, "deferTools": []any{"x"}},
 				}}},
 			},
-			property: "agents",
+			property: "agents[0].toolsets[0]",
 			reason:   "`defer` and `deferTools` are mutually exclusive",
 		},
 	} {

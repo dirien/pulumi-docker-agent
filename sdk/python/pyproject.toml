@@ -2,7 +2,7 @@
   name = "ediri_docker_agent"
   description = "A Pulumi provider for Docker Agent (docker-agent): define AI agent configurations as typed, validated code and share them as OCI artifacts, the same way `docker agent share push` does."
   dependencies = ["packaging>=24.0", "pulumi>=3.231.0,<4.0.0", "semver>=2.8.1", "typing-extensions>=4.11,<5; python_version < \"3.11\""]
-  keywords = ["pulumi", "docker", "docker-agent", "ai", "agents", "category/utility", "kind/native"]
+  keywords = ["pulumi", "docker", "docker-agent", "cagent", "ai", "agents", "genai", "llm", "mcp", "oci", "category/utility", "kind/native"]
   readme = "README.md"
   requires-python = ">=3.9"
   version = "0.0.0"

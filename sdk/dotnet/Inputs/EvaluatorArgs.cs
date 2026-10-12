@@ -107,10 +107,10 @@ namespace ediri.DockerAgent.Inputs
         public Input<string>? TokenKey { get; set; }
 
         /// <summary>
-        /// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+        /// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
         /// </summary>
         [Input("type", required: true)]
-        public Input<string> Type { get; set; } = null!;
+        public Input<ediri.DockerAgent.EvaluatorType> Type { get; set; } = null!;
 
         public EvaluatorArgs()
         {

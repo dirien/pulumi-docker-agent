@@ -12,7 +12,8 @@ Defines a change-review agent with `AgentConfig` and runs it with `AgentRun`:
   `revision` setting that feeds `triggers`, runs it again.
 
 The agent has no tools. With tools, keep in mind that they run on the machine executing
-`pulumi up`, and that the default `toolApproval: deny` only lets read-only tools run (see the
+`pulumi up`, and that the default `toolApproval: deny` only runs the tool calls docker-agent approves
+without asking, such as read-only tools and calls that a `permissions` allow rule matches (see the
 `AgentRun` documentation).
 
 ## Run it

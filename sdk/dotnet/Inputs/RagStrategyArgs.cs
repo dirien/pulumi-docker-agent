@@ -131,10 +131,10 @@ namespace ediri.DockerAgent.Inputs
         public Input<double>? Threshold { get; set; }
 
         /// <summary>
-        /// Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
+        /// Retrieval strategy type.
         /// </summary>
         [Input("type", required: true)]
-        public Input<string> Type { get; set; } = null!;
+        public Input<ediri.DockerAgent.RagStrategyType> Type { get; set; } = null!;
 
         /// <summary>
         /// Vector dimensions for embeddings (chunked-embeddings only). Must match your embedding model's output dimensions and is required for chunked-embeddings strategies.

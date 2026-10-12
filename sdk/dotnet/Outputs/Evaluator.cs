@@ -66,9 +66,9 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly string? TokenKey;
         /// <summary>
-        /// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
+        /// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
         /// </summary>
-        public readonly string Type;
+        public readonly ediri.DockerAgent.EvaluatorType Type;
 
         [OutputConstructor]
         private Evaluator(
@@ -96,7 +96,7 @@ namespace ediri.DockerAgent.Outputs
 
             string? tokenKey,
 
-            string type)
+            ediri.DockerAgent.EvaluatorType type)
         {
             BaseUrl = baseUrl;
             BypassModelsGateway = bypassModelsGateway;

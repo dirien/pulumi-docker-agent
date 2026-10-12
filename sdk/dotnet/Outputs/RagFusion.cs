@@ -26,9 +26,9 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly int? K;
         /// <summary>
-        /// Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+        /// Fusion strategy to use. Defaults to `rrf`.
         /// </summary>
-        public readonly string? Strategy;
+        public readonly ediri.DockerAgent.RagFusionStrategy? Strategy;
         /// <summary>
         /// Strategy weights for weighted fusion (strategy name -&gt; weight)
         /// </summary>
@@ -40,7 +40,7 @@ namespace ediri.DockerAgent.Outputs
 
             int? k,
 
-            string? strategy,
+            ediri.DockerAgent.RagFusionStrategy? strategy,
 
             ImmutableDictionary<string, double>? weights)
         {

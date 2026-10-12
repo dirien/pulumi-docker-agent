@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.HttpMethod;
 import io.github.dirien.dockeragent.outputs.ApiArg;
 import java.lang.Object;
 import java.lang.String;
@@ -42,10 +43,10 @@ public final class ApiConfig {
      */
     private @Nullable String instruction;
     /**
-     * @return HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+     * @return HTTP method.
      * 
      */
-    private String method;
+    private HttpMethod method;
     /**
      * @return Name of the API tool
      * 
@@ -99,10 +100,10 @@ public final class ApiConfig {
         return Optional.ofNullable(this.instruction);
     }
     /**
-     * @return HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+     * @return HTTP method.
      * 
      */
-    public String method() {
+    public HttpMethod method() {
         return this.method;
     }
     /**
@@ -141,7 +142,7 @@ public final class ApiConfig {
         private @Nullable Map<String,Object> extra;
         private @Nullable Map<String,String> headers;
         private @Nullable String instruction;
-        private String method;
+        private HttpMethod method;
         private String name;
         private @Nullable Map<String,Object> outputSchema;
         private @Nullable List<String> required;
@@ -192,7 +193,7 @@ public final class ApiConfig {
             return this;
         }
         @CustomType.Setter
-        public Builder method(String method) {
+        public Builder method(HttpMethod method) {
             if (method == null) {
               throw new MissingRequiredPropertyException("ApiConfig", "method");
             }

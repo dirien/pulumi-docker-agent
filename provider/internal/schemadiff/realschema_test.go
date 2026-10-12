@@ -77,13 +77,13 @@ func TestRealSchemas(t *testing.T) {
 
 	md := d.Markdown("old", "new", func(p string) (bool, string) {
 		return p == "Toolset", "example classifier"
-	})
+	}, nil)
 	if !strings.HasPrefix(md, "# docker-agent old → new: configuration schema changes") {
 		t.Errorf("unexpected report header:\n%s", md)
 	}
 	if out := os.Getenv("SCHEMADIFF_REPORT"); out != "" {
 		from, to := envOr("SCHEMADIFF_FROM", "old"), envOr("SCHEMADIFF_TO", "new")
-		if err := os.WriteFile(out, []byte(d.Markdown(from, to, nil)), 0o600); err != nil {
+		if err := os.WriteFile(out, []byte(d.Markdown(from, to, nil, nil)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

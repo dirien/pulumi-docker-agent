@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  root:
+    model: baseten_model
+    description: Assistant using Baseten
+    instruction: |
+      You are a helpful assistant.
+    toolsets:
+      - type: filesystem
+      - type: shell
+      - type: think
+models:
+  baseten_model:
+    provider: baseten
+    model: deepseek-ai/DeepSeek-V3.1

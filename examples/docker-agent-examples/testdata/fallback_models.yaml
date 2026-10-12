@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: A reliable assistant with automatic failover
+    instruction: |
+      You are a helpful assistant. Your responses should be clear and concise.
+      You have built-in resilience - if one model provider is unavailable,
+      the system will automatically try alternative providers.
+    fallback:
+      models:
+        - openai/gpt-4o
+        - openai/gpt-5-mini
+    toolsets:
+      - type: think

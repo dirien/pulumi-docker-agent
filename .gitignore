@@ -3,6 +3,13 @@
 /dist/
 /nuget/
 coverage.out
+# Binaries that `go build ./internal/<tool>` or `go build ./cmd/<plugin>` drops into provider/
+/provider/docsgen
+/provider/examplegen
+/provider/schemagen
+/provider/pulumi-converter-docker-agent
+/provider/pulumi-resource-docker-agent
+/provider/*.exe
 
 # SDK build outputs (the generated SDK sources are committed)
 **/node_modules/
@@ -19,10 +26,21 @@ sdk/dotnet/version.txt
 sdk/java/build/
 sdk/java/.gradle/
 
-# Local Pulumi state and stack config of examples
+# Local Pulumi state and stack config of examples, and their Python environments
 Pulumi.*.yaml
+# The ESC example's stack settings only import the environment.
+!examples/esc-yaml/Pulumi.dev.yaml
 .pulumi/
 .state/
+examples/**/venv/
+examples/**/__pycache__/
+# Gradle outputs of the Java example
+examples/java/build/
+examples/java/.gradle/
+
+# Compiled TypeScript of the policy pack and the Automation API example
+policy/bin/
+examples/automation-ts/bin/
 
 # Editors and OS
 .idea/

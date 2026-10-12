@@ -1,0 +1,48 @@
+# Example Usage of getAgent. See agentconfig-examples.yaml for the format.
+---
+description: Read a shared agent
+skipPreview: the example reads from docker.io
+name: read-agent
+runtime: yaml
+variables:
+  # Reads the artifact like `docker agent share pull`, without writing a file.
+  agent:
+    fn::invoke:
+      function: docker-agent:index:getAgent
+      arguments:
+        reference: docker.io/my-org/assistant:latest
+outputs:
+  agentYaml: ${agent.yaml}
+  agentNames: ${agent.agentNames}
+  pinnedReference: ${agent.pinnedReference}
+---
+description: Read back an agent pushed by the same program
+name: round-trip
+runtime: yaml
+resources:
+  assistant:
+    type: docker-agent:index:AgentConfig
+    properties:
+      metadata:
+        author: platform-team
+        version: 1.0.0
+      agents:
+        - name: root
+          model: openai/gpt-5-mini
+          instruction: You are a helpful assistant. Answer briefly.
+  artifact:
+    type: docker-agent:index:AgentArtifact
+    properties:
+      reference: localhost:5000/agents/assistant:v1
+      yaml: ${assistant.yaml}
+variables:
+  # Reads the pushed artifact by digest once the push is done.
+  pulled:
+    fn::invoke:
+      function: docker-agent:index:getAgent
+      arguments:
+        reference: ${artifact.pinnedReference}
+outputs:
+  digest: ${pulled.digest}
+  defaultAgent: ${pulled.defaultAgent}
+  annotations: ${pulled.annotations}

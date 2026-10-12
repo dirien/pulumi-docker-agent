@@ -5,8 +5,13 @@
         "pulumi",
         "docker",
         "docker-agent",
+        "cagent",
         "ai",
         "agents",
+        "genai",
+        "llm",
+        "mcp",
+        "oci",
         "category/utility",
         "kind/native"
     ],

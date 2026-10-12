@@ -1,0 +1,33 @@
+version: "16"
+agents:
+  root:
+    model: google/gemini-2.5-flash
+    description: assistant with RAG backed by Gemini embeddings
+    instruction: |
+      You are a helpful assistant with access to a knowledge base.
+      Use the search tool to find relevant information before answering.
+    toolsets:
+      - type: rag
+        ref: knowledge_base
+models:
+  gemini-embed:
+    provider: google
+    model: gemini-embedding-2
+    provider_opts:
+      output_dimensionality: 768
+rag:
+  knowledge_base:
+    tool:
+      description: search the knowledge base for relevant information
+    docs:
+      - ./docs
+    strategies:
+      - type: chunked-embeddings
+        embedding_model: gemini-embed
+        database: ./gemini_embeddings.db
+        vector_dimensions: 768
+        chunking:
+          size: 1000
+          overlap: 100
+    results:
+      limit: 5

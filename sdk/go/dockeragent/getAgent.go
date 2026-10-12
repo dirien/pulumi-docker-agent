@@ -21,6 +21,80 @@ import (
 // rejects manifests without the `io.docker.agent.version` annotation.
 //
 // ## Example Usage
+// ### Read a shared agent
+// ```go
+// package main
+//
+// import (
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			// Reads the artifact like `docker agent share pull`, without writing a file.
+//			agent := dockeragent.GetAgentOutput(ctx, dockeragent.GetAgentOutputArgs{
+//				Reference: pulumi.String("docker.io/my-org/assistant:latest"),
+//			}, nil)
+//			ctx.Export("agentYaml", agent.Yaml())
+//			ctx.Export("agentNames", agent.AgentNames())
+//			ctx.Export("pinnedReference", agent.PinnedReference())
+//			return nil
+//		})
+//	}
+//
+// ```
+// ### Read back an agent pushed by the same program
+// ```go
+// package main
+//
+// import (
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			assistant, err := dockeragent.NewAgentConfig(ctx, "assistant", &dockeragent.AgentConfigArgs{
+//				Metadata: &dockeragent.MetadataArgs{
+//					Author:  pulumi.String("platform-team"),
+//					Version: pulumi.String("1.0.0"),
+//				},
+//				Agents: dockeragent.AgentArray{
+//					&dockeragent.AgentArgs{
+//						Name:        pulumi.String("root"),
+//						Model:       pulumi.String("openai/gpt-5-mini"),
+//						Instruction: pulumi.String("You are a helpful assistant. Answer briefly."),
+//					},
+//				},
+//			})
+//			if err != nil {
+//				return err
+//			}
+//			artifact, err := dockeragent.NewAgentArtifact(ctx, "artifact", &dockeragent.AgentArtifactArgs{
+//				Reference: pulumi.String("localhost:5000/agents/assistant:v1"),
+//				Yaml:      assistant.Yaml,
+//			})
+//			if err != nil {
+//				return err
+//			}
+//
+//			// Reads the pushed artifact by digest once the push is done.
+//			pulled := dockeragent.GetAgentOutput(ctx, dockeragent.GetAgentOutputArgs{
+//				Reference: artifact.PinnedReference,
+//			}, nil)
+//			ctx.Export("digest", pulled.Digest())
+//			ctx.Export("defaultAgent", pulled.DefaultAgent())
+//			ctx.Export("annotations", pulled.Annotations())
+//			return nil
+//		})
+//	}
+//
+// ```
 func GetAgent(ctx *pulumi.Context, args *GetAgentArgs, opts ...pulumi.InvokeOption) (*GetAgentResult, error) {
 	opts = internal.PkgInvokeDefaultOpts(opts)
 	var rv GetAgentResult
@@ -32,7 +106,7 @@ func GetAgent(ctx *pulumi.Context, args *GetAgentArgs, opts ...pulumi.InvokeOpti
 }
 
 type GetAgentArgs struct {
-	// Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+	// Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
 	Insecure *bool `pulumi:"insecure"`
 	// The artifact to read: `registry/repository:tag` (the tag defaults to `latest`) or `registry/repository@sha256:...`.
 	Reference string `pulumi:"reference"`
@@ -61,7 +135,7 @@ func GetAgentOutput(ctx *pulumi.Context, args GetAgentOutputArgs, opts ...pulumi
 }
 
 type GetAgentOutputArgs struct {
-	// Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+	// Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
 	Insecure pulumi.BoolPtrInput `pulumi:"insecure"`
 	// The artifact to read: `registry/repository:tag` (the tag defaults to `latest`) or `registry/repository@sha256:...`.
 	Reference pulumi.StringInput `pulumi:"reference"`

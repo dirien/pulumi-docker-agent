@@ -5,6 +5,8 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.EvaluatorDecision;
+import io.github.dirien.dockeragent.enums.EvaluatorFallback;
 import java.lang.Double;
 import java.lang.String;
 import java.util.Map;
@@ -16,12 +18,12 @@ public final class UserHookEvaluatorPolicy {
      * @return Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
      * 
      */
-    private Map<String,String> decisions;
+    private Map<String,EvaluatorDecision> decisions;
     /**
      * @return The decision when the assessment is uncertain: `ask` or `deny`.
      * 
      */
-    private String fallback;
+    private EvaluatorFallback fallback;
     /**
      * @return The lowest probability (greater than 0, at most 1) at which a decision applies.
      * 
@@ -33,14 +35,14 @@ public final class UserHookEvaluatorPolicy {
      * @return Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
      * 
      */
-    public Map<String,String> decisions() {
+    public Map<String,EvaluatorDecision> decisions() {
         return this.decisions;
     }
     /**
      * @return The decision when the assessment is uncertain: `ask` or `deny`.
      * 
      */
-    public String fallback() {
+    public EvaluatorFallback fallback() {
         return this.fallback;
     }
     /**
@@ -60,8 +62,8 @@ public final class UserHookEvaluatorPolicy {
     }
     @CustomType.Builder
     public static final class Builder {
-        private Map<String,String> decisions;
-        private String fallback;
+        private Map<String,EvaluatorDecision> decisions;
+        private EvaluatorFallback fallback;
         private Double minProbability;
         public Builder() {}
         public Builder(UserHookEvaluatorPolicy defaults) {
@@ -72,7 +74,7 @@ public final class UserHookEvaluatorPolicy {
         }
 
         @CustomType.Setter
-        public Builder decisions(Map<String,String> decisions) {
+        public Builder decisions(Map<String,EvaluatorDecision> decisions) {
             if (decisions == null) {
               throw new MissingRequiredPropertyException("UserHookEvaluatorPolicy", "decisions");
             }
@@ -80,7 +82,7 @@ public final class UserHookEvaluatorPolicy {
             return this;
         }
         @CustomType.Setter
-        public Builder fallback(String fallback) {
+        public Builder fallback(EvaluatorFallback fallback) {
             if (fallback == null) {
               throw new MissingRequiredPropertyException("UserHookEvaluatorPolicy", "fallback");
             }

@@ -1,0 +1,102 @@
+# This example demonstrates the semantic-embeddings RAG strategy.
+#
+# Unlike chunked-embeddings which embeds raw text chunks directly,
+# semantic-embeddings uses an LLM to generate semantic summaries of each
+# chunk before embedding. This captures the meaning/purpose of code,
+# making retrieval more semantic than direct chunk embedding.
+#
+# Trade-offs:
+# - Higher quality retrieval for code and structured content
+# - Slower indexing (requires LLM call per chunk)
+# - Additional cost from semantic model API calls
+
+agents:
+  root:
+    model: openai/gpt-4o
+    description: assistant with semantic code search
+    instruction: |
+      You are a helpful coding assistant with access to semantic code search.
+      Use the search tool to find relevant code based on meaning, not just keywords.
+    toolsets:
+      - type: rag
+        ref: codebase
+
+rag:
+  codebase:
+    tool:
+      description: Search the codebase for relevant code snippets by semantic meaning
+    # Large knowledge bases can take a while to index. indexing_timeout bounds
+    # that single indexing run, detached from the much shorter (30s) toolset-
+    # start wait budget: the agent proceeds without this tool on early turns
+    # and it appears once indexing finishes. "0s" means no bound; default 30m.
+    indexing_timeout: 2h
+    docs:
+      - ../../pkg/**/*.go
+      - ../../cmd/**/*.go
+    strategies:
+      - type: semantic-embeddings
+        # Required: embedding model for vector similarity
+        embedding_model: openai/text-embedding-3-small
+        vector_dimensions: 1536
+
+        # Required: chat model to generate semantic summaries of each chunk
+        chat_model: openai/gpt-4o-mini
+        
+        # Custom prompt template for generating semantic summaries during indexing.
+        # Uses JS template literal syntax with these placeholders:
+        #   ${path}        - full source file path
+        #   ${basename}    - base name of the source file
+        #   ${chunk_index} - numeric index of the chunk
+        #   ${content}     - raw chunk content
+        #   ${ast_context} - formatted AST metadata (when ast_context: true)
+        semantic_prompt: |
+          You are summarizing source code for semantic search.
+
+          File: ${basename}
+          ${ast_context}
+
+          ```
+          ${content}
+          ```
+
+          In 2-4 sentences, explain what this code does. Be specific:
+          - Name exact functions, types, and methods
+          - Mention key dependencies or libraries used
+          - Describe inputs, outputs, and notable behavior
+
+        # Optional: database path (defaults to auto-generated name)
+        database: ./semantic_embeddings.db
+
+        # Optional: similarity settings
+        similarity_metric: cosine_similarity
+        threshold: 0.3
+        limit: 10
+
+        # Optional: performance tuning
+        embedding_batch_size: 50        # chunks per embedding API call
+        max_embedding_concurrency: 3    # parallel embedding/LLM requests
+        max_indexing_concurrency: 3     # parallel file indexing
+
+        # Optional: include AST metadata in semantic prompt (best with code_aware chunking)
+        ast_context: true
+
+        # Optional: chunking configuration
+        chunking:
+          size: 1000
+          respect_word_boundaries: true
+          code_aware: true  # Use tree-sitter for AST-based chunking
+
+    results:
+      # Optional: rerank results using an LLM for better relevance
+      reranking:
+        model: openai/gpt-4o-mini
+        threshold: 0.3
+        # Custom criteria to guide the reranking model's relevance scoring
+        criteria: |
+          When scoring relevance, prioritize:
+          - Code that directly implements the queried functionality
+          - Functions and methods over comments or documentation
+          - Complete implementations over partial snippets
+      deduplicate: true
+      return_full_content: false # return full document content instead of just the matched chunks
+      limit: 5

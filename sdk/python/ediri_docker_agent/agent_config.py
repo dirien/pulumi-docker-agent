@@ -14,6 +14,7 @@ else:
     from typing_extensions import NotRequired, TypedDict, TypeAlias
 from . import _utilities
 from . import outputs
+from ._enums import *
 from ._inputs import *
 
 __all__ = ['AgentConfigArgs', 'AgentConfig']
@@ -57,7 +58,7 @@ class AgentConfigArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input['RagSourceArgs']]] rag: Map of reusable RAG source definitions. Define RAG sources here and reference them by name from agent toolsets to avoid duplication.
         :param pulumi.Input['RuntimeDefaultsArgs'] runtime: Execution-time defaults the agent author wants applied. Values act as defaults only — explicit CLI flags or user-config settings always win.
         :param pulumi.Input[Mapping[str, pulumi.Input['SkillSetArgs']]] skills: Map of reusable, named skill groups. Define skill sets here and reference them by name from an agent's use_skills to avoid duplication.
-        :param pulumi.Input[_builtins.bool] skip_validation: Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        :param pulumi.Input[_builtins.bool] skip_validation: Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
         :param pulumi.Input[Mapping[str, pulumi.Input['ToolsetArgs']]] toolsets: Map of reusable, named toolset definitions. Define a toolset here and reference it by name from an agent's use_toolsets to share the same toolset across multiple agents.
         :param pulumi.Input[_builtins.str] version: The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
         """
@@ -283,7 +284,7 @@ class AgentConfigArgs:
     @pulumi.getter(name="skipValidation")
     def skip_validation(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
-        Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
         """
         return pulumi.get(self, "skip_validation")
 
@@ -358,23 +359,148 @@ class AgentConfig(pulumi.CustomResource):
         docker-agent releases newer than the one this provider pins. `instructionFile` needs `skipValidation`
         because validation happens in memory; read the file in your program and pass its contents as `instruction`.
 
+        Closed value sets, such as the `safety` modes or a hook's `type`, are enums. A value that this
+        provider version does not list fails on its property during preview unless `skipValidation` is set; in
+        C# and Java, whose enums cannot hold other values, set such a value through the object's `extra` map
+        (for example `runtime.extra`), which replaces the typed key.
+
+        The preview reports every independent problem at once, each attached to the input that caused it, for example
+        `property agents[0].subAgents ... has a problem: invalid docker-agent configuration: agent 'root' references non-existent sub-agent 'missing'`.
+        docker-agent stops at the first problem; the provider removes the faulty value and validates again to find the
+        rest. A problem with a whole definition (a model, provider or toolset) is reported alone. The provider also warns
+        about `headers` and `env` values that look like literal credentials: they end up in `yaml`
+        and in every artifact made from it, so use a `${env.NAME}` placeholder that docker-agent resolves at run
+        time instead.
+
         ## Example Usage
         ### A single agent with tools
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
-        assistant = dockeragent.AgentConfig("assistant",
-            metadata={"author": "platform-team", "license": "Apache-2.0"},
+        # A typed docker-agent configuration, validated during `pulumi preview`.
+        assistant = docker_agent.AgentConfig("assistant",
+            metadata={
+                "author": "platform-team",
+                "license": "Apache-2.0",
+            },
             agents=[{
                 "name": "root",
                 "model": "openai/gpt-5-mini",
                 "description": "A helpful assistant",
                 "instruction": "You are a helpful assistant. Answer briefly.",
-                "toolsets": [{"type": "think"}, {"type": "mcp", "ref": "docker:duckduckgo"}],
+                "toolsets": [
+                    {
+                        "type": "think",
+                    },
+                    {
+                        "type": "mcp",
+                        "ref": "docker:duckduckgo",
+                    },
+                ],
             }])
-
         pulumi.export("agentYaml", assistant.yaml)
+        pulumi.export("requiredEnvVars", assistant.required_env_vars)
+        ```
+        ### A team with a named model
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # `root` delegates research questions to the `researcher` sub-agent.
+        team = docker_agent.AgentConfig("team",
+            models={
+                "fast": {
+                    "provider": "anthropic",
+                    "model": "claude-haiku-4-5",
+                    "max_tokens": 8192,
+                },
+            },
+            agents=[
+                {
+                    "name": "root",
+                    "model": "fast",
+                    "instruction": "Coordinate the team and delegate research questions.",
+                    "sub_agents": ["researcher"],
+                },
+                {
+                    "name": "researcher",
+                    "model": "openai/gpt-5-mini",
+                    "description": "Searches the web",
+                    "instruction": "Research the question and report sources.",
+                    "toolsets": [{
+                        "type": "fetch",
+                    }],
+                    "max_consecutive_tool_calls": 10,
+                },
+            ])
+        pulumi.export("agentNames", team.agent_names)
+        pulumi.export("defaultAgent", team.default_agent)
+        ```
+        ### Sandbox mode, a safety mode, hooks and a budget
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # Runs in a sandbox by default, with the fail-closed `restricted` safety mode.
+        sandboxed = docker_agent.AgentConfig("sandboxed",
+            runtime={
+                "sandbox": True,
+                "safety": docker_agent.SafetyMode.RESTRICTED,
+                "network_allowlist": [
+                    "api.github.com",
+                    "registry.npmjs.org:443",
+                ],
+            },
+            permissions={
+                "deny": ["shell:cmd=sudo*"],
+            },
+            agents=[{
+                "name": "root",
+                "model": "anthropic/claude-sonnet-4-5",
+                "instruction": "Run the test suite and fix the failing tests.",
+                "toolsets": [
+                    {
+                        "type": "shell",
+                    },
+                    {
+                        "type": "filesystem",
+                    },
+                ],
+                "hooks": {
+                    "session_start": [{
+                        "type": docker_agent.HookType.BUILTIN,
+                        "command": "add_environment_info",
+                    }],
+                },
+                "simple_commands": {
+                    "test": "Run the tests and summarise the failures",
+                },
+            }],
+            budget={
+                "max_cost": float(5),
+                "max_time": "30m",
+            })
+        pulumi.export("agentYaml", sandboxed.yaml)
+        ```
+
+        ## Import
+
+        An existing docker-agent configuration can be imported, and `pulumi import` generates its typed
+        inputs in your program's language. The ID is `file://<path>`, a path ending in `.yaml`, `.yml` or
+        `.hcl` (relative to the project directory), or `oci://<registry>/<repository>:<tag>` (or
+        `@sha256:<digest>`) for a shared agent, read with the provider's registry credentials. Only configurations
+        that pass validation are imported; set the provider's `skipValidation` to import one that needs a newer
+        docker-agent (the resource then gets `skipValidation: true`). Keys without a typed input go to
+        `extra`, `instruction_file` contents become `instruction`, and comments, key order and YAML
+        anchors are not kept. The imported resource's ID is its name; it keeps no link to the file or artifact.
+
+        ```sh
+        $ pulumi import docker-agent:index:AgentConfig assistant ./agent.yaml
+        ```
+
+        ```sh
+        $ pulumi import docker-agent:index:AgentConfig shared oci://ghcr.io/my-org/agents/assistant:v1
         ```
 
         :param str resource_name: The name of the resource.
@@ -394,7 +520,7 @@ class AgentConfig(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[Union['RagSourceArgs', 'RagSourceArgsDict', 'outputs.RagSource']]]] rag: Map of reusable RAG source definitions. Define RAG sources here and reference them by name from agent toolsets to avoid duplication.
         :param pulumi.Input[Union['RuntimeDefaultsArgs', 'RuntimeDefaultsArgsDict', 'outputs.RuntimeDefaults']] runtime: Execution-time defaults the agent author wants applied. Values act as defaults only — explicit CLI flags or user-config settings always win.
         :param pulumi.Input[Mapping[str, pulumi.Input[Union['SkillSetArgs', 'SkillSetArgsDict', 'outputs.SkillSet']]]] skills: Map of reusable, named skill groups. Define skill sets here and reference them by name from an agent's use_skills to avoid duplication.
-        :param pulumi.Input[_builtins.bool] skip_validation: Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        :param pulumi.Input[_builtins.bool] skip_validation: Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
         :param pulumi.Input[Mapping[str, pulumi.Input[Union['ToolsetArgs', 'ToolsetArgsDict', 'outputs.Toolset']]]] toolsets: Map of reusable, named toolset definitions. Define a toolset here and reference it by name from an agent's use_toolsets to share the same toolset across multiple agents.
         :param pulumi.Input[_builtins.str] version: The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
         """
@@ -421,23 +547,148 @@ class AgentConfig(pulumi.CustomResource):
         docker-agent releases newer than the one this provider pins. `instructionFile` needs `skipValidation`
         because validation happens in memory; read the file in your program and pass its contents as `instruction`.
 
+        Closed value sets, such as the `safety` modes or a hook's `type`, are enums. A value that this
+        provider version does not list fails on its property during preview unless `skipValidation` is set; in
+        C# and Java, whose enums cannot hold other values, set such a value through the object's `extra` map
+        (for example `runtime.extra`), which replaces the typed key.
+
+        The preview reports every independent problem at once, each attached to the input that caused it, for example
+        `property agents[0].subAgents ... has a problem: invalid docker-agent configuration: agent 'root' references non-existent sub-agent 'missing'`.
+        docker-agent stops at the first problem; the provider removes the faulty value and validates again to find the
+        rest. A problem with a whole definition (a model, provider or toolset) is reported alone. The provider also warns
+        about `headers` and `env` values that look like literal credentials: they end up in `yaml`
+        and in every artifact made from it, so use a `${env.NAME}` placeholder that docker-agent resolves at run
+        time instead.
+
         ## Example Usage
         ### A single agent with tools
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
-        assistant = dockeragent.AgentConfig("assistant",
-            metadata={"author": "platform-team", "license": "Apache-2.0"},
+        # A typed docker-agent configuration, validated during `pulumi preview`.
+        assistant = docker_agent.AgentConfig("assistant",
+            metadata={
+                "author": "platform-team",
+                "license": "Apache-2.0",
+            },
             agents=[{
                 "name": "root",
                 "model": "openai/gpt-5-mini",
                 "description": "A helpful assistant",
                 "instruction": "You are a helpful assistant. Answer briefly.",
-                "toolsets": [{"type": "think"}, {"type": "mcp", "ref": "docker:duckduckgo"}],
+                "toolsets": [
+                    {
+                        "type": "think",
+                    },
+                    {
+                        "type": "mcp",
+                        "ref": "docker:duckduckgo",
+                    },
+                ],
             }])
-
         pulumi.export("agentYaml", assistant.yaml)
+        pulumi.export("requiredEnvVars", assistant.required_env_vars)
+        ```
+        ### A team with a named model
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # `root` delegates research questions to the `researcher` sub-agent.
+        team = docker_agent.AgentConfig("team",
+            models={
+                "fast": {
+                    "provider": "anthropic",
+                    "model": "claude-haiku-4-5",
+                    "max_tokens": 8192,
+                },
+            },
+            agents=[
+                {
+                    "name": "root",
+                    "model": "fast",
+                    "instruction": "Coordinate the team and delegate research questions.",
+                    "sub_agents": ["researcher"],
+                },
+                {
+                    "name": "researcher",
+                    "model": "openai/gpt-5-mini",
+                    "description": "Searches the web",
+                    "instruction": "Research the question and report sources.",
+                    "toolsets": [{
+                        "type": "fetch",
+                    }],
+                    "max_consecutive_tool_calls": 10,
+                },
+            ])
+        pulumi.export("agentNames", team.agent_names)
+        pulumi.export("defaultAgent", team.default_agent)
+        ```
+        ### Sandbox mode, a safety mode, hooks and a budget
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # Runs in a sandbox by default, with the fail-closed `restricted` safety mode.
+        sandboxed = docker_agent.AgentConfig("sandboxed",
+            runtime={
+                "sandbox": True,
+                "safety": docker_agent.SafetyMode.RESTRICTED,
+                "network_allowlist": [
+                    "api.github.com",
+                    "registry.npmjs.org:443",
+                ],
+            },
+            permissions={
+                "deny": ["shell:cmd=sudo*"],
+            },
+            agents=[{
+                "name": "root",
+                "model": "anthropic/claude-sonnet-4-5",
+                "instruction": "Run the test suite and fix the failing tests.",
+                "toolsets": [
+                    {
+                        "type": "shell",
+                    },
+                    {
+                        "type": "filesystem",
+                    },
+                ],
+                "hooks": {
+                    "session_start": [{
+                        "type": docker_agent.HookType.BUILTIN,
+                        "command": "add_environment_info",
+                    }],
+                },
+                "simple_commands": {
+                    "test": "Run the tests and summarise the failures",
+                },
+            }],
+            budget={
+                "max_cost": float(5),
+                "max_time": "30m",
+            })
+        pulumi.export("agentYaml", sandboxed.yaml)
+        ```
+
+        ## Import
+
+        An existing docker-agent configuration can be imported, and `pulumi import` generates its typed
+        inputs in your program's language. The ID is `file://<path>`, a path ending in `.yaml`, `.yml` or
+        `.hcl` (relative to the project directory), or `oci://<registry>/<repository>:<tag>` (or
+        `@sha256:<digest>`) for a shared agent, read with the provider's registry credentials. Only configurations
+        that pass validation are imported; set the provider's `skipValidation` to import one that needs a newer
+        docker-agent (the resource then gets `skipValidation: true`). Keys without a typed input go to
+        `extra`, `instruction_file` contents become `instruction`, and comments, key order and YAML
+        anchors are not kept. The imported resource's ID is its name; it keeps no link to the file or artifact.
+
+        ```sh
+        $ pulumi import docker-agent:index:AgentConfig assistant ./agent.yaml
+        ```
+
+        ```sh
+        $ pulumi import docker-agent:index:AgentConfig shared oci://ghcr.io/my-org/agents/assistant:v1
         ```
 
         :param str resource_name: The name of the resource.
@@ -722,7 +973,7 @@ class AgentConfig(pulumi.CustomResource):
     @pulumi.getter(name="skipValidation")
     def skip_validation(self) -> pulumi.Output[Optional[_builtins.bool]]:
         """
-        Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
         """
         return pulumi.get(self, "skip_validation")
 

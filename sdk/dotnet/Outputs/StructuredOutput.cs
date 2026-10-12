@@ -26,9 +26,9 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly ImmutableDictionary<string, object>? Extra;
         /// <summary>
-        /// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+        /// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
         /// </summary>
-        public readonly string? Mode;
+        public readonly ediri.DockerAgent.StructuredOutputMode? Mode;
         /// <summary>
         /// Name of the response format schema
         /// </summary>
@@ -48,7 +48,7 @@ namespace ediri.DockerAgent.Outputs
 
             ImmutableDictionary<string, object>? extra,
 
-            string? mode,
+            ediri.DockerAgent.StructuredOutputMode? mode,
 
             string name,
 

@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: Fetches pages from an internal documentation portal that requires a bearer token.
+    instruction: |
+      You can fetch pages from https://docs.internal.example.com.
+      Always summarise the response.
+    toolsets:
+      - type: fetch
+        headers:
+          Authorization: Bearer ${env.INTERNAL_DOCS_TOKEN}
+          X-Internal-Client: docker-agent
+        allowed_domains:
+          - docs.internal.example.com

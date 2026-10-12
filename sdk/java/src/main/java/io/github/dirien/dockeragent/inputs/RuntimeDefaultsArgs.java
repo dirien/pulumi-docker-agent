@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.inputs;
 
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
+import io.github.dirien.dockeragent.enums.SafetyMode;
 import java.lang.Boolean;
 import java.lang.Object;
 import java.lang.String;
@@ -54,17 +55,17 @@ public final class RuntimeDefaultsArgs extends com.pulumi.resources.ResourceArgs
     }
 
     /**
-     * Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+     * Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them.
      * 
      */
     @Import(name="safety")
-    private @Nullable Output<String> safety;
+    private @Nullable Output<SafetyMode> safety;
 
     /**
-     * @return Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+     * @return Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them.
      * 
      */
-    public Optional<Output<String>> safety() {
+    public Optional<Output<SafetyMode>> safety() {
         return Optional.ofNullable(this.safety);
     }
 
@@ -163,23 +164,23 @@ public final class RuntimeDefaultsArgs extends com.pulumi.resources.ResourceArgs
         }
 
         /**
-         * @param safety Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+         * @param safety Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them.
          * 
          * @return builder
          * 
          */
-        public Builder safety(@Nullable Output<String> safety) {
+        public Builder safety(@Nullable Output<SafetyMode> safety) {
             $.safety = safety;
             return this;
         }
 
         /**
-         * @param safety Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+         * @param safety Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them.
          * 
          * @return builder
          * 
          */
-        public Builder safety(String safety) {
+        public Builder safety(SafetyMode safety) {
             return safety(Output.of(safety));
         }
 

@@ -35,14 +35,94 @@ import (
 //
 // If the project already has a `.agentsignore` with different content, the preview fails instead of replacing it.
 // Copy its patterns into `patterns`, or set `overwrite: true`. Either way the existing file is moved to
-// `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a
-// backup, deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+// `.agentsignore.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+// resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+// Set the `retainOnDelete` resource option to keep the file.
 //
 // ## Example Usage
+// ### Hide secrets from the agent
+// ```go
+// package main
+//
+// import (
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			// Writes /home/me/src/my-service/.agentsignore.
+//			ignore, err := dockeragent.NewAgentsIgnore(ctx, "ignore", &dockeragent.AgentsIgnoreArgs{
+//				Directory: pulumi.String("/home/me/src/my-service"),
+//				Comment:   pulumi.String("Managed by Pulumi. Keep secrets away from docker-agent."),
+//				Patterns: pulumi.StringArray{
+//					pulumi.String(".env"),
+//					pulumi.String(".env.*"),
+//					pulumi.String("*.pem"),
+//					pulumi.String("*.key"),
+//					pulumi.String("!public.key"),
+//					pulumi.String(".aws/"),
+//					pulumi.String("build/"),
+//				},
+//			})
+//			if err != nil {
+//				return err
+//			}
+//			ctx.Export("agentsIgnore", ignore.Content)
+//			ctx.Export("filePath", ignore.FilePath)
+//			return nil
+//		})
+//	}
+//
+// ```
+// ### Render the file for a container image
+// ```go
+// package main
+//
+// import (
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			// No `directory`: nothing is written, the file is only rendered.
+//			rendered, err := dockeragent.NewAgentsIgnore(ctx, "rendered", &dockeragent.AgentsIgnoreArgs{
+//				Patterns: pulumi.StringArray{
+//					pulumi.String(".git/"),
+//					pulumi.String("node_modules/"),
+//					pulumi.String("**/*.pem"),
+//				},
+//			})
+//			if err != nil {
+//				return err
+//			}
+//			ctx.Export("agentsIgnore", rendered.Content)
+//			return nil
+//		})
+//	}
+//
+// ```
+//
+// ## Import
+//
+// An existing `.agentsignore` can be imported with its project directory (or the
+// file's path) as ID: the comment block at the top of the file becomes `comment` and every other line a
+// pattern (comments between patterns are not imported). The file is adopted as for `UserSettings`: the import
+// takes no backup, `overwrite` is not needed, and deleting the resource leaves the file in place. The resource
+// ID is the file's absolute path.
+//
+// ```sh
+// $ pulumi import docker-agent:index:AgentsIgnore project ./my-service
+// ```
 type AgentsIgnore struct {
 	pulumi.CustomResourceState
 
-	// Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+	// Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
 	BackupPath pulumi.StringPtrOutput `pulumi:"backupPath"`
 	// A comment written at the top of the file. Each line is prefixed with ` #  `.
 	Comment pulumi.StringPtrOutput `pulumi:"comment"`
@@ -215,7 +295,7 @@ func (o AgentsIgnoreOutput) ToAgentsIgnoreOutputWithContext(ctx context.Context)
 	return o
 }
 
-// Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+// Where the `.agentsignore` that already existed was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
 func (o AgentsIgnoreOutput) BackupPath() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *AgentsIgnore) pulumi.StringPtrOutput { return v.BackupPath }).(pulumi.StringPtrOutput)
 }

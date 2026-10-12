@@ -1,0 +1,76 @@
+# Generated from docker-agent v1.150.0 examples/strip-unsupported-media.yaml by `make generate_config_types`. Do not edit.
+
+import ediri_docker_agent as dockeragent
+
+config = dockeragent.AgentConfig(
+    "strip-unsupported-media",
+    # Mixed-media fixture for the strip_unsupported_modalities transform: the
+    # runtime drops image/audio/video message parts before the provider call when
+    # the resolved capabilities of the active model don't cover that media kind,
+    # and an explicit `capabilities` override always wins over the models.dev
+    # catalogue.
+    #
+    # Manual validation (needs OPENAI_API_KEY in the environment):
+    #
+    #   task build
+    #
+    #   # 1. Text-only model: the attached image is stripped (grep the debug log
+    #   #    for "strip_unsupported_modalities: stripped media part"); the text
+    #   #    part still reaches the model.
+    #   ./bin/docker-agent run --exec examples/strip-unsupported-media.yaml -a text-only \
+    #       --attach <some-image.png> --debug --log-file /tmp/strip-media.log \
+    #       "What do you see? Reply with one sentence."
+    #
+    #   # 2. Vision model: no strip entry in the log; the model describes the image.
+    #   ./bin/docker-agent run --exec examples/strip-unsupported-media.yaml -a vision \
+    #       --attach <some-image.png> --debug --log-file /tmp/strip-media.log \
+    #       "What do you see? Reply with one sentence."
+    #
+    #   # 3. Override: same text-only model, but `capabilities.image: true` makes
+    #   #    the declaration authoritative — no strip entry appears and the image
+    #   #    reaches the provider. (gpt-3.5-turbo genuinely rejects images, so the
+    #   #    provider-side 400 error is the PROOF that the override was respected
+    #   #    and the runtime no longer silently protected the call.)
+    #   ./bin/docker-agent run --exec examples/strip-unsupported-media.yaml -a override \
+    #       --attach <some-image.png> --debug --log-file /tmp/strip-media.log \
+    #       "What do you see? Reply with one sentence."
+    #
+    # Cleanup: rm /tmp/strip-media.log
+    models={
+        "text-only": {
+            "provider": "openai",
+            "model": "gpt-3.5-turbo",  # models.dev input modalities: text only
+        },
+        "vision": {
+            "provider": "openai",
+            "model": "gpt-4o",  # models.dev input modalities: text, image, pdf
+        },
+        "claims-vision": {
+            "provider": "openai",
+            "model": "gpt-3.5-turbo",
+            "capabilities": {
+                "image": True,  # override wins: the runtime must NOT strip images
+            },
+        },
+    },
+    agents=[
+        {
+            "name": "text-only",
+            "model": "text-only",
+            "description": "Text-only model — attached images are stripped before the call",
+            "instruction": "You are a helpful assistant. Describe any images the user attaches.",
+        },
+        {
+            "name": "vision",
+            "model": "vision",
+            "description": "Vision model — attached images reach the provider untouched",
+            "instruction": "You are a helpful assistant. Describe any images the user attaches.",
+        },
+        {
+            "name": "override",
+            "model": "claims-vision",
+            "description": "Text-only model with an explicit image capability override",
+            "instruction": "You are a helpful assistant. Describe any images the user attaches.",
+        },
+    ],
+)

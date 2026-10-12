@@ -17,10 +17,10 @@ namespace ediri.DockerAgent.Inputs
     public sealed class ProviderDefArgs : global::Pulumi.ResourceArgs
     {
         /// <summary>
-        /// The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+        /// The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
         /// </summary>
         [Input("apiType")]
-        public Input<string>? ApiType { get; set; }
+        public Input<ediri.DockerAgent.ApiType>? ApiType { get; set; }
 
         /// <summary>
         /// Non-API-key authentication scheme. When set, the provider's regular API-key path is bypassed.

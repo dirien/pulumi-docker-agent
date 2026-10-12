@@ -7,6 +7,8 @@ import (
 	"errors"
 
 	"github.com/pulumi/pulumi-go-provider/infer"
+
+	"github.com/dirien/pulumi-docker-agent/provider/pkg/render"
 )
 
 // The types in this file are the typed inputs of UserSettings. They mirror docker-agent's
@@ -17,31 +19,31 @@ import (
 
 // UserGlobalSettings is the `settings:` block of the user configuration.
 type UserGlobalSettings struct {
-	HideToolResults       *bool               `pulumi:"hideToolResults,optional"       yaml:"hide_tool_results"`
-	ExpandThinking        *bool               `pulumi:"expandThinking,optional"        yaml:"expand_thinking"`
-	SplitDiffView         *bool               `pulumi:"splitDiffView,optional"         yaml:"split_diff_view"`
-	RenderImages          *bool               `pulumi:"renderImages,optional"          yaml:"render_images"`
-	ShowBanner            *bool               `pulumi:"showBanner,optional"            yaml:"show_banner"`
-	Theme                 *string             `pulumi:"theme,optional"                 yaml:"theme"`
-	ThemeDark             *string             `pulumi:"themeDark,optional"             yaml:"theme_dark"`
-	ThemeLight            *string             `pulumi:"themeLight,optional"            yaml:"theme_light"`
-	Yolo                  *bool               `pulumi:"yolo,optional"                  yaml:"YOLO"`
-	Safety                *string             `pulumi:"safety,optional"                yaml:"safety"`
-	Lean                  *bool               `pulumi:"lean,optional"                  yaml:"lean"`
-	TabTitleMaxLength     *int                `pulumi:"tabTitleMaxLength,optional"     yaml:"tab_title_max_length"`
-	RestoreTabs           *bool               `pulumi:"restoreTabs,optional"           yaml:"restore_tabs"`
-	Sound                 *bool               `pulumi:"sound,optional"                 yaml:"sound"`
-	SoundThreshold        *int                `pulumi:"soundThreshold,optional"        yaml:"sound_threshold"`
-	Snapshot              *bool               `pulumi:"snapshot,optional"              yaml:"snapshot"`
-	CacheStablePrompts    *bool               `pulumi:"cacheStablePrompts,optional"    yaml:"cache_stable_prompts"`
-	WarnOnCacheMiss       *bool               `pulumi:"warnOnCacheMiss,optional"       yaml:"warn_on_cache_miss"`
-	Permissions           *UserPermissions    `pulumi:"permissions,optional"           yaml:"permissions"`
-	Hooks                 *UserHooks          `pulumi:"hooks,optional"                 yaml:"hooks"`
-	Keybindings           []UserKeybinding    `pulumi:"keybindings,optional"           yaml:"keybindings"`
-	Layout                *UserLayoutSettings `pulumi:"layout,optional"                yaml:"layout"`
-	BusySendMode          *string             `pulumi:"busySendMode,optional"          yaml:"busy_send_mode"`
-	InterruptConfirmation *string             `pulumi:"interruptConfirmation,optional" yaml:"interrupt_confirmation"`
-	Extra                 map[string]any      `pulumi:"extra,optional"                 yaml:",inline"`
+	HideToolResults       *bool                  `pulumi:"hideToolResults,optional"       yaml:"hide_tool_results"`
+	ExpandThinking        *bool                  `pulumi:"expandThinking,optional"        yaml:"expand_thinking"`
+	SplitDiffView         *bool                  `pulumi:"splitDiffView,optional"         yaml:"split_diff_view"`
+	RenderImages          *bool                  `pulumi:"renderImages,optional"          yaml:"render_images"`
+	ShowBanner            *bool                  `pulumi:"showBanner,optional"            yaml:"show_banner"`
+	Theme                 *string                `pulumi:"theme,optional"                 yaml:"theme"`
+	ThemeDark             *string                `pulumi:"themeDark,optional"             yaml:"theme_dark"`
+	ThemeLight            *string                `pulumi:"themeLight,optional"            yaml:"theme_light"`
+	Yolo                  *bool                  `pulumi:"yolo,optional"                  yaml:"YOLO"`
+	Safety                *render.SafetyMode     `pulumi:"safety,optional"                yaml:"safety"`
+	Lean                  *bool                  `pulumi:"lean,optional"                  yaml:"lean"`
+	TabTitleMaxLength     *int                   `pulumi:"tabTitleMaxLength,optional"     yaml:"tab_title_max_length"`
+	RestoreTabs           *bool                  `pulumi:"restoreTabs,optional"           yaml:"restore_tabs"`
+	Sound                 *bool                  `pulumi:"sound,optional"                 yaml:"sound"`
+	SoundThreshold        *int                   `pulumi:"soundThreshold,optional"        yaml:"sound_threshold"`
+	Snapshot              *bool                  `pulumi:"snapshot,optional"              yaml:"snapshot"`
+	CacheStablePrompts    *bool                  `pulumi:"cacheStablePrompts,optional"    yaml:"cache_stable_prompts"`
+	WarnOnCacheMiss       *bool                  `pulumi:"warnOnCacheMiss,optional"       yaml:"warn_on_cache_miss"`
+	Permissions           *UserPermissions       `pulumi:"permissions,optional"           yaml:"permissions"`
+	Hooks                 *UserHooks             `pulumi:"hooks,optional"                 yaml:"hooks"`
+	Keybindings           []UserKeybinding       `pulumi:"keybindings,optional"           yaml:"keybindings"`
+	Layout                *UserLayoutSettings    `pulumi:"layout,optional"                yaml:"layout"`
+	BusySendMode          *BusySendMode          `pulumi:"busySendMode,optional"          yaml:"busy_send_mode"`
+	InterruptConfirmation *InterruptConfirmation `pulumi:"interruptConfirmation,optional" yaml:"interrupt_confirmation"`
+	Extra                 map[string]any         `pulumi:"extra,optional"                 yaml:",inline"`
 }
 
 // Annotate describes UserGlobalSettings.
@@ -106,16 +108,16 @@ func (s *UserGlobalSettings) Annotate(a infer.Annotator) {
 
 // UserLayoutSettings is `settings.layout`.
 type UserLayoutSettings struct {
-	SidebarPosition  *string `pulumi:"sidebarPosition,optional"  yaml:"sidebar_position"`
-	SectionSpacing   *string `pulumi:"sectionSpacing,optional"   yaml:"section_spacing"`
-	SidebarInfoMode  *string `pulumi:"sidebarInfoMode,optional"  yaml:"sidebar_info_mode"`
-	ActiveAgentsOnly *bool   `pulumi:"activeAgentsOnly,optional" yaml:"active_agents_only"`
-	HideSessionPath  *bool   `pulumi:"hideSessionPath,optional"  yaml:"hide_session_path"`
-	HideUsage        *bool   `pulumi:"hideUsage,optional"        yaml:"hide_usage"`
-	HideAgents       *bool   `pulumi:"hideAgents,optional"       yaml:"hide_agents"`
-	HideTools        *bool   `pulumi:"hideTools,optional"        yaml:"hide_tools"`
-	ShowPlans        *bool   `pulumi:"showPlans,optional"        yaml:"show_plans"`
-	HideTodos        *bool   `pulumi:"hideTodos,optional"        yaml:"hide_todos"`
+	SidebarPosition  *SidebarPosition `pulumi:"sidebarPosition,optional"  yaml:"sidebar_position"`
+	SectionSpacing   *SectionSpacing  `pulumi:"sectionSpacing,optional"   yaml:"section_spacing"`
+	SidebarInfoMode  *SidebarInfoMode `pulumi:"sidebarInfoMode,optional"  yaml:"sidebar_info_mode"`
+	ActiveAgentsOnly *bool            `pulumi:"activeAgentsOnly,optional" yaml:"active_agents_only"`
+	HideSessionPath  *bool            `pulumi:"hideSessionPath,optional"  yaml:"hide_session_path"`
+	HideUsage        *bool            `pulumi:"hideUsage,optional"        yaml:"hide_usage"`
+	HideAgents       *bool            `pulumi:"hideAgents,optional"       yaml:"hide_agents"`
+	HideTools        *bool            `pulumi:"hideTools,optional"        yaml:"hide_tools"`
+	ShowPlans        *bool            `pulumi:"showPlans,optional"        yaml:"show_plans"`
+	HideTodos        *bool            `pulumi:"hideTodos,optional"        yaml:"hide_todos"`
 }
 
 // Annotate describes UserLayoutSettings.
@@ -170,12 +172,12 @@ func (p *UserPermissions) Annotate(a infer.Annotator) {
 
 // UserAlias is an entry of `aliases`.
 type UserAlias struct {
-	Path            string  `pulumi:"path"                     yaml:"path"`
-	Yolo            *bool   `pulumi:"yolo,optional"            yaml:"yolo"`
-	Safety          *string `pulumi:"safety,optional"          yaml:"safety"`
-	Model           *string `pulumi:"model,optional"           yaml:"model"`
-	HideToolResults *bool   `pulumi:"hideToolResults,optional" yaml:"hide_tool_results"`
-	Sandbox         *bool   `pulumi:"sandbox,optional"         yaml:"sandbox"`
+	Path            string             `pulumi:"path"                     yaml:"path"`
+	Yolo            *bool              `pulumi:"yolo,optional"            yaml:"yolo"`
+	Safety          *render.SafetyMode `pulumi:"safety,optional"          yaml:"safety"`
+	Model           *string            `pulumi:"model,optional"           yaml:"model"`
+	HideToolResults *bool              `pulumi:"hideToolResults,optional" yaml:"hide_tool_results"`
+	Sandbox         *bool              `pulumi:"sandbox,optional"         yaml:"sandbox"`
 }
 
 // Annotate describes UserAlias.
@@ -368,16 +370,16 @@ func (m *UserHookMatcher) Annotate(a infer.Annotator) {
 // UserHook mirrors docker-agent's HookDefinition.
 type UserHook struct {
 	Name            *string                  `pulumi:"name,optional"            yaml:"name"`
-	Type            *string                  `pulumi:"type,optional"            yaml:"type"`
+	Type            *render.HookType         `pulumi:"type,optional"            yaml:"type"`
 	Evaluator       *string                  `pulumi:"evaluator,optional"       yaml:"evaluator"`
 	EvaluatorPolicy *UserHookEvaluatorPolicy `pulumi:"evaluatorPolicy,optional" yaml:"evaluator_policy"`
 	RoutingPolicy   *UserHookRoutingPolicy   `pulumi:"routingPolicy,optional"   yaml:"routing_policy"`
 	Command         *string                  `pulumi:"command,optional"         yaml:"command"`
 	Args            []string                 `pulumi:"args,optional"            yaml:"args"`
 	Timeout         *int                     `pulumi:"timeout,optional"         yaml:"timeout"`
-	Env             map[string]string        `pulumi:"env,optional"             yaml:"env"`
+	Env             map[string]string        `pulumi:"env,optional"             yaml:"env" provider:"secret"`
 	WorkingDir      *string                  `pulumi:"workingDir,optional"      yaml:"working_dir"`
-	OnError         *string                  `pulumi:"onError,optional"         yaml:"on_error"`
+	OnError         *render.HookErrorPolicy  `pulumi:"onError,optional"         yaml:"on_error"`
 	StrictOutput    *bool                    `pulumi:"strictOutput,optional"    yaml:"strict_output"`
 	Model           *string                  `pulumi:"model,optional"           yaml:"model"`
 	Prompt          *string                  `pulumi:"prompt,optional"          yaml:"prompt"`
@@ -392,14 +394,15 @@ func (h *UserHook) Annotate(a infer.Annotator) {
 	a.Describe(&h.Type, "The hook type: `command` (default) runs `command` in a shell, `builtin` runs the "+
 		"built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks "+
 		"a named evaluator, `model` asks an LLM.")
-	a.SetDefault(&h.Type, "command")
+	a.SetDefault(&h.Type, render.HookTypeCommand)
 	a.Describe(&h.Evaluator, "The evaluator an `evaluator` hook uses.")
 	a.Describe(&h.EvaluatorPolicy, "How a `toolGuard` evaluator hook turns assessments into decisions.")
 	a.Describe(&h.RoutingPolicy, "How a `beforeAgentRun`/`afterAgentComplete` evaluator hook routes to agents.")
 	a.Describe(&h.Command, "The shell command (`command` hooks) or the built-in name (`builtin` hooks).")
 	a.Describe(&h.Args, "Arguments passed to the hook handler, for example to built-ins.")
 	a.Describe(&h.Timeout, "Execution timeout in seconds (default `60`).")
-	a.Describe(&h.Env, "Environment variables added for this hook only.")
+	a.Describe(&h.Env, "Environment variables added for this hook only. Stored as secrets, since they often carry "+
+		"tokens: `yaml` and `sha256` become secret when they are set.")
 	a.Describe(&h.WorkingDir, "The working directory of the hook.")
 	a.Describe(&h.OnError, "What a hook failure does: `warn` (default), `ignore` or `block`.")
 	a.Describe(&h.StrictOutput, "Require JSON output and validate it against the event's capabilities.")
@@ -412,9 +415,9 @@ func (h *UserHook) Annotate(a infer.Annotator) {
 
 // UserHookEvaluatorPolicy mirrors docker-agent's EvaluatorPolicy.
 type UserHookEvaluatorPolicy struct {
-	Decisions      map[string]string `pulumi:"decisions"      yaml:"decisions"`
-	MinProbability float64           `pulumi:"minProbability" yaml:"min_probability"`
-	Fallback       string            `pulumi:"fallback"       yaml:"fallback"`
+	Decisions      map[string]render.EvaluatorDecision `pulumi:"decisions"      yaml:"decisions"`
+	MinProbability float64                             `pulumi:"minProbability" yaml:"min_probability"`
+	Fallback       render.EvaluatorFallback            `pulumi:"fallback"       yaml:"fallback"`
 }
 
 // Annotate describes UserHookEvaluatorPolicy.
@@ -443,7 +446,7 @@ func (p *UserHookRoutingPolicy) Annotate(a infer.Annotator) {
 // UserProvider mirrors docker-agent's ProviderConfig (the `providers:` section).
 type UserProvider struct {
 	Provider          *string             `pulumi:"provider,optional"          yaml:"provider"`
-	APIType           *string             `pulumi:"apiType,optional"           yaml:"api_type"`
+	APIType           *render.ApiType     `pulumi:"apiType,optional"           yaml:"api_type"`
 	BaseURL           *string             `pulumi:"baseUrl,optional"           yaml:"base_url"`
 	UnloadAPI         *string             `pulumi:"unloadApi,optional"         yaml:"unload_api"`
 	TokenKey          *string             `pulumi:"tokenKey,optional"          yaml:"token_key"`
@@ -630,7 +633,7 @@ type UserIdentityTokenSource struct {
 	Env           *string           `pulumi:"env,optional"           yaml:"env"`
 	Command       []string          `pulumi:"command,optional"       yaml:"command"`
 	URL           *string           `pulumi:"url,optional"           yaml:"url"`
-	Headers       map[string]string `pulumi:"headers,optional"       yaml:"headers"`
+	Headers       map[string]string `pulumi:"headers,optional"       yaml:"headers" provider:"secret"`
 	ResponseField *string           `pulumi:"responseField,optional" yaml:"response_field"`
 }
 
@@ -641,7 +644,8 @@ func (s *UserIdentityTokenSource) Annotate(a infer.Annotator) {
 	a.Describe(&s.Env, "Read the token from this environment variable.")
 	a.Describe(&s.Command, "Run this command (argv form) and read the token from stdout.")
 	a.Describe(&s.URL, "Fetch the token from this URL.")
-	a.Describe(&s.Headers, "HTTP headers sent with the `url` request.")
+	a.Describe(&s.Headers, "HTTP headers sent with the `url` request. Stored as secrets, since they usually carry "+
+		"credentials: `yaml` and `sha256` become secret when they are set.")
 	a.Describe(&s.ResponseField, "The JSON field of the `url` response that holds the token.")
 }
 
@@ -701,4 +705,108 @@ func (c *UserModelCost) Annotate(a infer.Annotator) {
 	a.Describe(&c.Output, "Price of output tokens.")
 	a.Describe(&c.CacheRead, "Price of cache-read tokens.")
 	a.Describe(&c.CacheWrite, "Price of cache-write tokens.")
+}
+
+// The closed value sets of docker-agent's TUI settings (pkg/tui/messages/settings.go), as
+// Pulumi enums. docker-agent silently falls back to the default for any other value. The
+// values must match usersettings.BusySendModes, ... (TestUserSettingsEnumsMatchDockerAgent),
+// which pkg/usersettings checks against the docker-agent source. `safety`, the hook fields,
+// the evaluator policy and the provider `apiType` use the enums generated from
+// agent-schema.json (render.SafetyMode, ...), since docker-agent decodes them into the same
+// types as an agent configuration. Keybinding actions stay strings: docker-agent ignores an
+// unknown action with a warning, and most TUI releases add actions.
+
+// BusySendMode is what happens to a message sent while the agent works.
+type BusySendMode string
+
+// BusySendMode values.
+const (
+	BusySendModeSteer BusySendMode = "steer"
+	BusySendModeQueue BusySendMode = "queue"
+)
+
+// Values lists the values of BusySendMode for the Pulumi schema.
+func (BusySendMode) Values() []infer.EnumValue[BusySendMode] {
+	return []infer.EnumValue[BusySendMode]{
+		{Name: "Steer", Value: BusySendModeSteer, Description: "Inject the message into the running turn (the default)."},
+		{Name: "Queue", Value: BusySendModeQueue, Description: "Hold the message until the turn ends."},
+	}
+}
+
+// InterruptConfirmation is how Esc interrupts a running stream.
+type InterruptConfirmation string
+
+// InterruptConfirmation values.
+const (
+	InterruptConfirmationAlways    InterruptConfirmation = "always"
+	InterruptConfirmationDoubleTap InterruptConfirmation = "double-tap"
+	InterruptConfirmationNone      InterruptConfirmation = "none"
+)
+
+// Values lists the values of InterruptConfirmation for the Pulumi schema.
+func (InterruptConfirmation) Values() []infer.EnumValue[InterruptConfirmation] {
+	return []infer.EnumValue[InterruptConfirmation]{
+		{Name: "Always", Value: InterruptConfirmationAlways, Description: "Ask for confirmation (the default)."},
+		{Name: "DoubleTap", Value: InterruptConfirmationDoubleTap, Description: "Interrupt when Esc is pressed " +
+			"twice within a second."},
+		{Name: "None", Value: InterruptConfirmationNone, Description: "Interrupt immediately."},
+	}
+}
+
+// SidebarPosition is where the TUI sidebar goes.
+type SidebarPosition string
+
+// SidebarPosition values.
+const (
+	SidebarPositionRight  SidebarPosition = "right"
+	SidebarPositionLeft   SidebarPosition = "left"
+	SidebarPositionTop    SidebarPosition = "top"
+	SidebarPositionBottom SidebarPosition = "bottom"
+)
+
+// Values lists the values of SidebarPosition for the Pulumi schema.
+func (SidebarPosition) Values() []infer.EnumValue[SidebarPosition] {
+	return []infer.EnumValue[SidebarPosition]{
+		{Name: "Right", Value: SidebarPositionRight, Description: "Right of the chat (the default)."},
+		{Name: "Left", Value: SidebarPositionLeft, Description: "Left of the chat."},
+		{Name: "Top", Value: SidebarPositionTop, Description: "A compact horizontal band above the chat."},
+		{Name: "Bottom", Value: SidebarPositionBottom, Description: "A compact horizontal band below the chat."},
+	}
+}
+
+// SectionSpacing is the blank space between the sidebar sections.
+type SectionSpacing string
+
+// SectionSpacing values.
+const (
+	SectionSpacingNormal  SectionSpacing = "normal"
+	SectionSpacingCompact SectionSpacing = "compact"
+	SectionSpacingRelaxed SectionSpacing = "relaxed"
+)
+
+// Values lists the values of SectionSpacing for the Pulumi schema.
+func (SectionSpacing) Values() []infer.EnumValue[SectionSpacing] {
+	return []infer.EnumValue[SectionSpacing]{
+		{Name: "Normal", Value: SectionSpacingNormal, Description: "The default spacing."},
+		{Name: "Compact", Value: SectionSpacingCompact, Description: "Less space between sections."},
+		{Name: "Relaxed", Value: SectionSpacingRelaxed, Description: "More space between sections."},
+	}
+}
+
+// SidebarInfoMode is how the sidebar's Agents section renders each agent.
+type SidebarInfoMode string
+
+// SidebarInfoMode values.
+const (
+	SidebarInfoModeCompact  SidebarInfoMode = "compact"
+	SidebarInfoModeDetailed SidebarInfoMode = "detailed"
+)
+
+// Values lists the values of SidebarInfoMode for the Pulumi schema.
+func (SidebarInfoMode) Values() []infer.EnumValue[SidebarInfoMode] {
+	return []infer.EnumValue[SidebarInfoMode]{
+		{Name: "Compact", Value: SidebarInfoModeCompact, Description: "Two lines per agent (the default)."},
+		{Name: "Detailed", Value: SidebarInfoModeDetailed, Description: "Cards with effort, context and cost " +
+			"metrics."},
+	}
 }

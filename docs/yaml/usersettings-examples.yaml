@@ -1,0 +1,66 @@
+# Example Usage of UserSettings. See agentconfig-examples.yaml for the format.
+---
+description: Write the user configuration
+name: user-settings
+runtime: yaml
+resources:
+  # Docker Agent's user configuration, validated with docker-agent's own checks.
+  settings:
+    type: docker-agent:index:UserSettings
+    properties:
+      path: ~/.config/cagent/config.yaml
+      settings:
+        theme: auto
+        themeDark: dracula
+        safety: balanced
+        sound: true
+        layout:
+          sidebarPosition: left
+          hideUsage: true
+        permissions:
+          deny:
+            - shell:cmd=sudo*
+          allow:
+            - read_*
+        keybindings:
+          - action: commands
+            keys:
+              - f2
+              - ctrl+k
+      aliases:
+        reviewer:
+          path: docker.io/myorg/reviewer:latest
+          safety: restricted
+outputs:
+  configPath: ${settings.filePath}
+  configSha256: ${settings.sha256}
+---
+description: Render only, with a global provider and hooks
+name: image-settings
+runtime: yaml
+resources:
+  # No `path`: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
+  rendered:
+    type: docker-agent:index:UserSettings
+    properties:
+      providers:
+        gateway:
+          baseUrl: https://llm.example.com/v1
+          tokenKey: GATEWAY_API_KEY
+      defaultModel:
+        provider: gateway
+        model: qwen3-coder
+      sandboxAllowlist:
+        - registry.npmjs.org:443
+      settings:
+        hooks:
+          sessionStart:
+            - type: command
+              command: ~/.config/cagent/hooks/session-start.sh
+          preToolUse:
+            - matcher: shell
+              hooks:
+                - type: builtin
+                  command: redact_secrets
+outputs:
+  userConfigYaml: ${rendered.yaml}

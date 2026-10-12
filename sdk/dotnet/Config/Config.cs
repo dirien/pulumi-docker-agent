@@ -34,7 +34,7 @@ namespace ediri.DockerAgent
 
         private static readonly __Value<bool?> _forceHttps = new __Value<bool?>(() => __config.GetBoolean("forceHttps") ?? Utilities.GetEnvBoolean("DOCKER_AGENT_FORCE_HTTPS") ?? false);
         /// <summary>
-        /// Refuse plain-HTTP connections to registries. Like the docker CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
+        /// Refuse plain-HTTP connections to registries. Like the `docker agent` CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
         /// </summary>
         public static bool? ForceHttps
         {

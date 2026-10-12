@@ -47,7 +47,225 @@ import javax.annotation.Nullable;
  * docker-agent releases newer than the one this provider pins. `instructionFile` needs `skipValidation`
  * because validation happens in memory; read the file in your program and pass its contents as `instruction`.
  * 
+ * Closed value sets, such as the `safety` modes or a hook&#39;s `type`, are enums. A value that this
+ * provider version does not list fails on its property during preview unless `skipValidation` is set; in
+ * C# and Java, whose enums cannot hold other values, set such a value through the object&#39;s `extra` map
+ * (for example `runtime.extra`), which replaces the typed key.
+ * 
+ * The preview reports every independent problem at once, each attached to the input that caused it, for example
+ * `property agents[0].subAgents ... has a problem: invalid docker-agent configuration: agent &#39;root&#39; references non-existent sub-agent &#39;missing&#39;`.
+ * docker-agent stops at the first problem; the provider removes the faulty value and validates again to find the
+ * rest. A problem with a whole definition (a model, provider or toolset) is reported alone. The provider also warns
+ * about `headers` and `env` values that look like literal credentials: they end up in `yaml`
+ * and in every artifact made from it, so use a `${env.NAME}` placeholder that docker-agent resolves at run
+ * time instead.
+ * 
  * ## Example Usage
+ * ### A single agent with tools
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentConfig;
+ * import io.github.dirien.dockeragent.AgentConfigArgs;
+ * import io.github.dirien.dockeragent.inputs.MetadataArgs;
+ * import io.github.dirien.dockeragent.inputs.AgentArgs;
+ * import io.github.dirien.dockeragent.inputs.ToolsetArgs;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         // A typed docker-agent configuration, validated during `pulumi preview`.
+ *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+ *             .metadata(MetadataArgs.builder()
+ *                 .author("platform-team")
+ *                 .license("Apache-2.0")
+ *                 .build())
+ *             .agents(AgentArgs.builder()
+ *                 .name("root")
+ *                 .model("openai/gpt-5-mini")
+ *                 .description("A helpful assistant")
+ *                 .instruction("You are a helpful assistant. Answer briefly.")
+ *                 .toolsets(
+ *                     ToolsetArgs.builder()
+ *                         .type("think")
+ *                         .build(),
+ *                     ToolsetArgs.builder()
+ *                         .type("mcp")
+ *                         .ref("docker:duckduckgo")
+ *                         .build())
+ *                 .build())
+ *             .build());
+ * 
+ *         ctx.export("agentYaml", assistant.yaml());
+ *         ctx.export("requiredEnvVars", assistant.requiredEnvVars());
+ *     }
+ * }
+ * }
+ * </pre>
+ * ### A team with a named model
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentConfig;
+ * import io.github.dirien.dockeragent.AgentConfigArgs;
+ * import io.github.dirien.dockeragent.inputs.ModelDefArgs;
+ * import io.github.dirien.dockeragent.inputs.AgentArgs;
+ * import io.github.dirien.dockeragent.inputs.ToolsetArgs;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         // `root` delegates research questions to the `researcher` sub-agent.
+ *         var team = new AgentConfig("team", AgentConfigArgs.builder()
+ *             .models(Map.of("fast", ModelDefArgs.builder()
+ *                 .provider("anthropic")
+ *                 .model("claude-haiku-4-5")
+ *                 .maxTokens(8192)
+ *                 .build()))
+ *             .agents(
+ *                 AgentArgs.builder()
+ *                     .name("root")
+ *                     .model("fast")
+ *                     .instruction("Coordinate the team and delegate research questions.")
+ *                     .subAgents("researcher")
+ *                     .build(),
+ *                 AgentArgs.builder()
+ *                     .name("researcher")
+ *                     .model("openai/gpt-5-mini")
+ *                     .description("Searches the web")
+ *                     .instruction("Research the question and report sources.")
+ *                     .toolsets(ToolsetArgs.builder()
+ *                         .type("fetch")
+ *                         .build())
+ *                     .maxConsecutiveToolCalls(10)
+ *                     .build())
+ *             .build());
+ * 
+ *         ctx.export("agentNames", team.agentNames());
+ *         ctx.export("defaultAgent", team.defaultAgent());
+ *     }
+ * }
+ * }
+ * </pre>
+ * ### Sandbox mode, a safety mode, hooks and a budget
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentConfig;
+ * import io.github.dirien.dockeragent.AgentConfigArgs;
+ * import io.github.dirien.dockeragent.inputs.RuntimeDefaultsArgs;
+ * import io.github.dirien.dockeragent.inputs.PermissionsArgs;
+ * import io.github.dirien.dockeragent.inputs.AgentArgs;
+ * import io.github.dirien.dockeragent.inputs.ToolsetArgs;
+ * import io.github.dirien.dockeragent.inputs.HooksArgs;
+ * import io.github.dirien.dockeragent.inputs.HookDefinitionArgs;
+ * import io.github.dirien.dockeragent.inputs.BudgetArgs;
+ * import io.github.dirien.dockeragent.enums.HookType;
+ * import io.github.dirien.dockeragent.enums.SafetyMode;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         // Runs in a sandbox by default, with the fail-closed `restricted` safety mode.
+ *         var sandboxed = new AgentConfig("sandboxed", AgentConfigArgs.builder()
+ *             .runtime(RuntimeDefaultsArgs.builder()
+ *                 .sandbox(true)
+ *                 .safety(SafetyMode.Restricted)
+ *                 .networkAllowlist(
+ *                     "api.github.com",
+ *                     "registry.npmjs.org:443")
+ *                 .build())
+ *             .permissions(PermissionsArgs.builder()
+ *                 .deny("shell:cmd=sudo*")
+ *                 .build())
+ *             .agents(AgentArgs.builder()
+ *                 .name("root")
+ *                 .model("anthropic/claude-sonnet-4-5")
+ *                 .instruction("Run the test suite and fix the failing tests.")
+ *                 .toolsets(
+ *                     ToolsetArgs.builder()
+ *                         .type("shell")
+ *                         .build(),
+ *                     ToolsetArgs.builder()
+ *                         .type("filesystem")
+ *                         .build())
+ *                 .hooks(HooksArgs.builder()
+ *                     .sessionStart(HookDefinitionArgs.builder()
+ *                         .type(HookType.Builtin)
+ *                         .command("add_environment_info")
+ *                         .build())
+ *                     .build())
+ *                 .simpleCommands(Map.of("test", "Run the tests and summarise the failures"))
+ *                 .build())
+ *             .budget(BudgetArgs.builder()
+ *                 .maxCost(5.0)
+ *                 .maxTime("30m")
+ *                 .build())
+ *             .build());
+ * 
+ *         ctx.export("agentYaml", sandboxed.yaml());
+ *     }
+ * }
+ * }
+ * </pre>
+ * 
+ * ## Import
+ * 
+ * An existing docker-agent configuration can be imported, and `pulumi import` generates its typed
+ * inputs in your program&#39;s language. The ID is `file://&lt;path&gt;`, a path ending in `.yaml`, `.yml` or
+ * `.hcl` (relative to the project directory), or `oci://&lt;registry&gt;/&lt;repository&gt;:&lt;tag&gt;` (or
+ * `{@literal @}sha256:&lt;digest&gt;`) for a shared agent, read with the provider&#39;s registry credentials. Only configurations
+ * that pass validation are imported; set the provider&#39;s `skipValidation` to import one that needs a newer
+ * docker-agent (the resource then gets `skipValidation: true`). Keys without a typed input go to
+ * `extra`, `instruction_file` contents become `instruction`, and comments, key order and YAML
+ * anchors are not kept. The imported resource&#39;s ID is its name; it keeps no link to the file or artifact.
+ * 
+ * ```sh
+ * $ pulumi import docker-agent:index:AgentConfig assistant ./agent.yaml
+ * ```
+ * 
+ * ```sh
+ * $ pulumi import docker-agent:index:AgentConfig shared oci://ghcr.io/my-org/agents/assistant:v1
+ * ```
  * 
  */
 @ResourceType(type="docker-agent:index:AgentConfig")
@@ -333,14 +551,14 @@ public class AgentConfig extends com.pulumi.resources.CustomResource {
         return Codegen.optional(this.skills);
     }
     /**
-     * Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
      * 
      */
     @Export(name="skipValidation", refs={Boolean.class}, tree="[0]")
     private Output</* @Nullable */ Boolean> skipValidation;
 
     /**
-     * @return Skip validating the rendered YAML with the docker-agent library. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * @return Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
      * 
      */
     public Output<Optional<Boolean>> skipValidation() {

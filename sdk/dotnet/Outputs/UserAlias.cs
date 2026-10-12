@@ -32,7 +32,7 @@ namespace ediri.DockerAgent.Outputs
         /// <summary>
         /// The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
         /// </summary>
-        public readonly string? Safety;
+        public readonly ediri.DockerAgent.SafetyMode? Safety;
         /// <summary>
         /// Run the alias inside a Docker sandbox by default.
         /// </summary>
@@ -50,7 +50,7 @@ namespace ediri.DockerAgent.Outputs
 
             string path,
 
-            string? safety,
+            ediri.DockerAgent.SafetyMode? safety,
 
             bool? sandbox,
 

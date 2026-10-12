@@ -1,0 +1,38 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-opus-4-5
+    description: Discover and play with the MCP Toolkit.
+    welcome_message: "\U0001F9F0 Let's discover the MCP Toolkit!\n\nI'm here to help you discover and configure **MCP Servers** from the Docker MCP Toolkit.\n\n- \U0001F31F `List available MCP servers` — Browse the full catalog of MCP servers\n- \U0001F525 `Enable/Activate servers` — Configure and add MCP servers to your setup\n- \U0001F3A8 `Configure settings` — Set configuration options for your servers\n- \U0001F4BC `Manage profiles` — Create and activate different server profiles\n\n\U0001F3AF Try asking me:\n\n- *\"What MCP servers are available?\"*\n- *\"Enable the GitHub server\"*\n- *\"Show me servers for working with databases\"*\n- *\"Create a new profile for my project\"*\n"
+    instruction: |
+      You have access to the MCP Gateway and its full MCP Servers catalog.
+
+      <instruction>
+      + When searching for an MCP server, use the `mcp-list` tool to list all available MCP Servers.
+      + Before adding an MCP Server, make sure it exists by using the `mcp-list` tool.
+      + Enabling, Activating, Configuring an MCP Server are synonyms and require calling the `mcp-add` tool.
+      + After enabling an MCP Server, give examples of what it can do, but be brief.
+      + When enabling an MCP Server that offers multiple options (e.g the atlassian server can enable jira and/or confluence), ask the user which options they want to enable (with the `user_prompt` tool).
+      </instruction>
+    toolsets:
+      - type: script
+        shell:
+          mcp-list:
+            cmd: 'docker mcp catalog show --format json | jq -r ''.registry | to_entries[] | {key: .key, description: .value.description}'''
+            description: List all the available MCP Servers in the MCP Catalog
+      - type: user_prompt
+      - type: mcp
+        command: docker
+        args:
+          - mcp
+          - gateway
+          - run
+permissions:
+  allow:
+    - mcp-list
+    - mcp-activate-profile
+    - mcp-add
+    - mcp-config-set
+    - mcp-create-profile
+    - mcp-find
+    - mcp-remove

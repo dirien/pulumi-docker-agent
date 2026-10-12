@@ -16,9 +16,77 @@ import (
 // for unknown toolset types and model providers.
 //
 // Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-// `valid: false` and the reasons in `errors`.
+// `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+// docker-agent stops at.
 //
 // ## Example Usage
+// ### Validate an agent file
+// ```go
+// package main
+//
+// import (
+//
+//	"os"
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func readFileOrPanic(path string) string {
+//		data, err := os.ReadFile(path)
+//		if err != nil {
+//			panic(err.Error())
+//		}
+//		return string(data)
+//	}
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			// An agent file kept as raw YAML next to the program.
+//			agentFile := readFileOrPanic("./agent.yaml")
+//
+//			// Never fails on an invalid document: check `valid` and `errors`.
+//			result := dockeragent.ValidateAgentConfigOutput(ctx, dockeragent.ValidateAgentConfigOutputArgs{
+//				Yaml: pulumi.String(agentFile),
+//			}, nil)
+//			ctx.Export("valid", result.Valid())
+//			ctx.Export("errors", result.Errors())
+//			ctx.Export("requiredEnvVars", result.RequiredEnvVars())
+//			return nil
+//		})
+//	}
+//
+// ```
+// ### Validate a shared agent before running it
+// ```go
+// package main
+//
+// import (
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			shared := dockeragent.GetAgentOutput(ctx, dockeragent.GetAgentOutputArgs{
+//				Reference: pulumi.String("docker.io/my-org/assistant:latest"),
+//			}, nil)
+//
+//			// Checks the pulled configuration against the docker-agent version of the provider.
+//			check := dockeragent.ValidateAgentConfigOutput(ctx, dockeragent.ValidateAgentConfigOutputArgs{
+//				Yaml: shared.Yaml(),
+//			}, nil)
+//			ctx.Export("valid", check.Valid())
+//			ctx.Export("errors", check.Errors())
+//			ctx.Export("agentNames", check.AgentNames())
+//			return nil
+//		})
+//	}
+//
+// ```
 func ValidateAgentConfig(ctx *pulumi.Context, args *ValidateAgentConfigArgs, opts ...pulumi.InvokeOption) (*ValidateAgentConfigResult, error) {
 	opts = internal.PkgInvokeDefaultOpts(opts)
 	var rv ValidateAgentConfigResult

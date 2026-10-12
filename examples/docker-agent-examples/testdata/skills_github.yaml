@@ -1,0 +1,12 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o-mini
+    description: Assistant with Docker skills from GitHub.
+    instruction: Use the available skills when a task matches their description.
+    toolsets:
+      - type: filesystem
+      - type: shell
+    skills:
+      - local
+      - https://github.com/docker/skills

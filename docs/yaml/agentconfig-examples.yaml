@@ -1,0 +1,106 @@
+# Example Usage of AgentConfig, written once in Pulumi YAML.
+#
+# `make docs` converts every document with `pulumi convert` into TypeScript, Python, Go, C#,
+# Java and HCL and embeds the result in the API docs (provider/internal/docsgen describes the
+# format). Each document starts with `description:`, the example's title; everything from
+# `name:` on is the Pulumi YAML program, shown as is in the YAML tab. Comments directly above a
+# resource, variable or config key are copied into every language. Optional keys before `name:`:
+# `files` (files next to Pulumi.yaml, for fn::readFile) and `skipPreview` (a reason not to preview
+# the program in examples/docs_examples_test.go, for example a read from a remote registry).
+#
+# `make docs` fails when a program generator cannot convert a program, and `make test_examples`
+# previews every program and builds the Go and TypeScript results. Some constructs convert into
+# code that does not compile or does something else, so avoid them: read files into a variable
+# (fn::readFile) instead of inline, export whole objects instead of fields of `structuredOutput` or
+# of a function's object output, and use no resource options (the C# generator drops
+# customTimeouts, for example). Check the other languages by hand when you use a new construct.
+---
+description: A single agent with tools
+name: assistant
+runtime: yaml
+resources:
+  # A typed docker-agent configuration, validated during `pulumi preview`.
+  assistant:
+    type: docker-agent:index:AgentConfig
+    properties:
+      metadata:
+        author: platform-team
+        license: Apache-2.0
+      agents:
+        - name: root
+          model: openai/gpt-5-mini
+          description: A helpful assistant
+          instruction: You are a helpful assistant. Answer briefly.
+          toolsets:
+            - type: think
+            - type: mcp
+              ref: docker:duckduckgo
+outputs:
+  agentYaml: ${assistant.yaml}
+  requiredEnvVars: ${assistant.requiredEnvVars}
+---
+description: A team with a named model
+name: team
+runtime: yaml
+resources:
+  # `root` delegates research questions to the `researcher` sub-agent.
+  team:
+    type: docker-agent:index:AgentConfig
+    properties:
+      models:
+        fast:
+          provider: anthropic
+          model: claude-haiku-4-5
+          maxTokens: 8192
+      agents:
+        - name: root
+          model: fast
+          instruction: Coordinate the team and delegate research questions.
+          subAgents:
+            - researcher
+        - name: researcher
+          model: openai/gpt-5-mini
+          description: Searches the web
+          instruction: Research the question and report sources.
+          toolsets:
+            - type: fetch
+          maxConsecutiveToolCalls: 10
+outputs:
+  agentNames: ${team.agentNames}
+  defaultAgent: ${team.defaultAgent}
+---
+description: Sandbox mode, a safety mode, hooks and a budget
+name: sandboxed
+runtime: yaml
+resources:
+  # Runs in a sandbox by default, with the fail-closed `restricted` safety mode.
+  sandboxed:
+    type: docker-agent:index:AgentConfig
+    properties:
+      runtime:
+        sandbox: true
+        safety: restricted
+        networkAllowlist:
+          - api.github.com
+          - registry.npmjs.org:443
+      permissions:
+        deny:
+          - shell:cmd=sudo*
+      agents:
+        - name: root
+          model: anthropic/claude-sonnet-4-5
+          instruction: Run the test suite and fix the failing tests.
+          toolsets:
+            - type: shell
+            - type: filesystem
+          hooks:
+            sessionStart:
+              - type: builtin
+                command: add_environment_info
+          simpleCommands:
+            test: Run the tests and summarise the failures
+      budget:
+        maxCost: 5
+        maxTime: 30m
+outputs:
+  agentYaml: ${sandboxed.yaml}

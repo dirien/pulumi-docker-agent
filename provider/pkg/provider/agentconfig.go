@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	p "github.com/pulumi/pulumi-go-provider"
@@ -36,121 +37,34 @@ is the default agent. Each object also has an ` + "`extra`" + ` map, merged verb
 docker-agent releases newer than the one this provider pins. ` + "`instructionFile`" + ` needs ` + "`skipValidation`" + `
 because validation happens in memory; read the file in your program and pass its contents as ` + "`instruction`" + `.
 
-{{% examples %}}
-## Example Usage
-{{% example %}}
-### A single agent with tools
+Closed value sets, such as the ` + "`safety`" + ` modes or a hook's ` + "`type`" + `, are enums. A value that this
+provider version does not list fails on its property during preview unless ` + "`skipValidation`" + ` is set; in
+C# and Java, whose enums cannot hold other values, set such a value through the object's ` + "`extra`" + ` map
+(for example ` + "`runtime.extra`" + `), which replaces the typed key.
 
-` + "```typescript" + `
-import * as dockeragent from "@ediri/pulumi-docker-agent";
+The preview reports every independent problem at once, each attached to the input that caused it, for example
+` + "`property agents[0].subAgents ... has a problem: invalid docker-agent configuration: agent 'root' " +
+	"references non-existent sub-agent 'missing'`" + `.
+docker-agent stops at the first problem; the provider removes the faulty value and validates again to find the
+rest. A problem with a whole definition (a model, provider or toolset) is reported alone. The provider also warns
+about ` + "`headers`" + ` and ` + "`env`" + ` values that look like literal credentials: they end up in ` + "`yaml`" + `
+and in every artifact made from it, so use a ` + "`${env.NAME}`" + ` placeholder that docker-agent resolves at run
+time instead.`
 
-const assistant = new dockeragent.AgentConfig("assistant", {
-    metadata: { author: "platform-team", license: "Apache-2.0" },
-    agents: [{
-        name: "root",
-        model: "openai/gpt-5-mini",
-        description: "A helpful assistant",
-        instruction: "You are a helpful assistant. Answer briefly.",
-        toolsets: [{ type: "think" }, { type: "mcp", ref: "docker:duckduckgo" }],
-    }],
-});
-
-export const agentYaml = assistant.yaml;
-export const requiredEnvVars = assistant.requiredEnvVars; // ["OPENAI_API_KEY"]
-` + "```" + `
-` + "```python" + `
-import pulumi
-import ediri_docker_agent as dockeragent
-
-assistant = dockeragent.AgentConfig("assistant",
-    metadata={"author": "platform-team", "license": "Apache-2.0"},
-    agents=[{
-        "name": "root",
-        "model": "openai/gpt-5-mini",
-        "description": "A helpful assistant",
-        "instruction": "You are a helpful assistant. Answer briefly.",
-        "toolsets": [{"type": "think"}, {"type": "mcp", "ref": "docker:duckduckgo"}],
-    }])
-
-pulumi.export("agentYaml", assistant.yaml)
-` + "```" + `
-` + "```yaml" + `
-resources:
-  assistant:
-    type: docker-agent:index:AgentConfig
-    properties:
-      metadata:
-        author: platform-team
-        license: Apache-2.0
-      agents:
-        - name: root
-          model: openai/gpt-5-mini
-          description: A helpful assistant
-          instruction: You are a helpful assistant. Answer briefly.
-          toolsets:
-            - type: think
-            - type: mcp
-              ref: docker:duckduckgo
-outputs:
-  agentYaml: ${assistant.yaml}
-` + "```" + `
-{{% /example %}}
-{{% example %}}
-### A team with a named model
-
-` + "```typescript" + `
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-const team = new dockeragent.AgentConfig("team", {
-    models: {
-        fast: { provider: "anthropic", model: "claude-haiku-4-5", maxTokens: 8192 },
-    },
-    agents: [
-        {
-            name: "root",
-            model: "fast",
-            instruction: "Coordinate the team and delegate research questions.",
-            subAgents: ["researcher"],
-        },
-        {
-            name: "researcher",
-            model: "openai/gpt-5-mini",
-            description: "Searches the web",
-            instruction: "Research the question and report sources.",
-            toolsets: [{ type: "fetch" }],
-            maxConsecutiveToolCalls: 10,
-        },
-    ],
-});
-` + "```" + `
-{{% /example %}}
-{{% example %}}
-### Sandbox mode
-
-` + "```typescript" + `
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-const sandboxed = new dockeragent.AgentConfig("sandboxed", {
-    runtime: {
-        sandbox: true,
-        safety: "restricted",
-        networkAllowlist: ["api.github.com", "registry.npmjs.org:443"],
-    },
-    agents: [{
-        name: "root",
-        model: "anthropic/claude-sonnet-4-5",
-        instruction: "Fix the failing tests.",
-        toolsets: [{ type: "shell" }, { type: "filesystem" }],
-        hooks: { sessionStart: [{ type: "builtin", command: "add_environment_info" }] },
-    }],
-});
-` + "```" + `
-{{% /example %}}
-{{% /examples %}}`
+var agentConfigImportDoc = `An existing docker-agent configuration can be imported, and ` + "`pulumi import`" + ` generates its typed
+inputs in your program's language. The ID is ` + "`file://<path>`" + `, a path ending in ` + "`.yaml`" + `, ` + "`.yml`" + ` or
+` + "`.hcl`" + ` (relative to the project directory), or ` + "`oci://<registry>/<repository>:<tag>`" + ` (or
+` + "`@sha256:<digest>`" + `) for a shared agent, read with the provider's registry credentials. Only configurations
+that pass validation are imported; set the provider's ` + "`skipValidation`" + ` to import one that needs a newer
+docker-agent (the resource then gets ` + "`skipValidation: true`" + `). Keys without a typed input go to
+` + "`extra`" + `, ` + "`instruction_file`" + ` contents become ` + "`instruction`" + `, and comments, key order and YAML
+anchors are not kept. The imported resource's ID is its name; it keeps no link to the file or artifact.` +
+	importCommand("docker-agent:index:AgentConfig", "assistant", "./agent.yaml") +
+	importCommand("docker-agent:index:AgentConfig", "shared", "oci://ghcr.io/my-org/agents/assistant:v1")
 
 // Annotate describes the resource.
 func (r *AgentConfig) Annotate(a infer.Annotator) {
-	a.Describe(&r, agentConfigDoc)
+	a.Describe(&r, describe(agentConfigDoc, agentConfigExamples, agentConfigImportDoc))
 }
 
 // AgentConfigArgs are the inputs of AgentConfig: every key of the docker-agent configuration
@@ -168,8 +82,9 @@ func (a *AgentConfigArgs) Annotate(an infer.Annotator) {
 	an.Describe(&a.Extra, "Additional top-level YAML sections that are not modelled by this provider version, "+
 		"merged verbatim into the document (snake_case keys). Keys of typed inputs (`agents`, `models`, `runtime`, ...) "+
 		"are rejected: set the typed input instead.")
-	an.Describe(&a.SkipValidation, "Skip validating the rendered YAML with the docker-agent library. Use it "+
-		"for configurations that rely on docker-agent features newer than "+DockerAgentVersion+".")
+	an.Describe(&a.SkipValidation, "Skip validating the rendered YAML with the docker-agent library, and accept "+
+		"enum values (such as a `safety` mode) that this provider version does not list. Use it for "+
+		"configurations that rely on docker-agent features newer than "+DockerAgentVersion+".")
 }
 
 // AgentConfigState is the state of AgentConfig.
@@ -199,28 +114,30 @@ func (s *AgentConfigState) Annotate(an infer.Annotator) {
 
 // Check validates the inputs and, when they are all known, the rendered YAML.
 func (*AgentConfig) Check(ctx context.Context, req infer.CheckRequest) (infer.CheckResponse[AgentConfigArgs], error) {
-	args, failures, err := infer.DefaultCheck[AgentConfigArgs](ctx, req.NewInputs)
-	if err != nil || len(failures) > 0 {
+	args, failures, err := checkInputs(ctx, req.NewInputs, func(a AgentConfigArgs) bool {
+		return skipValidation(ctx, a.SkipValidation)
+	})
+	// Enum failures leave the inputs complete, so the configuration's other problems are
+	// reported in the same preview.
+	if err != nil || slices.ContainsFunc(failures, func(f p.CheckFailure) bool { return !isEnumFailure(f) }) {
 		return infer.CheckResponse[AgentConfigArgs]{Inputs: args, Failures: failures}, err
 	}
+	warnLiteralCredentials(ctx, args.Document, req.NewInputs)
 	if req.NewInputs.HasComputed() {
 		// Validate once every value is known (during `up`, or in the next preview).
-		return infer.CheckResponse[AgentConfigArgs]{Inputs: args}, nil
+		return infer.CheckResponse[AgentConfigArgs]{Inputs: args, Failures: failures}, nil
 	}
 
 	yamlDoc, err := render.Render(args.document())
 	if err != nil {
-		failures = append(failures, p.CheckFailure{Property: render.ErrorProperty(err), Reason: err.Error()})
+		property, _ := render.InputPath(err, args.Document)
+		failures = append(failures, p.CheckFailure{Property: string(property), Reason: err.Error()})
 		return infer.CheckResponse[AgentConfigArgs]{Inputs: args, Failures: failures}, nil
 	}
 	if !skipValidation(ctx, args.SkipValidation) {
 		res := validate.Validate(ctx, req.Name+".yaml", []byte(yamlDoc))
 		secrets := secretStrings(req.NewInputs)
-		for _, e := range res.Errors {
-			failures = append(failures, p.CheckFailure{
-				Reason: "invalid docker-agent configuration: " + validate.Redact(e, secrets),
-			})
-		}
+		failures = append(failures, configFailures(yamlDoc, res, secrets, failures)...)
 		logWarnings(ctx, res.Warnings, secrets)
 	}
 	return infer.CheckResponse[AgentConfigArgs]{Inputs: args, Failures: failures}, nil

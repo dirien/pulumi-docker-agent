@@ -1,0 +1,104 @@
+# This example demonstrates a chunked embeddings rag with final reranking of results
+#
+# Reranking re-scores the retrieved results using a specialized reranking model
+# to improve relevance accuracy. The reranking happens after retrieval/fusion
+# but before final limiting and deduplication.
+#
+# To use reranking with DMR:
+# 1. Pull a reranking model: docker model pull hf.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF
+# 2. The model will be loaded on-demand when the reranking endpoint is called
+#
+# If reranking fails (e.g., model not available), the RAG system will gracefully
+# fall back to using the original retrieval scores.
+
+agents:
+  root:
+    model: openai-agent
+    description: assistant with hybrid search
+    instruction: |
+      You are a helpful assistant with access to hybrid retrieval
+      combining semantic and keyword search for comprehensive results.
+    toolsets:
+      - type: rag
+        ref: knowledge_base
+
+rag:
+  knowledge_base:
+    tool:
+      description: to be used to search for information about blorks
+    docs:
+      - ./docs
+      - ./blork_field_guide.txt
+
+    strategies:
+      - type: chunked-embeddings
+        embedding_model: openai-embedder
+        database: ./chunked_embeddings.db
+        similarity_metric: cosine_similarity
+        chunking:
+          size: 1500
+          overlap: 75
+          respect_word_boundaries: true
+        batch_size: 10
+        max_embedding_concurrency: 5
+        vector_dimensions: 1536
+      - type: bm25
+        database: ./bm25.db
+    results:
+      fusion:
+        strategy: rrf
+      reranking:
+        model: openai-rerank
+        # Optional: Provide domain-specific criteria to guide relevance scoring
+        # The model receives metadata with each document (source path, chunk index, created_at)
+        # Use this context to guide scoring decisions.
+        # This is not considered when using DMR native reranking.
+        criteria: |
+          When scoring relevance, prioritize:
+          - Content from official documentation (field_guide.txt) over blog posts
+          - Recent information (check created_at dates)
+          - Practical examples and field observations over theory
+          - Documents from docs/ directory when available
+      deduplicate: true
+
+
+models:
+  # AGENT MODELS
+  openai-agent:
+    provider: openai
+    model: gpt-5.6-terra
+    thinking_budget: minimal
+    max_tokens: 64000
+
+  # EMBEDDING MODELS
+  openai-embedder:
+    provider: openai
+    model: text-embedding-3-small
+
+  dmr-embedder:
+    provider: dmr
+    model: ai/embeddinggemma
+    max_tokens: 2048
+    provider_opts:
+      runtime_flags: -ub 1024
+
+  # RERANKING MODELS
+  dmr-rerank:
+    provider: dmr
+    model: hf.co/ggml-org/qwen3-reranker-0.6b-q8_0-gguf
+    max_tokens: 32000
+
+  openai-rerank:
+    provider: openai
+    model: gpt-4.1-nano
+    max_tokens: 64000
+
+  gemini-rerank:
+    provider: google
+    model: gemini-2.5-flash
+    max_tokens: 64000
+  
+  claude-rerank:
+    provider: anthropic
+    model: claude-sonnet-5
+    max_tokens: 64000

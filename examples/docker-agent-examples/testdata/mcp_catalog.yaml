@@ -1,0 +1,14 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-6
+    description: Agent that can on-demand connect to remote MCP servers from the Docker MCP Catalog.
+    instruction: |
+      You can discover and activate remote MCP servers on demand.
+      Use search_remote_mcp_servers to find a server matching the
+      user's intent, then enable_remote_mcp_server to activate it.
+      Be conservative: enable only the servers you actually need for
+      the task at hand. Disable a server with disable_remote_mcp_server
+      once you are done with it.
+    toolsets:
+      - type: mcp_catalog

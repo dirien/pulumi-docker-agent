@@ -1,0 +1,50 @@
+# Example Usage of AgentArtifact. See agentconfig-examples.yaml for the format.
+---
+description: Push an agent to a registry
+name: publish
+runtime: yaml
+resources:
+  # The agent configuration, rendered and validated.
+  assistant:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          model: openai/gpt-5-mini
+          instruction: You are a helpful assistant. Answer briefly.
+  # Pushes the configuration like `docker agent share push`.
+  artifact:
+    type: docker-agent:index:AgentArtifact
+    properties:
+      reference: ghcr.io/my-org/agents/assistant:v1
+      yaml: ${assistant.yaml}
+outputs:
+  # Run it with `docker agent run <pinnedReference>`.
+  pinnedReference: ${artifact.pinnedReference}
+  digest: ${artifact.digest}
+---
+description: Push an existing agent file
+files:
+  pirate.yaml: |
+    agents:
+      root:
+        model: openai/gpt-5-mini
+        instruction: Talk like a pirate.
+name: pirate
+runtime: yaml
+variables:
+  # An agent file kept as raw YAML next to the program.
+  agentFile:
+    fn::readFile: ./pirate.yaml
+resources:
+  # Deleted from the registry when the resource is destroyed.
+  pirate:
+    type: docker-agent:index:AgentArtifact
+    properties:
+      reference: localhost:5000/agents/pirate:latest
+      yaml: ${agentFile}
+      annotations:
+        org.opencontainers.image.source: https://github.com/my-org/agents
+      deleteBehavior: delete
+outputs:
+  pinnedReference: ${pirate.pinnedReference}

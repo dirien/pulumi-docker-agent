@@ -42,7 +42,7 @@ func NewProvider(ctx *pulumi.Context,
 }
 
 type providerArgs struct {
-	// Refuse plain-HTTP connections to registries. Like the docker CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
+	// Refuse plain-HTTP connections to registries. Like the `docker agent` CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
 	ForceHttps *bool `pulumi:"forceHttps"`
 	// Credentials for OCI registries, used to push, pull and delete agent artifacts. They are sent from the first request to a matching registry. Registries without an entry fall back to the Docker credential store (`~/.docker/config.json` or `$DOCKER_CONFIG`, including credential helpers), so `docker login` is enough for most setups.
 	RegistryAuth []RegistryAuth `pulumi:"registryAuth"`
@@ -52,7 +52,7 @@ type providerArgs struct {
 
 // The set of arguments for constructing a Provider resource.
 type ProviderArgs struct {
-	// Refuse plain-HTTP connections to registries. Like the docker CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
+	// Refuse plain-HTTP connections to registries. Like the `docker agent` CLI, the provider tries HTTPS first and falls back to plain HTTP for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, which sends registry credentials unencrypted. With `forceHttps` only localhost and loopback registries may use plain HTTP; set `insecure: true` on a resource or `getAgent` call to allow it for a specific registry.
 	ForceHttps pulumi.BoolPtrInput
 	// Credentials for OCI registries, used to push, pull and delete agent artifacts. They are sent from the first request to a matching registry. Registries without an entry fall back to the Docker credential store (`~/.docker/config.json` or `$DOCKER_CONFIG`, including credential helpers), so `docker login` is enough for most setups.
 	RegistryAuth RegistryAuthArrayInput

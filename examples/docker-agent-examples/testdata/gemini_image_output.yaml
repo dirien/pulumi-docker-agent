@@ -1,0 +1,12 @@
+version: "16"
+agents:
+  root:
+    model: gemini-image
+    description: Minimal agent for exercising Gemini native image-output generation.
+    instruction: |
+      When asked to draw or generate an image, do so directly using your
+      native image-generation capability. Briefly describe what you made.
+models:
+  gemini-image:
+    provider: google
+    model: gemini-2.5-flash-image

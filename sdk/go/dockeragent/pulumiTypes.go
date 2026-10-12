@@ -77,8 +77,8 @@ type Agent struct {
 	RedactSecrets *bool `pulumi:"redactSecrets"`
 	// Local agents that this agent's before_agent_run and after_agent_complete hooks may route to. Requires at least one of those hooks; the agent cannot route to itself or to harness agents, and the combined graph of possible routes and force_handoff edges must not contain a cycle.
 	Routing *AgentRouting `pulumi:"routing"`
-	// Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
-	Safety *string `pulumi:"safety"`
+	// Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
+	Safety *SafetyMode `pulumi:"safety"`
 	// Enabled by default. When true (the default), the runtime automatically compacts the session: proactively when the estimated context usage crosses the compaction threshold, and reactively to recover from a context-overflow error. Set to false to disable both automatic triggers for this agent; the manual /compact command remains available.
 	SessionCompaction *bool `pulumi:"sessionCompaction"`
 	// Named commands in the short form `name: instruction`: the string is the prompt sent to the agent. Rendered into the same `commands` map as `commands`; a name must not appear in both.
@@ -176,8 +176,8 @@ type AgentArgs struct {
 	RedactSecrets pulumi.BoolPtrInput `pulumi:"redactSecrets"`
 	// Local agents that this agent's before_agent_run and after_agent_complete hooks may route to. Requires at least one of those hooks; the agent cannot route to itself or to harness agents, and the combined graph of possible routes and force_handoff edges must not contain a cycle.
 	Routing AgentRoutingPtrInput `pulumi:"routing"`
-	// Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
-	Safety pulumi.StringPtrInput `pulumi:"safety"`
+	// Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
+	Safety SafetyModePtrInput `pulumi:"safety"`
 	// Enabled by default. When true (the default), the runtime automatically compacts the session: proactively when the estimated context usage crosses the compaction threshold, and reactively to recover from a context-overflow error. Set to false to disable both automatic triggers for this agent; the manual /compact command remains available.
 	SessionCompaction pulumi.BoolPtrInput `pulumi:"sessionCompaction"`
 	// Named commands in the short form `name: instruction`: the string is the prompt sent to the agent. Rendered into the same `commands` map as `commands`; a name must not appear in both.
@@ -407,9 +407,9 @@ func (o AgentOutput) Routing() AgentRoutingPtrOutput {
 	return o.ApplyT(func(v Agent) *AgentRouting { return v.Routing }).(AgentRoutingPtrOutput)
 }
 
-// Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
-func (o AgentOutput) Safety() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v Agent) *string { return v.Safety }).(pulumi.StringPtrOutput)
+// Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
+func (o AgentOutput) Safety() SafetyModePtrOutput {
+	return o.ApplyT(func(v Agent) *SafetyMode { return v.Safety }).(SafetyModePtrOutput)
 }
 
 // Enabled by default. When true (the default), the runtime automatically compacts the session: proactively when the estimated context usage crosses the compaction threshold, and reactively to recover from a context-overflow error. Set to false to disable both automatic triggers for this agent; the manual /compact command remains available.
@@ -839,8 +839,8 @@ type ApiConfig struct {
 	Headers map[string]string `pulumi:"headers"`
 	// Instructions for using the API tool
 	Instruction *string `pulumi:"instruction"`
-	// HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
-	Method string `pulumi:"method"`
+	// HTTP method.
+	Method HttpMethod `pulumi:"method"`
 	// Name of the API tool
 	Name string `pulumi:"name"`
 	// JSON Schema describing the API tool's output. Used by MCP/Code Mode; tool responses are still returned as strings at runtime.
@@ -872,8 +872,8 @@ type ApiConfigArgs struct {
 	Headers pulumi.StringMapInput `pulumi:"headers"`
 	// Instructions for using the API tool
 	Instruction pulumi.StringPtrInput `pulumi:"instruction"`
-	// HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
-	Method pulumi.StringInput `pulumi:"method"`
+	// HTTP method.
+	Method HttpMethodInput `pulumi:"method"`
 	// Name of the API tool
 	Name pulumi.StringInput `pulumi:"name"`
 	// JSON Schema describing the API tool's output. Used by MCP/Code Mode; tool responses are still returned as strings at runtime.
@@ -985,9 +985,9 @@ func (o ApiConfigOutput) Instruction() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v ApiConfig) *string { return v.Instruction }).(pulumi.StringPtrOutput)
 }
 
-// HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
-func (o ApiConfigOutput) Method() pulumi.StringOutput {
-	return o.ApplyT(func(v ApiConfig) string { return v.Method }).(pulumi.StringOutput)
+// HTTP method.
+func (o ApiConfigOutput) Method() HttpMethodOutput {
+	return o.ApplyT(func(v ApiConfig) HttpMethod { return v.Method }).(HttpMethodOutput)
 }
 
 // Name of the API tool
@@ -1079,14 +1079,14 @@ func (o ApiConfigPtrOutput) Instruction() pulumi.StringPtrOutput {
 	}).(pulumi.StringPtrOutput)
 }
 
-// HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
-func (o ApiConfigPtrOutput) Method() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *ApiConfig) *string {
+// HTTP method.
+func (o ApiConfigPtrOutput) Method() HttpMethodPtrOutput {
+	return o.ApplyT(func(v *ApiConfig) *HttpMethod {
 		if v == nil {
 			return nil
 		}
 		return &v.Method
-	}).(pulumi.StringPtrOutput)
+	}).(HttpMethodPtrOutput)
 }
 
 // Name of the API tool
@@ -1848,8 +1848,8 @@ type Evaluator struct {
 	Timeout *string `pulumi:"timeout"`
 	// API key environment variable for direct calls (TYPESAFE_API_KEY or OPENAI_API_KEY). Never put the secret itself in the configuration.
 	TokenKey *string `pulumi:"tokenKey"`
-	// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
-	Type string `pulumi:"type"`
+	// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
+	Type EvaluatorType `pulumi:"type"`
 }
 
 // EvaluatorInput is an input type that accepts EvaluatorArgs and EvaluatorOutput values.
@@ -1889,8 +1889,8 @@ type EvaluatorArgs struct {
 	Timeout pulumi.StringPtrInput `pulumi:"timeout"`
 	// API key environment variable for direct calls (TYPESAFE_API_KEY or OPENAI_API_KEY). Never put the secret itself in the configuration.
 	TokenKey pulumi.StringPtrInput `pulumi:"tokenKey"`
-	// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
-	Type pulumi.StringInput `pulumi:"type"`
+	// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
+	Type EvaluatorTypeInput `pulumi:"type"`
 }
 
 func (EvaluatorArgs) ElementType() reflect.Type {
@@ -2005,9 +2005,9 @@ func (o EvaluatorOutput) TokenKey() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v Evaluator) *string { return v.TokenKey }).(pulumi.StringPtrOutput)
 }
 
-// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`. Allowed values: `boolean`, `choice`, `score`.
-func (o EvaluatorOutput) Type() pulumi.StringOutput {
-	return o.ApplyT(func(v Evaluator) string { return v.Type }).(pulumi.StringOutput)
+// The kind of assessment: a yes/no decision, one of `choices`, or one of the score `levels`.
+func (o EvaluatorOutput) Type() EvaluatorTypeOutput {
+	return o.ApplyT(func(v Evaluator) EvaluatorType { return v.Type }).(EvaluatorTypeOutput)
 }
 
 type EvaluatorMapOutput struct{ *pulumi.OutputState }
@@ -2032,12 +2032,12 @@ func (o EvaluatorMapOutput) MapIndex(k pulumi.StringInput) EvaluatorOutput {
 
 // Maps an evaluator's decisions to tool approval outcomes (`allow`, `ask`, `deny`) for `tool_guard` hooks.
 type EvaluatorPolicy struct {
-	// Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
-	Decisions map[string]string `pulumi:"decisions"`
+	// Choice keys (or true/false for booleans) mapped to guard decisions.
+	Decisions map[string]EvaluatorDecision `pulumi:"decisions"`
 	// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
 	Extra map[string]interface{} `pulumi:"extra"`
-	// Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
-	Fallback string `pulumi:"fallback"`
+	// Decision for uncertainty or unmapped outcomes; provider failures always block.
+	Fallback EvaluatorFallback `pulumi:"fallback"`
 	// Minimum selected-outcome probability to apply its mapping; not the confidence metric.
 	MinProbability float64 `pulumi:"minProbability"`
 }
@@ -2055,12 +2055,12 @@ type EvaluatorPolicyInput interface {
 
 // Maps an evaluator's decisions to tool approval outcomes (`allow`, `ask`, `deny`) for `tool_guard` hooks.
 type EvaluatorPolicyArgs struct {
-	// Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
-	Decisions pulumi.StringMapInput `pulumi:"decisions"`
+	// Choice keys (or true/false for booleans) mapped to guard decisions.
+	Decisions EvaluatorDecisionMapInput `pulumi:"decisions"`
 	// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
 	Extra pulumi.MapInput `pulumi:"extra"`
-	// Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
-	Fallback pulumi.StringInput `pulumi:"fallback"`
+	// Decision for uncertainty or unmapped outcomes; provider failures always block.
+	Fallback EvaluatorFallbackInput `pulumi:"fallback"`
 	// Minimum selected-outcome probability to apply its mapping; not the confidence metric.
 	MinProbability pulumi.Float64Input `pulumi:"minProbability"`
 }
@@ -2143,9 +2143,9 @@ func (o EvaluatorPolicyOutput) ToEvaluatorPolicyPtrOutputWithContext(ctx context
 	}).(EvaluatorPolicyPtrOutput)
 }
 
-// Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
-func (o EvaluatorPolicyOutput) Decisions() pulumi.StringMapOutput {
-	return o.ApplyT(func(v EvaluatorPolicy) map[string]string { return v.Decisions }).(pulumi.StringMapOutput)
+// Choice keys (or true/false for booleans) mapped to guard decisions.
+func (o EvaluatorPolicyOutput) Decisions() EvaluatorDecisionMapOutput {
+	return o.ApplyT(func(v EvaluatorPolicy) map[string]EvaluatorDecision { return v.Decisions }).(EvaluatorDecisionMapOutput)
 }
 
 // Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
@@ -2153,9 +2153,9 @@ func (o EvaluatorPolicyOutput) Extra() pulumi.MapOutput {
 	return o.ApplyT(func(v EvaluatorPolicy) map[string]interface{} { return v.Extra }).(pulumi.MapOutput)
 }
 
-// Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
-func (o EvaluatorPolicyOutput) Fallback() pulumi.StringOutput {
-	return o.ApplyT(func(v EvaluatorPolicy) string { return v.Fallback }).(pulumi.StringOutput)
+// Decision for uncertainty or unmapped outcomes; provider failures always block.
+func (o EvaluatorPolicyOutput) Fallback() EvaluatorFallbackOutput {
+	return o.ApplyT(func(v EvaluatorPolicy) EvaluatorFallback { return v.Fallback }).(EvaluatorFallbackOutput)
 }
 
 // Minimum selected-outcome probability to apply its mapping; not the confidence metric.
@@ -2187,14 +2187,14 @@ func (o EvaluatorPolicyPtrOutput) Elem() EvaluatorPolicyOutput {
 	}).(EvaluatorPolicyOutput)
 }
 
-// Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
-func (o EvaluatorPolicyPtrOutput) Decisions() pulumi.StringMapOutput {
-	return o.ApplyT(func(v *EvaluatorPolicy) map[string]string {
+// Choice keys (or true/false for booleans) mapped to guard decisions.
+func (o EvaluatorPolicyPtrOutput) Decisions() EvaluatorDecisionMapOutput {
+	return o.ApplyT(func(v *EvaluatorPolicy) map[string]EvaluatorDecision {
 		if v == nil {
 			return nil
 		}
 		return v.Decisions
-	}).(pulumi.StringMapOutput)
+	}).(EvaluatorDecisionMapOutput)
 }
 
 // Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
@@ -2207,14 +2207,14 @@ func (o EvaluatorPolicyPtrOutput) Extra() pulumi.MapOutput {
 	}).(pulumi.MapOutput)
 }
 
-// Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
-func (o EvaluatorPolicyPtrOutput) Fallback() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *EvaluatorPolicy) *string {
+// Decision for uncertainty or unmapped outcomes; provider failures always block.
+func (o EvaluatorPolicyPtrOutput) Fallback() EvaluatorFallbackPtrOutput {
+	return o.ApplyT(func(v *EvaluatorPolicy) *EvaluatorFallback {
 		if v == nil {
 			return nil
 		}
 		return &v.Fallback
-	}).(pulumi.StringPtrOutput)
+	}).(EvaluatorFallbackPtrOutput)
 }
 
 // Minimum selected-outcome probability to apply its mapping; not the confidence metric.
@@ -2428,16 +2428,16 @@ func (o FallbackPtrOutput) Retries() pulumi.IntPtrOutput {
 type Harness struct {
 	// opencode agent name forwarded as --agent
 	Agent *string `pulumi:"agent"`
-	// Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
-	Effort *string `pulumi:"effort"`
+	// Claude Code effort level forwarded as --effort.
+	Effort *HarnessEffort `pulumi:"effort"`
 	// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
 	Extra map[string]interface{} `pulumi:"extra"`
 	// Optional model name passed to the external harness. When omitted, the external CLI uses its own default model.
 	Model *string `pulumi:"model"`
 	// Enable opencode thinking output
 	Thinking *bool `pulumi:"thinking"`
-	// External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
-	Type string `pulumi:"type"`
+	// External coding harness provider to use.
+	Type HarnessType `pulumi:"type"`
 }
 
 // HarnessInput is an input type that accepts HarnessArgs and HarnessOutput values.
@@ -2455,16 +2455,16 @@ type HarnessInput interface {
 type HarnessArgs struct {
 	// opencode agent name forwarded as --agent
 	Agent pulumi.StringPtrInput `pulumi:"agent"`
-	// Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
-	Effort pulumi.StringPtrInput `pulumi:"effort"`
+	// Claude Code effort level forwarded as --effort.
+	Effort HarnessEffortPtrInput `pulumi:"effort"`
 	// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
 	Extra pulumi.MapInput `pulumi:"extra"`
 	// Optional model name passed to the external harness. When omitted, the external CLI uses its own default model.
 	Model pulumi.StringPtrInput `pulumi:"model"`
 	// Enable opencode thinking output
 	Thinking pulumi.BoolPtrInput `pulumi:"thinking"`
-	// External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
-	Type pulumi.StringInput `pulumi:"type"`
+	// External coding harness provider to use.
+	Type HarnessTypeInput `pulumi:"type"`
 }
 
 func (HarnessArgs) ElementType() reflect.Type {
@@ -2550,9 +2550,9 @@ func (o HarnessOutput) Agent() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v Harness) *string { return v.Agent }).(pulumi.StringPtrOutput)
 }
 
-// Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
-func (o HarnessOutput) Effort() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v Harness) *string { return v.Effort }).(pulumi.StringPtrOutput)
+// Claude Code effort level forwarded as --effort.
+func (o HarnessOutput) Effort() HarnessEffortPtrOutput {
+	return o.ApplyT(func(v Harness) *HarnessEffort { return v.Effort }).(HarnessEffortPtrOutput)
 }
 
 // Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
@@ -2570,9 +2570,9 @@ func (o HarnessOutput) Thinking() pulumi.BoolPtrOutput {
 	return o.ApplyT(func(v Harness) *bool { return v.Thinking }).(pulumi.BoolPtrOutput)
 }
 
-// External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
-func (o HarnessOutput) Type() pulumi.StringOutput {
-	return o.ApplyT(func(v Harness) string { return v.Type }).(pulumi.StringOutput)
+// External coding harness provider to use.
+func (o HarnessOutput) Type() HarnessTypeOutput {
+	return o.ApplyT(func(v Harness) HarnessType { return v.Type }).(HarnessTypeOutput)
 }
 
 type HarnessPtrOutput struct{ *pulumi.OutputState }
@@ -2609,14 +2609,14 @@ func (o HarnessPtrOutput) Agent() pulumi.StringPtrOutput {
 	}).(pulumi.StringPtrOutput)
 }
 
-// Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
-func (o HarnessPtrOutput) Effort() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *Harness) *string {
+// Claude Code effort level forwarded as --effort.
+func (o HarnessPtrOutput) Effort() HarnessEffortPtrOutput {
+	return o.ApplyT(func(v *Harness) *HarnessEffort {
 		if v == nil {
 			return nil
 		}
 		return v.Effort
-	}).(pulumi.StringPtrOutput)
+	}).(HarnessEffortPtrOutput)
 }
 
 // Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
@@ -2649,14 +2649,14 @@ func (o HarnessPtrOutput) Thinking() pulumi.BoolPtrOutput {
 	}).(pulumi.BoolPtrOutput)
 }
 
-// External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
-func (o HarnessPtrOutput) Type() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *Harness) *string {
+// External coding harness provider to use.
+func (o HarnessPtrOutput) Type() HarnessTypePtrOutput {
+	return o.ApplyT(func(v *Harness) *HarnessType {
 		if v == nil {
 			return nil
 		}
 		return &v.Type
-	}).(pulumi.StringPtrOutput)
+	}).(HarnessTypePtrOutput)
 }
 
 // Definition of a lifecycle hook
@@ -2677,8 +2677,8 @@ type HookDefinition struct {
 	Model *string `pulumi:"model"`
 	// Optional friendly hook name used in logs and runtime hook events.
 	Name *string `pulumi:"name"`
-	// Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
-	OnError *string `pulumi:"onError"`
+	// Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
+	OnError *HookErrorPolicy `pulumi:"onError"`
 	// User-message template rendered for each invocation of a type=model hook. Parsed as a Go text/template with the hook Input as the data context: {{ .ToolName }}, {{ .ToolInput }}, {{ .StopResponse }}, etc. Required for type=model.
 	Prompt *string `pulumi:"prompt"`
 	// Maps a choice evaluator's outcomes to agents. Kept apart from the evaluator so the same assessment can drive different actions.
@@ -2691,8 +2691,8 @@ type HookDefinition struct {
 	SystemPrompt *string `pulumi:"systemPrompt"`
 	// Execution timeout in seconds (default: 60)
 	Timeout *int `pulumi:"timeout"`
-	// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
-	Type string `pulumi:"type"`
+	// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+	Type HookType `pulumi:"type"`
 	// Working directory for this hook. Accepts ~, $VAR, ${VAR} and ${env.VAR}. Relative paths are resolved from the agent working directory.
 	WorkingDir *string `pulumi:"workingDir"`
 }
@@ -2726,8 +2726,8 @@ type HookDefinitionArgs struct {
 	Model pulumi.StringPtrInput `pulumi:"model"`
 	// Optional friendly hook name used in logs and runtime hook events.
 	Name pulumi.StringPtrInput `pulumi:"name"`
-	// Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
-	OnError pulumi.StringPtrInput `pulumi:"onError"`
+	// Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
+	OnError HookErrorPolicyPtrInput `pulumi:"onError"`
 	// User-message template rendered for each invocation of a type=model hook. Parsed as a Go text/template with the hook Input as the data context: {{ .ToolName }}, {{ .ToolInput }}, {{ .StopResponse }}, etc. Required for type=model.
 	Prompt pulumi.StringPtrInput `pulumi:"prompt"`
 	// Maps a choice evaluator's outcomes to agents. Kept apart from the evaluator so the same assessment can drive different actions.
@@ -2740,8 +2740,8 @@ type HookDefinitionArgs struct {
 	SystemPrompt pulumi.StringPtrInput `pulumi:"systemPrompt"`
 	// Execution timeout in seconds (default: 60)
 	Timeout pulumi.IntPtrInput `pulumi:"timeout"`
-	// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
-	Type pulumi.StringInput `pulumi:"type"`
+	// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+	Type HookTypeInput `pulumi:"type"`
 	// Working directory for this hook. Accepts ~, $VAR, ${VAR} and ${env.VAR}. Relative paths are resolved from the agent working directory.
 	WorkingDir pulumi.StringPtrInput `pulumi:"workingDir"`
 }
@@ -2838,9 +2838,9 @@ func (o HookDefinitionOutput) Name() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v HookDefinition) *string { return v.Name }).(pulumi.StringPtrOutput)
 }
 
-// Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events. Allowed values: `warn`, `ignore`, `block`.
-func (o HookDefinitionOutput) OnError() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v HookDefinition) *string { return v.OnError }).(pulumi.StringPtrOutput)
+// Policy for execution errors, timeouts, unexpected nonzero exits and invalid output. 'warn' reports and continues (default), 'ignore' continues silently, and 'block' denies block-capable events. pre_tool_use and tool_guard always fail closed. on_error=block is rejected on observational events.
+func (o HookDefinitionOutput) OnError() HookErrorPolicyPtrOutput {
+	return o.ApplyT(func(v HookDefinition) *HookErrorPolicy { return v.OnError }).(HookErrorPolicyPtrOutput)
 }
 
 // User-message template rendered for each invocation of a type=model hook. Parsed as a Go text/template with the hook Input as the data context: {{ .ToolName }}, {{ .ToolInput }}, {{ .StopResponse }}, etc. Required for type=model.
@@ -2873,9 +2873,9 @@ func (o HookDefinitionOutput) Timeout() pulumi.IntPtrOutput {
 	return o.ApplyT(func(v HookDefinition) *int { return v.Timeout }).(pulumi.IntPtrOutput)
 }
 
-// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only). Allowed values: `command`, `builtin`, `model`, `evaluator`.
-func (o HookDefinitionOutput) Type() pulumi.StringOutput {
-	return o.ApplyT(func(v HookDefinition) string { return v.Type }).(pulumi.StringOutput)
+// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+func (o HookDefinitionOutput) Type() HookTypeOutput {
+	return o.ApplyT(func(v HookDefinition) HookType { return v.Type }).(HookTypeOutput)
 }
 
 // Working directory for this hook. Accepts ~, $VAR, ${VAR} and ${env.VAR}. Relative paths are resolved from the agent working directory.
@@ -4205,12 +4205,12 @@ type Lifecycle struct {
 	Extra map[string]interface{} `pulumi:"extra"`
 	// Maximum number of consecutive restart attempts after a disconnect. 0 = use profile default (5). -1 = unlimited.
 	MaxRestarts *int `pulumi:"maxRestarts"`
-	// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
-	Profile *string `pulumi:"profile"`
+	// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
+	Profile *LifecycleProfile `pulumi:"profile"`
 	// Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.
 	Required *bool `pulumi:"required"`
-	// How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
-	Restart *string `pulumi:"restart"`
+	// How the supervisor reacts to an unexpected disconnect.
+	Restart *RestartPolicy `pulumi:"restart"`
 	// Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. '30s', '2m'). 0 means no timeout.
 	StartupTimeout *string `pulumi:"startupTimeout"`
 }
@@ -4236,12 +4236,12 @@ type LifecycleArgs struct {
 	Extra pulumi.MapInput `pulumi:"extra"`
 	// Maximum number of consecutive restart attempts after a disconnect. 0 = use profile default (5). -1 = unlimited.
 	MaxRestarts pulumi.IntPtrInput `pulumi:"maxRestarts"`
-	// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
-	Profile pulumi.StringPtrInput `pulumi:"profile"`
+	// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
+	Profile LifecycleProfilePtrInput `pulumi:"profile"`
 	// Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.
 	Required pulumi.BoolPtrInput `pulumi:"required"`
-	// How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
-	Restart pulumi.StringPtrInput `pulumi:"restart"`
+	// How the supervisor reacts to an unexpected disconnect.
+	Restart RestartPolicyPtrInput `pulumi:"restart"`
 	// Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. '30s', '2m'). 0 means no timeout.
 	StartupTimeout pulumi.StringPtrInput `pulumi:"startupTimeout"`
 }
@@ -4344,9 +4344,9 @@ func (o LifecycleOutput) MaxRestarts() pulumi.IntPtrOutput {
 	return o.ApplyT(func(v Lifecycle) *int { return v.MaxRestarts }).(pulumi.IntPtrOutput)
 }
 
-// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
-func (o LifecycleOutput) Profile() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v Lifecycle) *string { return v.Profile }).(pulumi.StringPtrOutput)
+// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
+func (o LifecycleOutput) Profile() LifecycleProfilePtrOutput {
+	return o.ApplyT(func(v Lifecycle) *LifecycleProfile { return v.Profile }).(LifecycleProfilePtrOutput)
 }
 
 // Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.
@@ -4354,9 +4354,9 @@ func (o LifecycleOutput) Required() pulumi.BoolPtrOutput {
 	return o.ApplyT(func(v Lifecycle) *bool { return v.Required }).(pulumi.BoolPtrOutput)
 }
 
-// How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
-func (o LifecycleOutput) Restart() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v Lifecycle) *string { return v.Restart }).(pulumi.StringPtrOutput)
+// How the supervisor reacts to an unexpected disconnect.
+func (o LifecycleOutput) Restart() RestartPolicyPtrOutput {
+	return o.ApplyT(func(v Lifecycle) *RestartPolicy { return v.Restart }).(RestartPolicyPtrOutput)
 }
 
 // Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. '30s', '2m'). 0 means no timeout.
@@ -4428,14 +4428,14 @@ func (o LifecyclePtrOutput) MaxRestarts() pulumi.IntPtrOutput {
 	}).(pulumi.IntPtrOutput)
 }
 
-// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
-func (o LifecyclePtrOutput) Profile() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *Lifecycle) *string {
+// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
+func (o LifecyclePtrOutput) Profile() LifecycleProfilePtrOutput {
+	return o.ApplyT(func(v *Lifecycle) *LifecycleProfile {
 		if v == nil {
 			return nil
 		}
 		return v.Profile
-	}).(pulumi.StringPtrOutput)
+	}).(LifecycleProfilePtrOutput)
 }
 
 // Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.
@@ -4448,14 +4448,14 @@ func (o LifecyclePtrOutput) Required() pulumi.BoolPtrOutput {
 	}).(pulumi.BoolPtrOutput)
 }
 
-// How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
-func (o LifecyclePtrOutput) Restart() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *Lifecycle) *string {
+// How the supervisor reacts to an unexpected disconnect.
+func (o LifecyclePtrOutput) Restart() RestartPolicyPtrOutput {
+	return o.ApplyT(func(v *Lifecycle) *RestartPolicy {
 		if v == nil {
 			return nil
 		}
 		return v.Restart
-	}).(pulumi.StringPtrOutput)
+	}).(RestartPolicyPtrOutput)
 }
 
 // Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. '30s', '2m'). 0 means no timeout.
@@ -6416,8 +6416,8 @@ func (o PostEditArrayOutput) Index(i pulumi.IntInput) PostEditOutput {
 
 // Configuration for a model provider. Defines reusable defaults that models can inherit by referencing the provider name. Supports any provider type (openai, anthropic, google, amazon-bedrock, etc.).
 type ProviderDef struct {
-	// The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
-	ApiType *string `pulumi:"apiType"`
+	// The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
+	ApiType *ApiType `pulumi:"apiType"`
 	// Non-API-key authentication scheme. When set, the provider's regular API-key path is bypassed.
 	Auth *ModelAuth `pulumi:"auth"`
 	// Base URL for the provider's API endpoint. Required for OpenAI-compatible providers, optional for native providers. Accepts ${env.VAR} / ${VAR} references, substituted from the environment when a model using this provider is loaded.
@@ -6469,8 +6469,8 @@ type ProviderDefInput interface {
 
 // Configuration for a model provider. Defines reusable defaults that models can inherit by referencing the provider name. Supports any provider type (openai, anthropic, google, amazon-bedrock, etc.).
 type ProviderDefArgs struct {
-	// The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
-	ApiType pulumi.StringPtrInput `pulumi:"apiType"`
+	// The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
+	ApiType ApiTypePtrInput `pulumi:"apiType"`
 	// Non-API-key authentication scheme. When set, the provider's regular API-key path is bypassed.
 	Auth ModelAuthPtrInput `pulumi:"auth"`
 	// Base URL for the provider's API endpoint. Required for OpenAI-compatible providers, optional for native providers. Accepts ${env.VAR} / ${VAR} references, substituted from the environment when a model using this provider is loaded.
@@ -6561,9 +6561,9 @@ func (o ProviderDefOutput) ToProviderDefOutputWithContext(ctx context.Context) P
 	return o
 }
 
-// The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
-func (o ProviderDefOutput) ApiType() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v ProviderDef) *string { return v.ApiType }).(pulumi.StringPtrOutput)
+// The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
+func (o ProviderDefOutput) ApiType() ApiTypePtrOutput {
+	return o.ApplyT(func(v ProviderDef) *ApiType { return v.ApiType }).(ApiTypePtrOutput)
 }
 
 // Non-API-key authentication scheme. When set, the provider's regular API-key path is bypassed.
@@ -7152,8 +7152,8 @@ type RagFusion struct {
 	Extra map[string]interface{} `pulumi:"extra"`
 	// RRF smoothing parameter k (only for RRF strategy) Defaults to `60`.
 	K *int `pulumi:"k"`
-	// Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
-	Strategy *string `pulumi:"strategy"`
+	// Fusion strategy to use. Defaults to `rrf`.
+	Strategy *RagFusionStrategy `pulumi:"strategy"`
 	// Strategy weights for weighted fusion (strategy name -> weight)
 	Weights map[string]float64 `pulumi:"weights"`
 }
@@ -7175,8 +7175,8 @@ type RagFusionArgs struct {
 	Extra pulumi.MapInput `pulumi:"extra"`
 	// RRF smoothing parameter k (only for RRF strategy) Defaults to `60`.
 	K pulumi.IntPtrInput `pulumi:"k"`
-	// Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
-	Strategy pulumi.StringPtrInput `pulumi:"strategy"`
+	// Fusion strategy to use. Defaults to `rrf`.
+	Strategy RagFusionStrategyPtrInput `pulumi:"strategy"`
 	// Strategy weights for weighted fusion (strategy name -> weight)
 	Weights pulumi.Float64MapInput `pulumi:"weights"`
 }
@@ -7269,9 +7269,9 @@ func (o RagFusionOutput) K() pulumi.IntPtrOutput {
 	return o.ApplyT(func(v RagFusion) *int { return v.K }).(pulumi.IntPtrOutput)
 }
 
-// Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
-func (o RagFusionOutput) Strategy() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v RagFusion) *string { return v.Strategy }).(pulumi.StringPtrOutput)
+// Fusion strategy to use. Defaults to `rrf`.
+func (o RagFusionOutput) Strategy() RagFusionStrategyPtrOutput {
+	return o.ApplyT(func(v RagFusion) *RagFusionStrategy { return v.Strategy }).(RagFusionStrategyPtrOutput)
 }
 
 // Strategy weights for weighted fusion (strategy name -> weight)
@@ -7323,14 +7323,14 @@ func (o RagFusionPtrOutput) K() pulumi.IntPtrOutput {
 	}).(pulumi.IntPtrOutput)
 }
 
-// Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
-func (o RagFusionPtrOutput) Strategy() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *RagFusion) *string {
+// Fusion strategy to use. Defaults to `rrf`.
+func (o RagFusionPtrOutput) Strategy() RagFusionStrategyPtrOutput {
+	return o.ApplyT(func(v *RagFusion) *RagFusionStrategy {
 		if v == nil {
 			return nil
 		}
 		return v.Strategy
-	}).(pulumi.StringPtrOutput)
+	}).(RagFusionStrategyPtrOutput)
 }
 
 // Strategy weights for weighted fusion (strategy name -> weight)
@@ -8048,8 +8048,8 @@ type RagStrategy struct {
 	SimilarityMetric *string `pulumi:"similarityMetric"`
 	// Minimum score threshold (0-1 for chunked-embeddings, unbounded for bm25)
 	Threshold *float64 `pulumi:"threshold"`
-	// Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
-	Type string `pulumi:"type"`
+	// Retrieval strategy type.
+	Type RagStrategyType `pulumi:"type"`
 	// Vector dimensions for embeddings (chunked-embeddings only). Must match your embedding model's output dimensions and is required for chunked-embeddings strategies.
 	VectorDimensions *int `pulumi:"vectorDimensions"`
 }
@@ -8101,8 +8101,8 @@ type RagStrategyArgs struct {
 	SimilarityMetric pulumi.StringPtrInput `pulumi:"similarityMetric"`
 	// Minimum score threshold (0-1 for chunked-embeddings, unbounded for bm25)
 	Threshold pulumi.Float64PtrInput `pulumi:"threshold"`
-	// Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
-	Type pulumi.StringInput `pulumi:"type"`
+	// Retrieval strategy type.
+	Type RagStrategyTypeInput `pulumi:"type"`
 	// Vector dimensions for embeddings (chunked-embeddings only). Must match your embedding model's output dimensions and is required for chunked-embeddings strategies.
 	VectorDimensions pulumi.IntPtrInput `pulumi:"vectorDimensions"`
 }
@@ -8244,9 +8244,9 @@ func (o RagStrategyOutput) Threshold() pulumi.Float64PtrOutput {
 	return o.ApplyT(func(v RagStrategy) *float64 { return v.Threshold }).(pulumi.Float64PtrOutput)
 }
 
-// Retrieval strategy type. Allowed values: `bm25`, `chunked-embeddings`, `semantic-embeddings`.
-func (o RagStrategyOutput) Type() pulumi.StringOutput {
-	return o.ApplyT(func(v RagStrategy) string { return v.Type }).(pulumi.StringOutput)
+// Retrieval strategy type.
+func (o RagStrategyOutput) Type() RagStrategyTypeOutput {
+	return o.ApplyT(func(v RagStrategy) RagStrategyType { return v.Type }).(RagStrategyTypeOutput)
 }
 
 // Vector dimensions for embeddings (chunked-embeddings only). Must match your embedding model's output dimensions and is required for chunked-embeddings strategies.
@@ -9558,8 +9558,8 @@ type RuntimeDefaults struct {
 	Extra map[string]interface{} `pulumi:"extra"`
 	// Hosts to add to the sandbox's default-deny network proxy when this agent runs in a sandbox. Each entry is a hostname with an optional ':port' suffix (e.g. 'api.example.com', 'registry.npmjs.org:443'). Unioned with the gateway and tool-install hosts the runner already opens automatically. Use this for hosts the auto-installer can't infer (custom MCP endpoints, third-party APIs, registries not covered by the aqua resolver) instead of relying on the wider fallback host set.
 	NetworkAllowlist []string `pulumi:"networkAllowlist"`
-	// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
-	Safety *string `pulumi:"safety"`
+	// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
+	Safety *SafetyMode `pulumi:"safety"`
 	// When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
 	Sandbox *bool `pulumi:"sandbox"`
 }
@@ -9581,8 +9581,8 @@ type RuntimeDefaultsArgs struct {
 	Extra pulumi.MapInput `pulumi:"extra"`
 	// Hosts to add to the sandbox's default-deny network proxy when this agent runs in a sandbox. Each entry is a hostname with an optional ':port' suffix (e.g. 'api.example.com', 'registry.npmjs.org:443'). Unioned with the gateway and tool-install hosts the runner already opens automatically. Use this for hosts the auto-installer can't infer (custom MCP endpoints, third-party APIs, registries not covered by the aqua resolver) instead of relying on the wider fallback host set.
 	NetworkAllowlist pulumi.StringArrayInput `pulumi:"networkAllowlist"`
-	// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
-	Safety pulumi.StringPtrInput `pulumi:"safety"`
+	// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
+	Safety SafetyModePtrInput `pulumi:"safety"`
 	// When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
 	Sandbox pulumi.BoolPtrInput `pulumi:"sandbox"`
 }
@@ -9675,9 +9675,9 @@ func (o RuntimeDefaultsOutput) NetworkAllowlist() pulumi.StringArrayOutput {
 	return o.ApplyT(func(v RuntimeDefaults) []string { return v.NetworkAllowlist }).(pulumi.StringArrayOutput)
 }
 
-// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
-func (o RuntimeDefaultsOutput) Safety() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v RuntimeDefaults) *string { return v.Safety }).(pulumi.StringPtrOutput)
+// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
+func (o RuntimeDefaultsOutput) Safety() SafetyModePtrOutput {
+	return o.ApplyT(func(v RuntimeDefaults) *SafetyMode { return v.Safety }).(SafetyModePtrOutput)
 }
 
 // When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
@@ -9729,14 +9729,14 @@ func (o RuntimeDefaultsPtrOutput) NetworkAllowlist() pulumi.StringArrayOutput {
 	}).(pulumi.StringArrayOutput)
 }
 
-// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
-func (o RuntimeDefaultsPtrOutput) Safety() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *RuntimeDefaults) *string {
+// Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
+func (o RuntimeDefaultsPtrOutput) Safety() SafetyModePtrOutput {
+	return o.ApplyT(func(v *RuntimeDefaults) *SafetyMode {
 		if v == nil {
 			return nil
 		}
 		return v.Safety
-	}).(pulumi.StringPtrOutput)
+	}).(SafetyModePtrOutput)
 }
 
 // When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
@@ -10018,8 +10018,8 @@ type StructuredOutput struct {
 	Description *string `pulumi:"description"`
 	// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
 	Extra map[string]interface{} `pulumi:"extra"`
-	// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
-	Mode *string `pulumi:"mode"`
+	// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
+	Mode *StructuredOutputMode `pulumi:"mode"`
 	// Name of the response format schema
 	Name string `pulumi:"name"`
 	// JSON Schema object defining the structure of the response. Must include type, properties, and required fields.
@@ -10045,8 +10045,8 @@ type StructuredOutputArgs struct {
 	Description pulumi.StringPtrInput `pulumi:"description"`
 	// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
 	Extra pulumi.MapInput `pulumi:"extra"`
-	// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
-	Mode pulumi.StringPtrInput `pulumi:"mode"`
+	// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
+	Mode StructuredOutputModePtrInput `pulumi:"mode"`
 	// Name of the response format schema
 	Name pulumi.StringInput `pulumi:"name"`
 	// JSON Schema object defining the structure of the response. Must include type, properties, and required fields.
@@ -10143,9 +10143,9 @@ func (o StructuredOutputOutput) Extra() pulumi.MapOutput {
 	return o.ApplyT(func(v StructuredOutput) map[string]interface{} { return v.Extra }).(pulumi.MapOutput)
 }
 
-// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
-func (o StructuredOutputOutput) Mode() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v StructuredOutput) *string { return v.Mode }).(pulumi.StringPtrOutput)
+// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
+func (o StructuredOutputOutput) Mode() StructuredOutputModePtrOutput {
+	return o.ApplyT(func(v StructuredOutput) *StructuredOutputMode { return v.Mode }).(StructuredOutputModePtrOutput)
 }
 
 // Name of the response format schema
@@ -10207,14 +10207,14 @@ func (o StructuredOutputPtrOutput) Extra() pulumi.MapOutput {
 	}).(pulumi.MapOutput)
 }
 
-// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
-func (o StructuredOutputPtrOutput) Mode() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *StructuredOutput) *string {
+// How the schema is enforced. 'native' (default) passes it to the provider's native structured-output support. 'tool' exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
+func (o StructuredOutputPtrOutput) Mode() StructuredOutputModePtrOutput {
+	return o.ApplyT(func(v *StructuredOutput) *StructuredOutputMode {
 		if v == nil {
 			return nil
 		}
 		return v.Mode
-	}).(pulumi.StringPtrOutput)
+	}).(StructuredOutputModePtrOutput)
 }
 
 // Name of the response format schema
@@ -10782,7 +10782,7 @@ type UserAlias struct {
 	// The agent file path or OCI reference, for example `./agent.yaml` or `docker.io/myorg/agent:latest`.
 	Path string `pulumi:"path"`
 	// The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
-	Safety *string `pulumi:"safety"`
+	Safety *SafetyMode `pulumi:"safety"`
 	// Run the alias inside a Docker sandbox by default.
 	Sandbox *bool `pulumi:"sandbox"`
 	// Auto-approve every tool call when running the alias. Legacy alias for `safety: autonomous`.
@@ -10809,7 +10809,7 @@ type UserAliasArgs struct {
 	// The agent file path or OCI reference, for example `./agent.yaml` or `docker.io/myorg/agent:latest`.
 	Path pulumi.StringInput `pulumi:"path"`
 	// The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
-	Safety pulumi.StringPtrInput `pulumi:"safety"`
+	Safety SafetyModePtrInput `pulumi:"safety"`
 	// Run the alias inside a Docker sandbox by default.
 	Sandbox pulumi.BoolPtrInput `pulumi:"sandbox"`
 	// Auto-approve every tool call when running the alias. Legacy alias for `safety: autonomous`.
@@ -10884,8 +10884,8 @@ func (o UserAliasOutput) Path() pulumi.StringOutput {
 }
 
 // The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
-func (o UserAliasOutput) Safety() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserAlias) *string { return v.Safety }).(pulumi.StringPtrOutput)
+func (o UserAliasOutput) Safety() SafetyModePtrOutput {
+	return o.ApplyT(func(v UserAlias) *SafetyMode { return v.Safety }).(SafetyModePtrOutput)
 }
 
 // Run the alias inside a Docker sandbox by default.
@@ -11681,7 +11681,7 @@ func (o UserFederationAuthPtrOutput) ServiceAccountId() pulumi.StringPtrOutput {
 // The `settings:` block of the docker-agent user configuration: preferences that apply to every agent you run. Every field is optional; unset fields use docker-agent's defaults. See https://docs.docker.com/ai/docker-agent/configuration/user-settings/.
 type UserGlobalSettings struct {
 	// What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
-	BusySendMode *string `pulumi:"busySendMode"`
+	BusySendMode *BusySendMode `pulumi:"busySendMode"`
 	// Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
 	CacheStablePrompts *bool `pulumi:"cacheStablePrompts"`
 	// Start sessions with thinking and tool blocks expanded (`expand_thinking`, default `false`).
@@ -11693,7 +11693,7 @@ type UserGlobalSettings struct {
 	// Global lifecycle hooks that run for every agent, in addition to the agent's own hooks, `hooks.d/` drop-ins and `--hook-*` flags.
 	Hooks *UserHooks `pulumi:"hooks"`
 	// How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
-	InterruptConfirmation *string `pulumi:"interruptConfirmation"`
+	InterruptConfirmation *InterruptConfirmation `pulumi:"interruptConfirmation"`
 	// Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
 	Keybindings []UserKeybinding `pulumi:"keybindings"`
 	// Sidebar position and section visibility of the TUI.
@@ -11707,7 +11707,7 @@ type UserGlobalSettings struct {
 	// Restore previously open tabs when the TUI starts (`restore_tabs`, default `false`).
 	RestoreTabs *bool `pulumi:"restoreTabs"`
 	// The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
-	Safety *string `pulumi:"safety"`
+	Safety *SafetyMode `pulumi:"safety"`
 	// Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).
 	ShowBanner *bool `pulumi:"showBanner"`
 	// Take automatic shadow-git snapshots at turn boundaries for every agent (`snapshot`, default `false`).
@@ -11746,7 +11746,7 @@ type UserGlobalSettingsInput interface {
 // The `settings:` block of the docker-agent user configuration: preferences that apply to every agent you run. Every field is optional; unset fields use docker-agent's defaults. See https://docs.docker.com/ai/docker-agent/configuration/user-settings/.
 type UserGlobalSettingsArgs struct {
 	// What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
-	BusySendMode pulumi.StringPtrInput `pulumi:"busySendMode"`
+	BusySendMode BusySendModePtrInput `pulumi:"busySendMode"`
 	// Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
 	CacheStablePrompts pulumi.BoolPtrInput `pulumi:"cacheStablePrompts"`
 	// Start sessions with thinking and tool blocks expanded (`expand_thinking`, default `false`).
@@ -11758,7 +11758,7 @@ type UserGlobalSettingsArgs struct {
 	// Global lifecycle hooks that run for every agent, in addition to the agent's own hooks, `hooks.d/` drop-ins and `--hook-*` flags.
 	Hooks UserHooksPtrInput `pulumi:"hooks"`
 	// How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
-	InterruptConfirmation pulumi.StringPtrInput `pulumi:"interruptConfirmation"`
+	InterruptConfirmation InterruptConfirmationPtrInput `pulumi:"interruptConfirmation"`
 	// Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
 	Keybindings UserKeybindingArrayInput `pulumi:"keybindings"`
 	// Sidebar position and section visibility of the TUI.
@@ -11772,7 +11772,7 @@ type UserGlobalSettingsArgs struct {
 	// Restore previously open tabs when the TUI starts (`restore_tabs`, default `false`).
 	RestoreTabs pulumi.BoolPtrInput `pulumi:"restoreTabs"`
 	// The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
-	Safety pulumi.StringPtrInput `pulumi:"safety"`
+	Safety SafetyModePtrInput `pulumi:"safety"`
 	// Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).
 	ShowBanner pulumi.BoolPtrInput `pulumi:"showBanner"`
 	// Take automatic shadow-git snapshots at turn boundaries for every agent (`snapshot`, default `false`).
@@ -11876,8 +11876,8 @@ func (o UserGlobalSettingsOutput) ToUserGlobalSettingsPtrOutputWithContext(ctx c
 }
 
 // What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
-func (o UserGlobalSettingsOutput) BusySendMode() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserGlobalSettings) *string { return v.BusySendMode }).(pulumi.StringPtrOutput)
+func (o UserGlobalSettingsOutput) BusySendMode() BusySendModePtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *BusySendMode { return v.BusySendMode }).(BusySendModePtrOutput)
 }
 
 // Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
@@ -11906,8 +11906,8 @@ func (o UserGlobalSettingsOutput) Hooks() UserHooksPtrOutput {
 }
 
 // How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
-func (o UserGlobalSettingsOutput) InterruptConfirmation() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserGlobalSettings) *string { return v.InterruptConfirmation }).(pulumi.StringPtrOutput)
+func (o UserGlobalSettingsOutput) InterruptConfirmation() InterruptConfirmationPtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *InterruptConfirmation { return v.InterruptConfirmation }).(InterruptConfirmationPtrOutput)
 }
 
 // Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
@@ -11941,8 +11941,8 @@ func (o UserGlobalSettingsOutput) RestoreTabs() pulumi.BoolPtrOutput {
 }
 
 // The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
-func (o UserGlobalSettingsOutput) Safety() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserGlobalSettings) *string { return v.Safety }).(pulumi.StringPtrOutput)
+func (o UserGlobalSettingsOutput) Safety() SafetyModePtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *SafetyMode { return v.Safety }).(SafetyModePtrOutput)
 }
 
 // Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).
@@ -12025,13 +12025,13 @@ func (o UserGlobalSettingsPtrOutput) Elem() UserGlobalSettingsOutput {
 }
 
 // What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
-func (o UserGlobalSettingsPtrOutput) BusySendMode() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *UserGlobalSettings) *string {
+func (o UserGlobalSettingsPtrOutput) BusySendMode() BusySendModePtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *BusySendMode {
 		if v == nil {
 			return nil
 		}
 		return v.BusySendMode
-	}).(pulumi.StringPtrOutput)
+	}).(BusySendModePtrOutput)
 }
 
 // Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
@@ -12085,13 +12085,13 @@ func (o UserGlobalSettingsPtrOutput) Hooks() UserHooksPtrOutput {
 }
 
 // How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
-func (o UserGlobalSettingsPtrOutput) InterruptConfirmation() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *UserGlobalSettings) *string {
+func (o UserGlobalSettingsPtrOutput) InterruptConfirmation() InterruptConfirmationPtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *InterruptConfirmation {
 		if v == nil {
 			return nil
 		}
 		return v.InterruptConfirmation
-	}).(pulumi.StringPtrOutput)
+	}).(InterruptConfirmationPtrOutput)
 }
 
 // Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
@@ -12155,13 +12155,13 @@ func (o UserGlobalSettingsPtrOutput) RestoreTabs() pulumi.BoolPtrOutput {
 }
 
 // The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
-func (o UserGlobalSettingsPtrOutput) Safety() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *UserGlobalSettings) *string {
+func (o UserGlobalSettingsPtrOutput) Safety() SafetyModePtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *SafetyMode {
 		if v == nil {
 			return nil
 		}
 		return v.Safety
-	}).(pulumi.StringPtrOutput)
+	}).(SafetyModePtrOutput)
 }
 
 // Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).
@@ -12280,7 +12280,7 @@ type UserHook struct {
 	Args []string `pulumi:"args"`
 	// The shell command (`command` hooks) or the built-in name (`builtin` hooks).
 	Command *string `pulumi:"command"`
-	// Environment variables added for this hook only.
+	// Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
 	Env map[string]string `pulumi:"env"`
 	// The evaluator an `evaluator` hook uses.
 	Evaluator *string `pulumi:"evaluator"`
@@ -12291,7 +12291,7 @@ type UserHook struct {
 	// A label for logs and runtime events.
 	Name *string `pulumi:"name"`
 	// What a hook failure does: `warn` (default), `ignore` or `block`.
-	OnError *string `pulumi:"onError"`
+	OnError *HookErrorPolicy `pulumi:"onError"`
 	// The prompt template of a `model` hook (Go text/template over the hook input).
 	Prompt *string `pulumi:"prompt"`
 	// How a `beforeAgentRun`/`afterAgentComplete` evaluator hook routes to agents.
@@ -12305,7 +12305,7 @@ type UserHook struct {
 	// Execution timeout in seconds (default `60`).
 	Timeout *int `pulumi:"timeout"`
 	// The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
-	Type *string `pulumi:"type"`
+	Type *HookType `pulumi:"type"`
 	// The working directory of the hook.
 	WorkingDir *string `pulumi:"workingDir"`
 }
@@ -12317,7 +12317,7 @@ func (val *UserHook) Defaults() *UserHook {
 	}
 	tmp := *val
 	if tmp.Type == nil {
-		type_ := "command"
+		type_ := HookType("command")
 		tmp.Type = &type_
 	}
 	return &tmp
@@ -12340,7 +12340,7 @@ type UserHookArgs struct {
 	Args pulumi.StringArrayInput `pulumi:"args"`
 	// The shell command (`command` hooks) or the built-in name (`builtin` hooks).
 	Command pulumi.StringPtrInput `pulumi:"command"`
-	// Environment variables added for this hook only.
+	// Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
 	Env pulumi.StringMapInput `pulumi:"env"`
 	// The evaluator an `evaluator` hook uses.
 	Evaluator pulumi.StringPtrInput `pulumi:"evaluator"`
@@ -12351,7 +12351,7 @@ type UserHookArgs struct {
 	// A label for logs and runtime events.
 	Name pulumi.StringPtrInput `pulumi:"name"`
 	// What a hook failure does: `warn` (default), `ignore` or `block`.
-	OnError pulumi.StringPtrInput `pulumi:"onError"`
+	OnError HookErrorPolicyPtrInput `pulumi:"onError"`
 	// The prompt template of a `model` hook (Go text/template over the hook input).
 	Prompt pulumi.StringPtrInput `pulumi:"prompt"`
 	// How a `beforeAgentRun`/`afterAgentComplete` evaluator hook routes to agents.
@@ -12365,7 +12365,7 @@ type UserHookArgs struct {
 	// Execution timeout in seconds (default `60`).
 	Timeout pulumi.IntPtrInput `pulumi:"timeout"`
 	// The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
-	Type pulumi.StringPtrInput `pulumi:"type"`
+	Type HookTypePtrInput `pulumi:"type"`
 	// The working directory of the hook.
 	WorkingDir pulumi.StringPtrInput `pulumi:"workingDir"`
 }
@@ -12377,7 +12377,7 @@ func (val *UserHookArgs) Defaults() *UserHookArgs {
 	}
 	tmp := *val
 	if tmp.Type == nil {
-		tmp.Type = pulumi.StringPtr("command")
+		tmp.Type = HookType("command")
 	}
 	return &tmp
 }
@@ -12443,7 +12443,7 @@ func (o UserHookOutput) Command() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v UserHook) *string { return v.Command }).(pulumi.StringPtrOutput)
 }
 
-// Environment variables added for this hook only.
+// Environment variables added for this hook only. Stored as secrets, since they often carry tokens: `yaml` and `sha256` become secret when they are set.
 func (o UserHookOutput) Env() pulumi.StringMapOutput {
 	return o.ApplyT(func(v UserHook) map[string]string { return v.Env }).(pulumi.StringMapOutput)
 }
@@ -12469,8 +12469,8 @@ func (o UserHookOutput) Name() pulumi.StringPtrOutput {
 }
 
 // What a hook failure does: `warn` (default), `ignore` or `block`.
-func (o UserHookOutput) OnError() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserHook) *string { return v.OnError }).(pulumi.StringPtrOutput)
+func (o UserHookOutput) OnError() HookErrorPolicyPtrOutput {
+	return o.ApplyT(func(v UserHook) *HookErrorPolicy { return v.OnError }).(HookErrorPolicyPtrOutput)
 }
 
 // The prompt template of a `model` hook (Go text/template over the hook input).
@@ -12504,8 +12504,8 @@ func (o UserHookOutput) Timeout() pulumi.IntPtrOutput {
 }
 
 // The hook type: `command` (default) runs `command` in a shell, `builtin` runs the built-in function named by `command` (for example `add_date` or `redact_secrets`), `evaluator` asks a named evaluator, `model` asks an LLM.
-func (o UserHookOutput) Type() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserHook) *string { return v.Type }).(pulumi.StringPtrOutput)
+func (o UserHookOutput) Type() HookTypePtrOutput {
+	return o.ApplyT(func(v UserHook) *HookType { return v.Type }).(HookTypePtrOutput)
 }
 
 // The working directory of the hook.
@@ -12536,9 +12536,9 @@ func (o UserHookArrayOutput) Index(i pulumi.IntInput) UserHookOutput {
 // Maps an evaluator's assessments to tool-guard decisions.
 type UserHookEvaluatorPolicy struct {
 	// Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
-	Decisions map[string]string `pulumi:"decisions"`
+	Decisions map[string]EvaluatorDecision `pulumi:"decisions"`
 	// The decision when the assessment is uncertain: `ask` or `deny`.
-	Fallback string `pulumi:"fallback"`
+	Fallback EvaluatorFallback `pulumi:"fallback"`
 	// The lowest probability (greater than 0, at most 1) at which a decision applies.
 	MinProbability float64 `pulumi:"minProbability"`
 }
@@ -12557,9 +12557,9 @@ type UserHookEvaluatorPolicyInput interface {
 // Maps an evaluator's assessments to tool-guard decisions.
 type UserHookEvaluatorPolicyArgs struct {
 	// Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
-	Decisions pulumi.StringMapInput `pulumi:"decisions"`
+	Decisions EvaluatorDecisionMapInput `pulumi:"decisions"`
 	// The decision when the assessment is uncertain: `ask` or `deny`.
-	Fallback pulumi.StringInput `pulumi:"fallback"`
+	Fallback EvaluatorFallbackInput `pulumi:"fallback"`
 	// The lowest probability (greater than 0, at most 1) at which a decision applies.
 	MinProbability pulumi.Float64Input `pulumi:"minProbability"`
 }
@@ -12643,13 +12643,13 @@ func (o UserHookEvaluatorPolicyOutput) ToUserHookEvaluatorPolicyPtrOutputWithCon
 }
 
 // Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
-func (o UserHookEvaluatorPolicyOutput) Decisions() pulumi.StringMapOutput {
-	return o.ApplyT(func(v UserHookEvaluatorPolicy) map[string]string { return v.Decisions }).(pulumi.StringMapOutput)
+func (o UserHookEvaluatorPolicyOutput) Decisions() EvaluatorDecisionMapOutput {
+	return o.ApplyT(func(v UserHookEvaluatorPolicy) map[string]EvaluatorDecision { return v.Decisions }).(EvaluatorDecisionMapOutput)
 }
 
 // The decision when the assessment is uncertain: `ask` or `deny`.
-func (o UserHookEvaluatorPolicyOutput) Fallback() pulumi.StringOutput {
-	return o.ApplyT(func(v UserHookEvaluatorPolicy) string { return v.Fallback }).(pulumi.StringOutput)
+func (o UserHookEvaluatorPolicyOutput) Fallback() EvaluatorFallbackOutput {
+	return o.ApplyT(func(v UserHookEvaluatorPolicy) EvaluatorFallback { return v.Fallback }).(EvaluatorFallbackOutput)
 }
 
 // The lowest probability (greater than 0, at most 1) at which a decision applies.
@@ -12682,23 +12682,23 @@ func (o UserHookEvaluatorPolicyPtrOutput) Elem() UserHookEvaluatorPolicyOutput {
 }
 
 // Assessment outcome to decision (`allow`, `ask` or `deny`). Boolean evaluators use the keys `true` and `false`.
-func (o UserHookEvaluatorPolicyPtrOutput) Decisions() pulumi.StringMapOutput {
-	return o.ApplyT(func(v *UserHookEvaluatorPolicy) map[string]string {
+func (o UserHookEvaluatorPolicyPtrOutput) Decisions() EvaluatorDecisionMapOutput {
+	return o.ApplyT(func(v *UserHookEvaluatorPolicy) map[string]EvaluatorDecision {
 		if v == nil {
 			return nil
 		}
 		return v.Decisions
-	}).(pulumi.StringMapOutput)
+	}).(EvaluatorDecisionMapOutput)
 }
 
 // The decision when the assessment is uncertain: `ask` or `deny`.
-func (o UserHookEvaluatorPolicyPtrOutput) Fallback() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *UserHookEvaluatorPolicy) *string {
+func (o UserHookEvaluatorPolicyPtrOutput) Fallback() EvaluatorFallbackPtrOutput {
+	return o.ApplyT(func(v *UserHookEvaluatorPolicy) *EvaluatorFallback {
 		if v == nil {
 			return nil
 		}
 		return &v.Fallback
-	}).(pulumi.StringPtrOutput)
+	}).(EvaluatorFallbackPtrOutput)
 }
 
 // The lowest probability (greater than 0, at most 1) at which a decision applies.
@@ -13725,7 +13725,7 @@ type UserIdentityTokenSource struct {
 	Env *string `pulumi:"env"`
 	// Read the token from this file.
 	File *string `pulumi:"file"`
-	// HTTP headers sent with the `url` request.
+	// HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
 	Headers map[string]string `pulumi:"headers"`
 	// The JSON field of the `url` response that holds the token.
 	ResponseField *string `pulumi:"responseField"`
@@ -13752,7 +13752,7 @@ type UserIdentityTokenSourceArgs struct {
 	Env pulumi.StringPtrInput `pulumi:"env"`
 	// Read the token from this file.
 	File pulumi.StringPtrInput `pulumi:"file"`
-	// HTTP headers sent with the `url` request.
+	// HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
 	Headers pulumi.StringMapInput `pulumi:"headers"`
 	// The JSON field of the `url` response that holds the token.
 	ResponseField pulumi.StringPtrInput `pulumi:"responseField"`
@@ -13853,7 +13853,7 @@ func (o UserIdentityTokenSourceOutput) File() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v UserIdentityTokenSource) *string { return v.File }).(pulumi.StringPtrOutput)
 }
 
-// HTTP headers sent with the `url` request.
+// HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
 func (o UserIdentityTokenSourceOutput) Headers() pulumi.StringMapOutput {
 	return o.ApplyT(func(v UserIdentityTokenSource) map[string]string { return v.Headers }).(pulumi.StringMapOutput)
 }
@@ -13922,7 +13922,7 @@ func (o UserIdentityTokenSourcePtrOutput) File() pulumi.StringPtrOutput {
 	}).(pulumi.StringPtrOutput)
 }
 
-// HTTP headers sent with the `url` request.
+// HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
 func (o UserIdentityTokenSourcePtrOutput) Headers() pulumi.StringMapOutput {
 	return o.ApplyT(func(v *UserIdentityTokenSource) map[string]string {
 		if v == nil {
@@ -14076,13 +14076,13 @@ type UserLayoutSettings struct {
 	// Hide the token usage section.
 	HideUsage *bool `pulumi:"hideUsage"`
 	// Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
-	SectionSpacing *string `pulumi:"sectionSpacing"`
+	SectionSpacing *SectionSpacing `pulumi:"sectionSpacing"`
 	// Show shared plans in the sidebar (default `false`).
 	ShowPlans *bool `pulumi:"showPlans"`
 	// How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
-	SidebarInfoMode *string `pulumi:"sidebarInfoMode"`
+	SidebarInfoMode *SidebarInfoMode `pulumi:"sidebarInfoMode"`
 	// Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
-	SidebarPosition *string `pulumi:"sidebarPosition"`
+	SidebarPosition *SidebarPosition `pulumi:"sidebarPosition"`
 }
 
 // UserLayoutSettingsInput is an input type that accepts UserLayoutSettingsArgs and UserLayoutSettingsOutput values.
@@ -14111,13 +14111,13 @@ type UserLayoutSettingsArgs struct {
 	// Hide the token usage section.
 	HideUsage pulumi.BoolPtrInput `pulumi:"hideUsage"`
 	// Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
-	SectionSpacing pulumi.StringPtrInput `pulumi:"sectionSpacing"`
+	SectionSpacing SectionSpacingPtrInput `pulumi:"sectionSpacing"`
 	// Show shared plans in the sidebar (default `false`).
 	ShowPlans pulumi.BoolPtrInput `pulumi:"showPlans"`
 	// How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
-	SidebarInfoMode pulumi.StringPtrInput `pulumi:"sidebarInfoMode"`
+	SidebarInfoMode SidebarInfoModePtrInput `pulumi:"sidebarInfoMode"`
 	// Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
-	SidebarPosition pulumi.StringPtrInput `pulumi:"sidebarPosition"`
+	SidebarPosition SidebarPositionPtrInput `pulumi:"sidebarPosition"`
 }
 
 func (UserLayoutSettingsArgs) ElementType() reflect.Type {
@@ -14229,8 +14229,8 @@ func (o UserLayoutSettingsOutput) HideUsage() pulumi.BoolPtrOutput {
 }
 
 // Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
-func (o UserLayoutSettingsOutput) SectionSpacing() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserLayoutSettings) *string { return v.SectionSpacing }).(pulumi.StringPtrOutput)
+func (o UserLayoutSettingsOutput) SectionSpacing() SectionSpacingPtrOutput {
+	return o.ApplyT(func(v UserLayoutSettings) *SectionSpacing { return v.SectionSpacing }).(SectionSpacingPtrOutput)
 }
 
 // Show shared plans in the sidebar (default `false`).
@@ -14239,13 +14239,13 @@ func (o UserLayoutSettingsOutput) ShowPlans() pulumi.BoolPtrOutput {
 }
 
 // How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
-func (o UserLayoutSettingsOutput) SidebarInfoMode() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserLayoutSettings) *string { return v.SidebarInfoMode }).(pulumi.StringPtrOutput)
+func (o UserLayoutSettingsOutput) SidebarInfoMode() SidebarInfoModePtrOutput {
+	return o.ApplyT(func(v UserLayoutSettings) *SidebarInfoMode { return v.SidebarInfoMode }).(SidebarInfoModePtrOutput)
 }
 
 // Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
-func (o UserLayoutSettingsOutput) SidebarPosition() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserLayoutSettings) *string { return v.SidebarPosition }).(pulumi.StringPtrOutput)
+func (o UserLayoutSettingsOutput) SidebarPosition() SidebarPositionPtrOutput {
+	return o.ApplyT(func(v UserLayoutSettings) *SidebarPosition { return v.SidebarPosition }).(SidebarPositionPtrOutput)
 }
 
 type UserLayoutSettingsPtrOutput struct{ *pulumi.OutputState }
@@ -14333,13 +14333,13 @@ func (o UserLayoutSettingsPtrOutput) HideUsage() pulumi.BoolPtrOutput {
 }
 
 // Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
-func (o UserLayoutSettingsPtrOutput) SectionSpacing() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *UserLayoutSettings) *string {
+func (o UserLayoutSettingsPtrOutput) SectionSpacing() SectionSpacingPtrOutput {
+	return o.ApplyT(func(v *UserLayoutSettings) *SectionSpacing {
 		if v == nil {
 			return nil
 		}
 		return v.SectionSpacing
-	}).(pulumi.StringPtrOutput)
+	}).(SectionSpacingPtrOutput)
 }
 
 // Show shared plans in the sidebar (default `false`).
@@ -14353,23 +14353,23 @@ func (o UserLayoutSettingsPtrOutput) ShowPlans() pulumi.BoolPtrOutput {
 }
 
 // How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
-func (o UserLayoutSettingsPtrOutput) SidebarInfoMode() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *UserLayoutSettings) *string {
+func (o UserLayoutSettingsPtrOutput) SidebarInfoMode() SidebarInfoModePtrOutput {
+	return o.ApplyT(func(v *UserLayoutSettings) *SidebarInfoMode {
 		if v == nil {
 			return nil
 		}
 		return v.SidebarInfoMode
-	}).(pulumi.StringPtrOutput)
+	}).(SidebarInfoModePtrOutput)
 }
 
 // Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
-func (o UserLayoutSettingsPtrOutput) SidebarPosition() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v *UserLayoutSettings) *string {
+func (o UserLayoutSettingsPtrOutput) SidebarPosition() SidebarPositionPtrOutput {
+	return o.ApplyT(func(v *UserLayoutSettings) *SidebarPosition {
 		if v == nil {
 			return nil
 		}
 		return v.SidebarPosition
-	}).(pulumi.StringPtrOutput)
+	}).(SidebarPositionPtrOutput)
 }
 
 // A model definition with the same fields as an entry of an agent file's `models:` section. A model with only `provider` and `model` is written in the `provider/model` shorthand.
@@ -15951,7 +15951,7 @@ func (o UserPermissionsPtrOutput) Deny() pulumi.StringArrayOutput {
 // A reusable model provider (for example an OpenAI-compatible endpoint), merged into every agent configuration docker-agent loads. Definitions in an agent file win on name conflicts.
 type UserProvider struct {
 	// The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
-	ApiType *string `pulumi:"apiType"`
+	ApiType *ApiType `pulumi:"apiType"`
 	// A non-API-key authentication scheme, such as Anthropic workload identity federation.
 	Auth *UserModelAuth `pulumi:"auth"`
 	// The API base URL. Required for OpenAI-compatible providers.
@@ -16000,7 +16000,7 @@ type UserProviderInput interface {
 // A reusable model provider (for example an OpenAI-compatible endpoint), merged into every agent configuration docker-agent loads. Definitions in an agent file win on name conflicts.
 type UserProviderArgs struct {
 	// The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
-	ApiType pulumi.StringPtrInput `pulumi:"apiType"`
+	ApiType ApiTypePtrInput `pulumi:"apiType"`
 	// A non-API-key authentication scheme, such as Anthropic workload identity federation.
 	Auth UserModelAuthPtrInput `pulumi:"auth"`
 	// The API base URL. Required for OpenAI-compatible providers.
@@ -16088,8 +16088,8 @@ func (o UserProviderOutput) ToUserProviderOutputWithContext(ctx context.Context)
 }
 
 // The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
-func (o UserProviderOutput) ApiType() pulumi.StringPtrOutput {
-	return o.ApplyT(func(v UserProvider) *string { return v.ApiType }).(pulumi.StringPtrOutput)
+func (o UserProviderOutput) ApiType() ApiTypePtrOutput {
+	return o.ApplyT(func(v UserProvider) *ApiType { return v.ApiType }).(ApiTypePtrOutput)
 }
 
 // A non-API-key authentication scheme, such as Anthropic workload identity federation.

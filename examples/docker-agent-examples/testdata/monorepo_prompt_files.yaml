@@ -1,0 +1,11 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-5
+    description: A coding assistant for a monorepo
+    instruction: You are an expert software developer.
+    toolsets:
+      - type: filesystem
+    add_prompt_files:
+      - AGENTS.md
+    add_prompt_files_depth: 2

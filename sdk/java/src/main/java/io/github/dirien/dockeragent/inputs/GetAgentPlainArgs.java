@@ -17,14 +17,14 @@ public final class GetAgentPlainArgs extends com.pulumi.resources.InvokeArgs {
     public static final GetAgentPlainArgs Empty = new GetAgentPlainArgs();
 
     /**
-     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
      * 
      */
     @Import(name="insecure")
     private @Nullable Boolean insecure;
 
     /**
-     * @return Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+     * @return Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
      * 
      */
     public Optional<Boolean> insecure() {
@@ -72,7 +72,7 @@ public final class GetAgentPlainArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param insecure Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the docker CLI.
+         * @param insecure Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) addresses, the same as the `docker agent` CLI.
          * 
          * @return builder
          * 

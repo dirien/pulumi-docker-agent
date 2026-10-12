@@ -51,14 +51,14 @@ public final class AgentArtifactArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
+     * Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
      * 
      */
     @Import(name="insecure")
     private @Nullable Output<Boolean> insecure;
 
     /**
-     * @return Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
+     * @return Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
      * 
      */
     public Optional<Output<Boolean>> insecure() {
@@ -182,7 +182,7 @@ public final class AgentArtifactArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param insecure Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
+         * @param insecure Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
          * 
          * @return builder
          * 
@@ -193,7 +193,7 @@ public final class AgentArtifactArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param insecure Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the docker CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
+         * @param insecure Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) addresses, the same as the `docker agent` CLI; the provider&#39;s `forceHttps` option turns that fallback off except for localhost and loopback.
          * 
          * @return builder
          * 

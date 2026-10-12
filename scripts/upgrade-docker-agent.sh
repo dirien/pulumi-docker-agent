@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Upgrade the pinned github.com/docker/docker-agent module to a newer release and regenerate
-# everything derived from it: the vendored agent-schema.json, the typed AgentConfig inputs and
-# generated constants, schema.json and the SDKs. Then run the provider tests and write a
-# Markdown report of the configuration schema changes plus a CHANGELOG entry.
+# everything derived from it: the vendored agent-schema.json and example configurations, the
+# typed AgentConfig inputs and generated constants, the example programs in
+# examples/docker-agent-examples, schema.json and the SDKs. Then run the provider tests and write
+# a Markdown report of the configuration schema changes and the example changes plus a CHANGELOG
+# entry.
 #
 # Usage:
 #   scripts/upgrade-docker-agent.sh [--check] [vX.Y.Z]
@@ -196,6 +198,34 @@ skip_step() {
 # shellcheck disable=SC2329 # invoked through run_step
 go_get() { (cd provider && go get "$MODULE@$target" && go mod tidy); }
 
+# example_names turns golden file paths (stdin) into a comma-separated list of example names.
+example_names() {
+  # shellcheck disable=SC2016 # literal Markdown backticks
+  sed -n 's|^.*/\([^/]*\)\.yaml$|`\1`|p' | paste -sd, - | sed 's/,/, /g'
+}
+
+# examples_report prints the docker-agent examples that the regenerated example programs
+# (examples/docker-agent-examples, one golden YAML per example in testdata/) added, removed or
+# changed, compared with the git index.
+examples_report() {
+  local dir=examples/docker-agent-examples/testdata
+  local added removed changed
+  git rev-parse --git-dir >/dev/null 2>&1 || return 0
+  added="$(git ls-files --others --exclude-standard -- "$dir" | example_names)"
+  removed="$(git ls-files --deleted -- "$dir" | example_names)"
+  changed="$(git diff --name-only --diff-filter=M -- "$dir" | example_names)"
+  printf '\n## Example programs\n\n'
+  # shellcheck disable=SC2016 # literal Markdown backticks
+  printf '`make generate_config_types` regenerated the TypeScript and Python programs in `examples/docker-agent-examples` from the examples of docker-agent %s.\n\n' "$target"
+  if [ -z "$added$removed$changed" ]; then
+    printf 'No example was added, removed or changed.\n'
+    return 0
+  fi
+  [ -z "$added" ] || printf -- '- Added: %s\n' "$added"
+  [ -z "$removed" ] || printf -- '- Removed: %s\n' "$removed"
+  [ -z "$changed" ] || printf -- '- Changed (the rendered YAML differs): %s\n' "$changed"
+}
+
 # ---------------------------------------------------------------- (b) go.mod
 step "Save the vendored schema of $current to $old_schema"
 if [ -f "$SCHEMA" ]; then
@@ -254,6 +284,10 @@ else
     "$current" "$target" >"$report"
 fi
 {
+  case "$status" in
+  go-get-failed | generate-failed) ;;
+  *) examples_report ;;
+  esac
   printf '\n## Upgrade steps\n\n| Step | Result |\n|---|---|\n'
   printf '%s\n' "${step_rows[@]}"
   if [ "$status" != ok ]; then

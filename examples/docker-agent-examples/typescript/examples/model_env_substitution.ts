@@ -1,0 +1,43 @@
+// Generated from docker-agent v1.150.0 examples/model_env_substitution.yaml by `make generate_config_types`. Do not edit.
+//
+// Example: environment variable substitution in model definitions
+//
+// The `model` and `base_url` fields of a model definition accept ${env.VAR}
+// (and the shell-style ${VAR}) placeholders. They are substituted from the
+// environment when the model is loaded, so the model id and endpoint can be
+// injected by the environment (e.g. a Docker Compose / DMR setup) instead of
+// being hard-coded in the config.
+//
+// Usage:
+//   export NEMOTRON3_MODEL=huggingface.co/unsloth/nemotron-3-nano-30b-a3b-gguf:Q3_K_M
+//   export DMR_BASE_URL=http://localhost:12434/engines/v1
+//   docker agent run model_env_substitution.yaml
+//
+// Note: unlike command/instruction placeholders, an unset variable in `model`
+// or `base_url` is reported as an error rather than expanding to an empty
+// string, so a misconfigured environment fails fast.
+
+import * as dockeragent from "@ediri/pulumi-docker-agent";
+
+export const config = new dockeragent.AgentConfig("model_env_substitution", {
+    agents: [
+        {
+            name: "root",
+            model: "nemotron3",
+            description: "Assistant whose model id comes from the environment",
+            instruction: `\
+You are a helpful AI assistant.
+`,
+            toolsets: [{ type: "filesystem" }, { type: "shell" }],
+        },
+    ],
+    models: {
+        nemotron3: {
+            provider: "dmr",
+            model: "${env.NEMOTRON3_MODEL}",
+            baseUrl: "${env.DMR_BASE_URL}",
+        },
+    },
+});
+
+export const yaml = config.yaml;

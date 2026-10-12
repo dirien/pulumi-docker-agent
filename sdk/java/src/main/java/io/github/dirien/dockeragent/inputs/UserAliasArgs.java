@@ -6,6 +6,7 @@ package io.github.dirien.dockeragent.inputs;
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.SafetyMode;
 import java.lang.Boolean;
 import java.lang.String;
 import java.util.Objects;
@@ -71,13 +72,13 @@ public final class UserAliasArgs extends com.pulumi.resources.ResourceArgs {
      * 
      */
     @Import(name="safety")
-    private @Nullable Output<String> safety;
+    private @Nullable Output<SafetyMode> safety;
 
     /**
      * @return The safety mode used when running the alias without `--safety`/`--yolo`: `strict`, `balanced`, `restricted` or `autonomous`.
      * 
      */
-    public Optional<Output<String>> safety() {
+    public Optional<Output<SafetyMode>> safety() {
         return Optional.ofNullable(this.safety);
     }
 
@@ -209,7 +210,7 @@ public final class UserAliasArgs extends com.pulumi.resources.ResourceArgs {
          * @return builder
          * 
          */
-        public Builder safety(@Nullable Output<String> safety) {
+        public Builder safety(@Nullable Output<SafetyMode> safety) {
             $.safety = safety;
             return this;
         }
@@ -220,7 +221,7 @@ public final class UserAliasArgs extends com.pulumi.resources.ResourceArgs {
          * @return builder
          * 
          */
-        public Builder safety(String safety) {
+        public Builder safety(SafetyMode safety) {
             return safety(Output.of(safety));
         }
 

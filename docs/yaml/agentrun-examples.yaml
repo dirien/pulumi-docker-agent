@@ -1,0 +1,77 @@
+# Example Usage of AgentRun. See agentconfig-examples.yaml for the format.
+---
+description: Structured output from an agent
+name: change-review
+runtime: yaml
+config:
+  # Set it with `pulumi config set --secret openaiApiKey <key>`.
+  openaiApiKey:
+    type: string
+    secret: true
+resources:
+  # The agent: its answer must match a JSON schema.
+  reviewer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          model: openai/gpt-5-mini
+          instruction: Rate the risk of the infrastructure change and explain it in one sentence.
+          structuredOutput:
+            name: change_review
+            schema:
+              type: object
+              properties:
+                risk:
+                  type: string
+                  enum:
+                    - low
+                    - medium
+                    - high
+                summary:
+                  type: string
+              required:
+                - risk
+                - summary
+              additionalProperties: false
+  # Runs the agent during `pulumi up` (never during a preview) and keeps its answer in the state.
+  review:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${reviewer.yaml}
+      prompt: Upgrade the production PostgreSQL cluster from version 15 to 17.
+      env:
+        OPENAI_API_KEY: ${openaiApiKey}
+outputs:
+  # For example {"risk": "high", "summary": "..."}.
+  verdict: ${review.structuredOutput}
+  usage: ${review.usage}
+---
+description: Run a shared agent and log its tool calls
+name: release-notes
+runtime: yaml
+config:
+  # Set it with `pulumi config set --secret anthropicApiKey <key>`.
+  anthropicApiKey:
+    type: string
+    secret: true
+  # The commit range to summarise, for example `v1.2.0..HEAD`.
+  commits:
+    type: string
+resources:
+  # Pulls the agent from a registry, pinned by digest, and runs it.
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      reference: docker.io/my-org/release-notes@sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
+      prompt: Write the release notes for ${commits}.
+      inheritEnvironment: false
+      env:
+        ANTHROPIC_API_KEY: ${anthropicApiKey}
+      toolApproval: deny
+      logging: tools
+      # Cancels the run after 10 minutes.
+      timeoutSeconds: 600
+outputs:
+  releaseNotes: ${notes.output}
+  toolCalls: ${notes.toolCalls}

@@ -1,0 +1,40 @@
+version: "16"
+agents:
+  root:
+    model: claude
+    description: A helpful AI assistant
+    instruction: |
+      You are a knowledgeable assistant that helps users with various tasks.
+      Be helpful, accurate, and concise in your responses.
+    toolsets:
+      - type: think
+models:
+  claude:
+    provider: anthropic
+    model: claude-sonnet-5
+flavors:
+  cheap:
+    models:
+      claude:
+        model: claude-3-5-haiku-latest
+  no-think:
+    agents:
+      root:
+        toolsets-:
+          - type: think
+  terse:
+    agents:
+      root:
+        instruction+:
+          - Answer in one sentence.
+  verbose:
+    agents:
+      root:
+        instruction: |
+          You are a knowledgeable assistant that helps users with various tasks.
+          Explain your reasoning in detail and cover edge cases.
+  with-shell:
+    agents:
+      root:
+        toolsets+:
+          - type: shell

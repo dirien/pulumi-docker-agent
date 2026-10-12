@@ -29,7 +29,7 @@ public final class UserIdentityTokenSource {
      */
     private @Nullable String file;
     /**
-     * @return HTTP headers sent with the `url` request.
+     * @return HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
      * 
      */
     private @Nullable Map<String,String> headers;
@@ -67,7 +67,7 @@ public final class UserIdentityTokenSource {
         return Optional.ofNullable(this.file);
     }
     /**
-     * @return HTTP headers sent with the `url` request.
+     * @return HTTP headers sent with the `url` request. Stored as secrets, since they usually carry credentials: `yaml` and `sha256` become secret when they are set.
      * 
      */
     public Map<String,String> headers() {

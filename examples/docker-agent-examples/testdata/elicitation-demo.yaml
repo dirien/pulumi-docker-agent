@@ -1,0 +1,17 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-5-mini
+    description: A demo agent that showcases MCP elicitation capabilities
+    welcome_message: "\U0001F3AF **Elicitation Demo Agent**\n\nThis agent demonstrates MCP elicitation - the ability for tools to interactively\nrequest information from you during execution.\n\n**Example prompts:**\n- \"Confirm that I want to delete the database\"\n- \"Help me create a new user named Alice\"\n- \"Configure settings with the performance preset\"\n- \"Set up my preferences, I prefer dark mode\"\n- \"Help me select options for production deployment in US-East\"\n- \"I need to read the API documentation\"\n\nWhen you see an elicitation dialog, fill in the form and submit it.\nThe tool will receive your response and continue execution.\n"
+    instruction: "You are a helpful assistant that demonstrates interactive elicitation capabilities.\n\nYou have access to tools that require user input during execution. When the user \nasks you to use one of these tools, explain what you're about to do, then call \nthe tool. The tool will present an interactive dialog to the user.\n\nYour job is to:\n1. Understand what the user wants to accomplish\n2. Explain the elicitation dialog that will appear\n3. Call the appropriate tool\n4. Present the results to the user in a helpful way\n\nBe conversational and guide the user through the process.\n"
+    toolsets:
+      - type: mcp
+        command: uvx
+        args:
+          - --with
+          - mcp[cli]
+          - mcp
+          - run
+          - examples/elicitation/server.py
+        version: astral-sh/uv

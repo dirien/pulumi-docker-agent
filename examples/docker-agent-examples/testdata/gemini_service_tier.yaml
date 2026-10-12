@@ -1,0 +1,12 @@
+version: "16"
+agents:
+  root:
+    model: gemini-flex
+    description: An assistant using the Gemini Flex service tier.
+    instruction: You are a helpful assistant.
+models:
+  gemini-flex:
+    provider: google
+    model: gemini-2.5-flash
+    provider_opts:
+      service_tier: flex

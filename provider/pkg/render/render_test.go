@@ -124,7 +124,7 @@ func TestRenderFull(t *testing.T) {
 			"another": {Provider: ptr("dmr"), Model: ptr("ai/qwen3")},
 		},
 		Providers: map[string]ProviderDef{
-			"corp": {APIType: ptr("openai_chatcompletions"), BaseURL: ptr("https://llm.corp.example/v1"), TokenKey: ptr("CORP_KEY")},
+			"corp": {APIType: ptr(ApiTypeOpenAIChatCompletions), BaseURL: ptr("https://llm.corp.example/v1"), TokenKey: ptr("CORP_KEY")},
 		},
 		Permissions: &Permissions{Allow: []string{"think"}, Ask: []string{"shell"}, Deny: []string{"mcp:danger:*"}},
 	}

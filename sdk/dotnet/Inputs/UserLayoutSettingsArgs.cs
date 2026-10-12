@@ -56,7 +56,7 @@ namespace ediri.DockerAgent.Inputs
         /// Blank space between sidebar sections: `normal` (default), `compact` or `relaxed`.
         /// </summary>
         [Input("sectionSpacing")]
-        public Input<string>? SectionSpacing { get; set; }
+        public Input<ediri.DockerAgent.SectionSpacing>? SectionSpacing { get; set; }
 
         /// <summary>
         /// Show shared plans in the sidebar (default `false`).
@@ -68,13 +68,13 @@ namespace ediri.DockerAgent.Inputs
         /// How the Agents section renders each agent: `compact` (default, two lines) or `detailed` (cards with effort, context and cost metrics).
         /// </summary>
         [Input("sidebarInfoMode")]
-        public Input<string>? SidebarInfoMode { get; set; }
+        public Input<ediri.DockerAgent.SidebarInfoMode>? SidebarInfoMode { get; set; }
 
         /// <summary>
         /// Where the sidebar goes: `right` (default), `left`, `top` or `bottom`. Top and bottom render a compact horizontal band.
         /// </summary>
         [Input("sidebarPosition")]
-        public Input<string>? SidebarPosition { get; set; }
+        public Input<ediri.DockerAgent.SidebarPosition>? SidebarPosition { get; set; }
 
         public UserLayoutSettingsArgs()
         {

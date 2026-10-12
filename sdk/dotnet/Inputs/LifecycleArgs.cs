@@ -47,10 +47,10 @@ namespace ediri.DockerAgent.Inputs
         public Input<int>? MaxRestarts { get; set; }
 
         /// <summary>
-        /// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+        /// Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
         /// </summary>
         [Input("profile")]
-        public Input<string>? Profile { get; set; }
+        public Input<ediri.DockerAgent.LifecycleProfile>? Profile { get; set; }
 
         /// <summary>
         /// Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the 'strict' profile, false otherwise.
@@ -59,10 +59,10 @@ namespace ediri.DockerAgent.Inputs
         public Input<bool>? Required { get; set; }
 
         /// <summary>
-        /// How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+        /// How the supervisor reacts to an unexpected disconnect.
         /// </summary>
         [Input("restart")]
-        public Input<string>? Restart { get; set; }
+        public Input<ediri.DockerAgent.RestartPolicy>? Restart { get; set; }
 
         /// <summary>
         /// Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. '30s', '2m'). 0 means no timeout.

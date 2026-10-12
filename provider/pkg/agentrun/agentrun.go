@@ -116,6 +116,15 @@ type Request struct {
 	// Log receives docker-agent's own WARN and ERROR log records of this run, redacted.
 	// Lower levels are dropped. Nil discards them.
 	Log func(level slog.Level, msg string)
+	// Progress receives the run's progress messages, redacted, as selected by Logging. It is
+	// called from the goroutine that called Run. Nil reports nothing.
+	Progress func(Progress)
+	// Logging selects the progress messages. Empty means LoggingStatus.
+	Logging Logging
+	// HideNames keeps the names of agents, tools and models out of the progress messages,
+	// warnings, errors and logs (for a secret configuration), and the tool calls' arguments
+	// and results out of the progress messages.
+	HideNames bool
 }
 
 // Usage is the token usage and cost of a run, including sub-agents.
@@ -194,7 +203,8 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 
 	// docker-agent logs to slog: keep its records (which can quote API errors) off the
 	// provider's stderr.
-	ctx, stopLog := startRunLog(ctx, secrets, req.Log)
+	names := newNameHider(req)
+	ctx, stopLog := startRunLog(ctx, secrets, names, req.Log)
 	defer stopLog()
 
 	stateRoot, err := os.MkdirTemp("", stateRootPrefix)
@@ -230,9 +240,10 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 		workingDir = abs
 	}
 
-	res, err := run(ctx, req, approval, timeout, workingDir)
+	prog := newProgress(req, secrets, names)
+	res, err := run(ctx, req, approval, timeout, workingDir, prog)
 	if err != nil {
-		return nil, errors.New(redact(err.Error(), secrets))
+		return nil, errors.New(redact(names.hide(err.Error()), secrets))
 	}
 	for i, w := range res.Warnings {
 		res.Warnings[i] = redact(w, secrets)
@@ -242,6 +253,7 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 		res.Warnings = append(res.Warnings, "the answer contains the value of a secret (an `env` value, a secret input or "+
 			"a credential of the environment); output and structuredOutput are stored as secrets")
 	}
+	prog.summary(res)
 	return res, nil
 }
 
@@ -249,7 +261,9 @@ func idleRoot() string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("pulumi-docker-agent-idle-%d", os.Getpid()))
 }
 
-func run(ctx context.Context, req Request, approval ToolApproval, timeout time.Duration, workingDir string) (*Result, error) {
+func run(ctx context.Context, req Request, approval ToolApproval, timeout time.Duration, workingDir string,
+	prog *progress,
+) (*Result, error) {
 	// Remote MCP servers get a token store private to this run.
 	ctx = mcp.WithOAuthTokenStore(ctx, mcp.NewInMemoryTokenStore())
 
@@ -283,9 +297,17 @@ func run(ctx context.Context, req Request, approval ToolApproval, timeout time.D
 	policy.bind(approval == ToolApprovalDeny && !req.AllowHookApprovals, mode, t.Permissions())
 
 	res := &Result{}
+	names := prog.names
+	for _, a := range teamAgents(t) {
+		names.add(a.Name())
+	}
 	for _, a := range teamAgents(t) {
 		for _, w := range a.DrainWarnings() {
-			res.Warnings = append(res.Warnings, fmt.Sprintf("agent %q: %s", a.Name(), w))
+			if names != nil {
+				res.Warnings = append(res.Warnings, "an agent: "+names.hide(w))
+			} else {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("agent %q: %s", a.Name(), w))
+			}
 		}
 	}
 
@@ -329,7 +351,9 @@ func run(ctx context.Context, req Request, approval ToolApproval, timeout time.D
 
 	col := newCollector(sess.ID)
 	for ev := range rt.RunStream(runCtx, sess) {
+		names.observe(ev)
 		col.observe(ev)
+		prog.observe(ev)
 		switch e := ev.(type) {
 		case *runtime.ToolCallConfirmationEvent:
 			// Not expected for a non-interactive session; never leave the runtime
@@ -381,9 +405,11 @@ func run(ctx context.Context, req Request, approval ToolApproval, timeout time.D
 	res.ToolCalls = col.toolNames()
 	for _, r := range col.rejected {
 		res.RejectedToolCalls = append(res.RejectedToolCalls, r.tool)
-		res.Warnings = append(res.Warnings, rejectionWarning(r))
+		res.Warnings = append(res.Warnings, rejectionWarning(r, names))
 	}
-	res.Warnings = append(res.Warnings, col.warnings...)
+	for _, w := range col.warnings {
+		res.Warnings = append(res.Warnings, names.hide(w))
+	}
 	return res, nil
 }
 
@@ -585,17 +611,23 @@ type rejection struct {
 	tool, agent, reason string
 }
 
-func rejectionWarning(r rejection) string {
+// rejectionWarning explains a rejected tool call. When names are hidden, it names neither
+// the agent nor the tool, and docker-agent's reason only without the names.
+func rejectionWarning(r rejection, names *nameHider) string {
+	call := fmt.Sprintf("agent %q: tool call %q", r.agent, r.tool)
+	if names != nil {
+		call = "an agent: a tool call"
+	}
 	if isGuardRejection(r.reason) {
-		return fmt.Sprintf("agent %q: tool call %q was rejected: a hook of the configuration approved it, but "+
-			"toolApproval %q does not accept hook approvals unless allowHookApprovals is set", r.agent, r.tool, ToolApprovalDeny)
+		return fmt.Sprintf("%s was rejected: a hook of the configuration approved it, but toolApproval %q does not "+
+			"accept hook approvals unless allowHookApprovals is set", call, ToolApprovalDeny)
 	}
 	if strings.Contains(r.reason, "requires user confirmation") {
-		return fmt.Sprintf("agent %q: tool call %q was rejected because it needs approval and toolApproval is %q; "+
-			"allow it with a `permissions` allow rule in the configuration, or set toolApproval to %q",
-			r.agent, r.tool, ToolApprovalDeny, ToolApprovalAllow)
+		return fmt.Sprintf("%s was rejected because it needs approval and toolApproval is %q; allow it with a "+
+			"`permissions` allow rule in the configuration, or set toolApproval to %q", call, ToolApprovalDeny,
+			ToolApprovalAllow)
 	}
-	return fmt.Sprintf("agent %q: tool call %q was rejected: %s", r.agent, r.tool, r.reason)
+	return fmt.Sprintf("%s was rejected: %s", call, names.hide(r.reason))
 }
 
 // isRejection recognizes the tool errors docker-agent's approval flow produces.

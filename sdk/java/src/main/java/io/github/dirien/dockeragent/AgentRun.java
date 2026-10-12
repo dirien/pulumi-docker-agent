@@ -9,6 +9,7 @@ import com.pulumi.core.annotations.ResourceType;
 import com.pulumi.core.internal.Codegen;
 import io.github.dirien.dockeragent.AgentRunArgs;
 import io.github.dirien.dockeragent.Utilities;
+import io.github.dirien.dockeragent.enums.Logging;
 import io.github.dirien.dockeragent.enums.ToolApproval;
 import io.github.dirien.dockeragent.outputs.AgentRunUsage;
 import java.lang.Boolean;
@@ -30,7 +31,8 @@ import javax.annotation.Nullable;
  * outputs are unknown until the update. A change of `yaml`, `reference`, `agent`,
  * `prompt`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval`,
  * `allowHookApprovals` or `triggers` (including a value that is unknown during the preview) runs the
- * agent again; a change of `timeoutSeconds` or `outputSecret` alone only updates the state.
+ * agent again; a change of `timeoutSeconds`, `outputSecret` or `logging` alone only updates
+ * the state.
  * `pulumi up` without changes and `pulumi refresh` reuse the stored answer, deleting the resource
  * does nothing, and importing is not supported.
  * 
@@ -58,8 +60,9 @@ import javax.annotation.Nullable;
  * `background_jobs` tools and MCP and LSP servers started with `command` also lose that environment:
  * they see the system variables (`PATH`, `HOME`, `USER`, `SHELL`,
  * `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get
- * `env`). `docker:` MCP servers, filesystem `post_edit` commands and the
- * `open_url` launcher always inherit it. Errors, warnings and logs are redacted: the values of
+ * `env`). `docker:` MCP servers, filesystem `post_edit` commands, the
+ * `open_url` launcher and docker-agent&#39;s on-demand tool installation always inherit it.
+ * Errors, warnings and logs are redacted: the values of
  * `env`, secret inputs, credential-named variables of the environment (`*_API_KEY`,
  * `*_TOKEN`, `*SECRET*`, `*PASSWORD*`, ...) and the variables the configuration names as
  * `token_key`. When the answer contains one of these values, `output` and
@@ -71,7 +74,154 @@ import javax.annotation.Nullable;
  * works in a fresh temporary directory unless `workingDir` is set. Runs of one provider process execute one at
  * a time.
  * 
+ * `logging` controls what `pulumi up` shows while the agent runs. `status` (the default) shows the
+ * run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the
+ * conversation handed off, each tool call and whether it was approved or rejected, and why, a model that fell back to
+ * the next one) and ends with one summary line: duration, tool calls, input and output tokens and the estimated cost.
+ * `tools` also logs every tool call with its arguments, and `full` also logs the agents&#39; messages and
+ * the tools&#39; results. `none` shows nothing. Messages are redacted like errors. When the answer is secret
+ * (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no
+ * arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or
+ * models.
+ * 
+ * An AgentRun has two time limits. `timeoutSeconds` (default 300) limits the agent run itself: when it runs
+ * out, the run is cancelled and the create or update fails with &#34;the agent did not finish within ... (timeoutSeconds)&#34;.
+ * The `customTimeouts` resource option (`create`, `update`) limits the whole provider operation,
+ * including pulling a `reference` and waiting for another AgentRun of the same provider process to finish; when
+ * it runs out, Pulumi cancels the operation and the run fails as cancelled. The shorter limit wins. Use
+ * `customTimeouts` to bound the deployment step as a whole and keep `timeoutSeconds` as the per-run safety
+ * limit.
+ * 
  * ## Example Usage
+ * ### Structured output from an agent
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentConfig;
+ * import io.github.dirien.dockeragent.AgentConfigArgs;
+ * import io.github.dirien.dockeragent.inputs.AgentArgs;
+ * import io.github.dirien.dockeragent.inputs.StructuredOutputArgs;
+ * import io.github.dirien.dockeragent.AgentRun;
+ * import io.github.dirien.dockeragent.AgentRunArgs;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App {
+ *     public static void main(String[] args) {
+ *         Pulumi.run(App::stack);
+ *     }
+ * 
+ *     public static void stack(Context ctx) {
+ *         final var config = ctx.config();
+ * 
+ *         // Set it with `pulumi config set --secret openaiApiKey <key>`.
+ *         final var openaiApiKey = config.requireSecret("openaiApiKey");
+ * 
+ *         // The agent: its answer must match a JSON schema.
+ *         var reviewer = new AgentConfig("reviewer", AgentConfigArgs.builder()
+ *             .agents(AgentArgs.builder()
+ *                 .name("root")
+ *                 .model("openai/gpt-5-mini")
+ *                 .instruction("Rate the risk of the infrastructure change and explain it in one sentence.")
+ *                 .structuredOutput(StructuredOutputArgs.builder()
+ *                     .name("change_review")
+ *                     .schema(Map.ofEntries(
+ *                         Map.entry("type", "object"),
+ *                         Map.entry("properties", Map.ofEntries(
+ *                             Map.entry("risk", Map.ofEntries(
+ *                                 Map.entry("type", "string"),
+ *                                 Map.entry("enum", Arrays.asList(
+ *                                     "low",
+ *                                     "medium",
+ *                                     "high"))
+ *                             )),
+ *                             Map.entry("summary", Map.of("type", "string"))
+ *                         )),
+ *                         Map.entry("required", Arrays.asList(
+ *                             "risk",
+ *                             "summary")),
+ *                         Map.entry("additionalProperties", false)
+ *                     ))
+ *                     .build())
+ *                 .build())
+ *             .build());
+ * 
+ *         // Runs the agent during `pulumi up` (never during a preview) and keeps its answer in the state.
+ *         var review = new AgentRun("review", AgentRunArgs.builder()
+ *             .yaml(reviewer.yaml())
+ *             .prompt("Upgrade the production PostgreSQL cluster from version 15 to 17.")
+ *             .env(openaiApiKey.applyValue(_openaiApiKey -> Map.of("OPENAI_API_KEY", _openaiApiKey)))
+ *             .build());
+ * 
+ *         ctx.export("verdict", review.structuredOutput());
+ *         ctx.export("usage", review.usage());
+ *     }
+ * }
+ * }
+ * </pre>
+ * ### Run a shared agent and log its tool calls
+ * <pre>
+ * {@code
+ * package generated_program;
+ * 
+ * import com.pulumi.Context;
+ * import com.pulumi.Pulumi;
+ * import com.pulumi.core.Output;
+ * import io.github.dirien.dockeragent.AgentRun;
+ * import io.github.dirien.dockeragent.AgentRunArgs;
+ * import io.github.dirien.dockeragent.enums.Logging;
+ * import io.github.dirien.dockeragent.enums.ToolApproval;
+ * import java.util.ArrayList;
+ * import java.util.Arrays;
+ * import java.util.Map;
+ * import java.io.File;
+ * import java.nio.file.Files;
+ * import java.nio.file.Paths;
+ * 
+ * public class App }{{@code
+ *     public static void main(String[] args) }{{@code
+ *         Pulumi.run(App::stack);
+ *     }}{@code
+ * 
+ *     public static void stack(Context ctx) }{{@code
+ *         final var config = ctx.config();
+ * 
+ *         // Set it with `pulumi config set --secret anthropicApiKey <key>`.
+ *         final var anthropicApiKey = config.requireSecret("anthropicApiKey");
+ * 
+ *         // The commit range to summarise, for example `v1.2.0..HEAD`.
+ *         final var commits = config.require("commits");
+ * 
+ *         // Pulls the agent from a registry, pinned by digest, and runs it.
+ *         var notes = new AgentRun("notes", AgentRunArgs.builder()
+ *             .reference("docker.io/my-org/release-notes}{@literal @}{@code sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae")
+ *             .prompt(String.format("Write the release notes for %s.", commits))
+ *             .inheritEnvironment(false)
+ *             .env(anthropicApiKey.applyValue(_anthropicApiKey -> Map.of("ANTHROPIC_API_KEY", _anthropicApiKey)))
+ *             .toolApproval(ToolApproval.Deny)
+ *             .logging(Logging.Tools)
+ *             .timeoutSeconds(600)
+ *             .build());
+ * 
+ *         ctx.export("releaseNotes", notes.output());
+ *         ctx.export("toolCalls", notes.toolCalls());
+ *     }}{@code
+ * }}{@code
+ * }
+ * </pre>
+ * 
+ * ## Import
+ * 
+ * An AgentRun cannot be imported: a run has nothing to read back. Declare the resource instead; the
+ * next `pulumi up` runs the agent.
  * 
  */
 @ResourceType(type="docker-agent:index:AgentRun")
@@ -133,18 +283,32 @@ public class AgentRun extends com.pulumi.resources.CustomResource {
         return Codegen.optional(this.env);
     }
     /**
-     * Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+     * Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
      * 
      */
     @Export(name="inheritEnvironment", refs={Boolean.class}, tree="[0]")
     private Output<Boolean> inheritEnvironment;
 
     /**
-     * @return Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands and the `open_url` launcher still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+     * @return Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
      * 
      */
     public Output<Boolean> inheritEnvironment() {
         return this.inheritEnvironment;
+    }
+    /**
+     * What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+     * 
+     */
+    @Export(name="logging", refs={Logging.class}, tree="[0]")
+    private Output<Logging> logging;
+
+    /**
+     * @return What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+     * 
+     */
+    public Output<Logging> logging() {
+        return this.logging;
     }
     /**
      * The agent&#39;s final answer.

@@ -1,0 +1,12 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4.1-mini
+    description: Assistant connected to a trusted internal remote MCP server
+    instruction: You are a helpful assistant with access to internal MCP tools.
+    toolsets:
+      - type: mcp
+        remote:
+          url: https://internal-mcp.example.com/mcp
+          transport_type: streamable
+        allow_private_ips: true

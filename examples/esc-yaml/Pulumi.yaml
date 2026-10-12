@@ -1,0 +1,93 @@
+name: docker-agent-esc
+runtime: yaml
+description: >-
+  Takes registry credentials, model API keys and AWS credentials for Amazon Bedrock from a Pulumi ESC
+  environment, publishes an agent and runs two agents during `pulumi up`.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. When you copy the
+  # example elsewhere, remove this block and install the released plugin with
+  # `pulumi plugin install resource docker-agent --server github://api.github.com/dirien/pulumi-docker-agent`.
+  providers:
+    - name: docker-agent
+      path: ../../bin
+
+# The values come from the ESC environment that Pulumi.dev.yaml imports (see environment.yaml):
+# its `pulumiConfig` sets these keys and the provider's `docker-agent:registryAuth`.
+config:
+  # Where to push the agent, for example ghcr.io/my-github-user/agents.
+  registryPrefix:
+    type: string
+  # The Anthropic API key, a secret.
+  anthropicApiKey:
+    type: string
+    secret: true
+  # An Amazon Bedrock model ID.
+  bedrockModel:
+    type: string
+    default: global.anthropic.claude-opus-5
+
+resources:
+  # An assistant that uses Anthropic. Its API key is named, never stored: `docker agent run` reads
+  # ANTHROPIC_API_KEY from its environment, which `pulumi env run` provides.
+  assistant:
+    type: docker-agent:index:AgentConfig
+    properties:
+      models:
+        claude:
+          provider: anthropic
+          model: claude-opus-5-5
+      agents:
+        - name: root
+          model: claude
+          description: Answers questions about release notes
+          instruction: Answer questions about the release notes the user pastes. Keep the answers short.
+
+  # Pushed with the credentials of `docker-agent:registryAuth`, which the ESC environment sets.
+  artifact:
+    type: docker-agent:index:AgentArtifact
+    properties:
+      reference: ${registryPrefix}/release-notes-assistant:v1
+      yaml: ${assistant.yaml}
+
+  # Option 1: the key from secret stack configuration (ESC `pulumiConfig`) through `env`. With
+  # `inheritEnvironment: false`, credentials resolve only from `env`.
+  answer:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${assistant.yaml}
+      prompt: "Summarize in one sentence: v2.4.0 adds SSO login and drops support for Node.js 18."
+      env:
+        ANTHROPIC_API_KEY: ${anthropicApiKey}
+      inheritEnvironment: false
+
+  # An agent on Amazon Bedrock. The AWS SDK signs its requests with the credentials of the provider
+  # process: the short-lived AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN that
+  # `fn::open::aws-login` creates and the environment exports as `environmentVariables`.
+  summarizer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      models:
+        bedrock:
+          provider: amazon-bedrock
+          model: ${bedrockModel}
+      agents:
+        - name: root
+          model: bedrock
+          description: Summarizes release notes
+          instruction: Summarize the release notes the user gives you in one sentence.
+
+  # Option 2: the environment of the Pulumi CLI. `pulumi up` exports the environment's
+  # `environmentVariables`, and the default `inheritEnvironment: true` passes them to the agent.
+  summary:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${summarizer.yaml}
+      prompt: "v2.4.0 adds SSO login with Okta and Entra ID, drops support for Node.js 18 and fixes the CSV export."
+
+outputs:
+  pinnedReference: ${artifact.pinnedReference}
+  # Run the published agent with the environment's variables:
+  #   pulumi env run -i <org>/docker-agent/dev -- docker agent run <pinnedReference>
+  runCommand: docker agent run ${artifact.pinnedReference}
+  answer: ${answer.output}
+  summary: ${summary.output}

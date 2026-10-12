@@ -8,6 +8,68 @@ using Pulumi;
 namespace ediri.DockerAgent
 {
     [EnumType]
+    public readonly struct ApiType : IEquatable<ApiType>
+    {
+        private readonly string _value;
+
+        private ApiType(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static ApiType OpenAIChatCompletions { get; } = new ApiType("openai_chatcompletions");
+        public static ApiType OpenAIResponses { get; } = new ApiType("openai_responses");
+
+        public static bool operator ==(ApiType left, ApiType right) => left.Equals(right);
+        public static bool operator !=(ApiType left, ApiType right) => !left.Equals(right);
+
+        public static explicit operator string(ApiType value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is ApiType other && Equals(other);
+        public bool Equals(ApiType other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct BusySendMode : IEquatable<BusySendMode>
+    {
+        private readonly string _value;
+
+        private BusySendMode(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Inject the message into the running turn (the default).
+        /// </summary>
+        public static BusySendMode Steer { get; } = new BusySendMode("steer");
+        /// <summary>
+        /// Hold the message until the turn ends.
+        /// </summary>
+        public static BusySendMode Queue { get; } = new BusySendMode("queue");
+
+        public static bool operator ==(BusySendMode left, BusySendMode right) => left.Equals(right);
+        public static bool operator !=(BusySendMode left, BusySendMode right) => !left.Equals(right);
+
+        public static explicit operator string(BusySendMode value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is BusySendMode other && Equals(other);
+        public bool Equals(BusySendMode other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
     public readonly struct DeleteBehavior : IEquatable<DeleteBehavior>
     {
         private readonly string _value;
@@ -34,6 +96,660 @@ namespace ediri.DockerAgent
         [EditorBrowsable(EditorBrowsableState.Never)]
         public override bool Equals(object? obj) => obj is DeleteBehavior other && Equals(other);
         public bool Equals(DeleteBehavior other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct EvaluatorDecision : IEquatable<EvaluatorDecision>
+    {
+        private readonly string _value;
+
+        private EvaluatorDecision(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static EvaluatorDecision Allow { get; } = new EvaluatorDecision("allow");
+        public static EvaluatorDecision Ask { get; } = new EvaluatorDecision("ask");
+        public static EvaluatorDecision Deny { get; } = new EvaluatorDecision("deny");
+
+        public static bool operator ==(EvaluatorDecision left, EvaluatorDecision right) => left.Equals(right);
+        public static bool operator !=(EvaluatorDecision left, EvaluatorDecision right) => !left.Equals(right);
+
+        public static explicit operator string(EvaluatorDecision value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is EvaluatorDecision other && Equals(other);
+        public bool Equals(EvaluatorDecision other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct EvaluatorFallback : IEquatable<EvaluatorFallback>
+    {
+        private readonly string _value;
+
+        private EvaluatorFallback(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static EvaluatorFallback Ask { get; } = new EvaluatorFallback("ask");
+        public static EvaluatorFallback Deny { get; } = new EvaluatorFallback("deny");
+
+        public static bool operator ==(EvaluatorFallback left, EvaluatorFallback right) => left.Equals(right);
+        public static bool operator !=(EvaluatorFallback left, EvaluatorFallback right) => !left.Equals(right);
+
+        public static explicit operator string(EvaluatorFallback value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is EvaluatorFallback other && Equals(other);
+        public bool Equals(EvaluatorFallback other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct EvaluatorType : IEquatable<EvaluatorType>
+    {
+        private readonly string _value;
+
+        private EvaluatorType(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static EvaluatorType Boolean { get; } = new EvaluatorType("boolean");
+        public static EvaluatorType Choice { get; } = new EvaluatorType("choice");
+        public static EvaluatorType Score { get; } = new EvaluatorType("score");
+
+        public static bool operator ==(EvaluatorType left, EvaluatorType right) => left.Equals(right);
+        public static bool operator !=(EvaluatorType left, EvaluatorType right) => !left.Equals(right);
+
+        public static explicit operator string(EvaluatorType value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is EvaluatorType other && Equals(other);
+        public bool Equals(EvaluatorType other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct HarnessEffort : IEquatable<HarnessEffort>
+    {
+        private readonly string _value;
+
+        private HarnessEffort(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static HarnessEffort Low { get; } = new HarnessEffort("low");
+        public static HarnessEffort Medium { get; } = new HarnessEffort("medium");
+        public static HarnessEffort High { get; } = new HarnessEffort("high");
+        public static HarnessEffort XHigh { get; } = new HarnessEffort("xhigh");
+        public static HarnessEffort Max { get; } = new HarnessEffort("max");
+
+        public static bool operator ==(HarnessEffort left, HarnessEffort right) => left.Equals(right);
+        public static bool operator !=(HarnessEffort left, HarnessEffort right) => !left.Equals(right);
+
+        public static explicit operator string(HarnessEffort value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is HarnessEffort other && Equals(other);
+        public bool Equals(HarnessEffort other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct HarnessType : IEquatable<HarnessType>
+    {
+        private readonly string _value;
+
+        private HarnessType(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static HarnessType ClaudeCode { get; } = new HarnessType("claude-code");
+        public static HarnessType Codex { get; } = new HarnessType("codex");
+        public static HarnessType Pi { get; } = new HarnessType("pi");
+        public static HarnessType OpenCode { get; } = new HarnessType("opencode");
+
+        public static bool operator ==(HarnessType left, HarnessType right) => left.Equals(right);
+        public static bool operator !=(HarnessType left, HarnessType right) => !left.Equals(right);
+
+        public static explicit operator string(HarnessType value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is HarnessType other && Equals(other);
+        public bool Equals(HarnessType other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct HookErrorPolicy : IEquatable<HookErrorPolicy>
+    {
+        private readonly string _value;
+
+        private HookErrorPolicy(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Reports and continues (default).
+        /// </summary>
+        public static HookErrorPolicy Warn { get; } = new HookErrorPolicy("warn");
+        /// <summary>
+        /// Continues silently.
+        /// </summary>
+        public static HookErrorPolicy Ignore { get; } = new HookErrorPolicy("ignore");
+        /// <summary>
+        /// Denies block-capable events.
+        /// </summary>
+        public static HookErrorPolicy Block { get; } = new HookErrorPolicy("block");
+
+        public static bool operator ==(HookErrorPolicy left, HookErrorPolicy right) => left.Equals(right);
+        public static bool operator !=(HookErrorPolicy left, HookErrorPolicy right) => !left.Equals(right);
+
+        public static explicit operator string(HookErrorPolicy value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is HookErrorPolicy other && Equals(other);
+        public bool Equals(HookErrorPolicy other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct HookType : IEquatable<HookType>
+    {
+        private readonly string _value;
+
+        private HookType(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Executes a shell command.
+        /// </summary>
+        public static HookType Command { get; } = new HookType("command");
+        /// <summary>
+        /// Invokes a named in-process Go function registered by the runtime.
+        /// </summary>
+        public static HookType Builtin { get; } = new HookType("builtin");
+        /// <summary>
+        /// Asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code).
+        /// </summary>
+        public static HookType Model { get; } = new HookType("model");
+        /// <summary>
+        /// Assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+        /// </summary>
+        public static HookType Evaluator { get; } = new HookType("evaluator");
+
+        public static bool operator ==(HookType left, HookType right) => left.Equals(right);
+        public static bool operator !=(HookType left, HookType right) => !left.Equals(right);
+
+        public static explicit operator string(HookType value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is HookType other && Equals(other);
+        public bool Equals(HookType other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct HttpMethod : IEquatable<HttpMethod>
+    {
+        private readonly string _value;
+
+        private HttpMethod(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static HttpMethod Get { get; } = new HttpMethod("GET");
+        public static HttpMethod Post { get; } = new HttpMethod("POST");
+        public static HttpMethod Put { get; } = new HttpMethod("PUT");
+        public static HttpMethod Patch { get; } = new HttpMethod("PATCH");
+        public static HttpMethod Delete { get; } = new HttpMethod("DELETE");
+
+        public static bool operator ==(HttpMethod left, HttpMethod right) => left.Equals(right);
+        public static bool operator !=(HttpMethod left, HttpMethod right) => !left.Equals(right);
+
+        public static explicit operator string(HttpMethod value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is HttpMethod other && Equals(other);
+        public bool Equals(HttpMethod other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct InterruptConfirmation : IEquatable<InterruptConfirmation>
+    {
+        private readonly string _value;
+
+        private InterruptConfirmation(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Ask for confirmation (the default).
+        /// </summary>
+        public static InterruptConfirmation Always { get; } = new InterruptConfirmation("always");
+        /// <summary>
+        /// Interrupt when Esc is pressed twice within a second.
+        /// </summary>
+        public static InterruptConfirmation DoubleTap { get; } = new InterruptConfirmation("double-tap");
+        /// <summary>
+        /// Interrupt immediately.
+        /// </summary>
+        public static InterruptConfirmation None { get; } = new InterruptConfirmation("none");
+
+        public static bool operator ==(InterruptConfirmation left, InterruptConfirmation right) => left.Equals(right);
+        public static bool operator !=(InterruptConfirmation left, InterruptConfirmation right) => !left.Equals(right);
+
+        public static explicit operator string(InterruptConfirmation value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is InterruptConfirmation other && Equals(other);
+        public bool Equals(InterruptConfirmation other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct LifecycleProfile : IEquatable<LifecycleProfile>
+    {
+        private readonly string _value;
+
+        private LifecycleProfile(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Auto-restart on failure with exponential backoff (the default).
+        /// </summary>
+        public static LifecycleProfile Resilient { get; } = new LifecycleProfile("resilient");
+        /// <summary>
+        /// Fail fast — the agent refuses to start when the toolset is unavailable.
+        /// </summary>
+        public static LifecycleProfile Strict { get; } = new LifecycleProfile("strict");
+        /// <summary>
+        /// Single attempt, no auto-restart.
+        /// </summary>
+        public static LifecycleProfile BestEffort { get; } = new LifecycleProfile("best-effort");
+
+        public static bool operator ==(LifecycleProfile left, LifecycleProfile right) => left.Equals(right);
+        public static bool operator !=(LifecycleProfile left, LifecycleProfile right) => !left.Equals(right);
+
+        public static explicit operator string(LifecycleProfile value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is LifecycleProfile other && Equals(other);
+        public bool Equals(LifecycleProfile other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct Logging : IEquatable<Logging>
+    {
+        private readonly string _value;
+
+        private Logging(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Report nothing while the agent runs, and no summary.
+        /// </summary>
+        public static Logging None { get; } = new Logging("none");
+        /// <summary>
+        /// Show the run's progress as status messages that are replaced by the next one (an agent started, a task was transferred or the conversation handed off, a tool call was approved or rejected, a model fell back to the next one), and log a summary of the run (duration, tool calls, tokens and estimated cost).
+        /// </summary>
+        public static Logging Status { get; } = new Logging("status");
+        /// <summary>
+        /// `status`, and also log every tool call with its arguments and whether it was approved.
+        /// </summary>
+        public static Logging Tools { get; } = new Logging("tools");
+        /// <summary>
+        /// `tools`, and also log the agents' messages and the tools' results.
+        /// </summary>
+        public static Logging Full { get; } = new Logging("full");
+
+        public static bool operator ==(Logging left, Logging right) => left.Equals(right);
+        public static bool operator !=(Logging left, Logging right) => !left.Equals(right);
+
+        public static explicit operator string(Logging value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is Logging other && Equals(other);
+        public bool Equals(Logging other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct RagFusionStrategy : IEquatable<RagFusionStrategy>
+    {
+        private readonly string _value;
+
+        private RagFusionStrategy(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static RagFusionStrategy RRF { get; } = new RagFusionStrategy("rrf");
+        public static RagFusionStrategy ReciprocalRankFusion { get; } = new RagFusionStrategy("reciprocal_rank_fusion");
+        public static RagFusionStrategy Weighted { get; } = new RagFusionStrategy("weighted");
+        public static RagFusionStrategy Max { get; } = new RagFusionStrategy("max");
+
+        public static bool operator ==(RagFusionStrategy left, RagFusionStrategy right) => left.Equals(right);
+        public static bool operator !=(RagFusionStrategy left, RagFusionStrategy right) => !left.Equals(right);
+
+        public static explicit operator string(RagFusionStrategy value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is RagFusionStrategy other && Equals(other);
+        public bool Equals(RagFusionStrategy other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct RagStrategyType : IEquatable<RagStrategyType>
+    {
+        private readonly string _value;
+
+        private RagStrategyType(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static RagStrategyType BM25 { get; } = new RagStrategyType("bm25");
+        public static RagStrategyType ChunkedEmbeddings { get; } = new RagStrategyType("chunked-embeddings");
+        public static RagStrategyType SemanticEmbeddings { get; } = new RagStrategyType("semantic-embeddings");
+
+        public static bool operator ==(RagStrategyType left, RagStrategyType right) => left.Equals(right);
+        public static bool operator !=(RagStrategyType left, RagStrategyType right) => !left.Equals(right);
+
+        public static explicit operator string(RagStrategyType value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is RagStrategyType other && Equals(other);
+        public bool Equals(RagStrategyType other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct RestartPolicy : IEquatable<RestartPolicy>
+    {
+        private readonly string _value;
+
+        private RestartPolicy(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public static RestartPolicy Never { get; } = new RestartPolicy("never");
+        public static RestartPolicy OnFailure { get; } = new RestartPolicy("on_failure");
+        public static RestartPolicy Always { get; } = new RestartPolicy("always");
+
+        public static bool operator ==(RestartPolicy left, RestartPolicy right) => left.Equals(right);
+        public static bool operator !=(RestartPolicy left, RestartPolicy right) => !left.Equals(right);
+
+        public static explicit operator string(RestartPolicy value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is RestartPolicy other && Equals(other);
+        public bool Equals(RestartPolicy other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct SafetyMode : IEquatable<SafetyMode>
+    {
+        private readonly string _value;
+
+        private SafetyMode(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Prompt for every tool call.
+        /// </summary>
+        public static SafetyMode Strict { get; } = new SafetyMode("strict");
+        /// <summary>
+        /// Auto-approve the tool calls docker-agent's classifier considers safe; prompt for the others.
+        /// </summary>
+        public static SafetyMode Balanced { get; } = new SafetyMode("balanced");
+        /// <summary>
+        /// Auto-approve the calls the classifier considers safe and deny every other unmatched call without prompting: the fail-closed profile for unattended runs. Custom permission rules still win.
+        /// </summary>
+        public static SafetyMode Restricted { get; } = new SafetyMode("restricted");
+        /// <summary>
+        /// Auto-approve every tool call (the legacy YOLO mode). Review configurations from URLs or OCI registries before running them.
+        /// </summary>
+        public static SafetyMode Autonomous { get; } = new SafetyMode("autonomous");
+
+        public static bool operator ==(SafetyMode left, SafetyMode right) => left.Equals(right);
+        public static bool operator !=(SafetyMode left, SafetyMode right) => !left.Equals(right);
+
+        public static explicit operator string(SafetyMode value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is SafetyMode other && Equals(other);
+        public bool Equals(SafetyMode other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct SectionSpacing : IEquatable<SectionSpacing>
+    {
+        private readonly string _value;
+
+        private SectionSpacing(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// The default spacing.
+        /// </summary>
+        public static SectionSpacing Normal { get; } = new SectionSpacing("normal");
+        /// <summary>
+        /// Less space between sections.
+        /// </summary>
+        public static SectionSpacing Compact { get; } = new SectionSpacing("compact");
+        /// <summary>
+        /// More space between sections.
+        /// </summary>
+        public static SectionSpacing Relaxed { get; } = new SectionSpacing("relaxed");
+
+        public static bool operator ==(SectionSpacing left, SectionSpacing right) => left.Equals(right);
+        public static bool operator !=(SectionSpacing left, SectionSpacing right) => !left.Equals(right);
+
+        public static explicit operator string(SectionSpacing value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is SectionSpacing other && Equals(other);
+        public bool Equals(SectionSpacing other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct SidebarInfoMode : IEquatable<SidebarInfoMode>
+    {
+        private readonly string _value;
+
+        private SidebarInfoMode(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Two lines per agent (the default).
+        /// </summary>
+        public static SidebarInfoMode Compact { get; } = new SidebarInfoMode("compact");
+        /// <summary>
+        /// Cards with effort, context and cost metrics.
+        /// </summary>
+        public static SidebarInfoMode Detailed { get; } = new SidebarInfoMode("detailed");
+
+        public static bool operator ==(SidebarInfoMode left, SidebarInfoMode right) => left.Equals(right);
+        public static bool operator !=(SidebarInfoMode left, SidebarInfoMode right) => !left.Equals(right);
+
+        public static explicit operator string(SidebarInfoMode value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is SidebarInfoMode other && Equals(other);
+        public bool Equals(SidebarInfoMode other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct SidebarPosition : IEquatable<SidebarPosition>
+    {
+        private readonly string _value;
+
+        private SidebarPosition(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Right of the chat (the default).
+        /// </summary>
+        public static SidebarPosition Right { get; } = new SidebarPosition("right");
+        /// <summary>
+        /// Left of the chat.
+        /// </summary>
+        public static SidebarPosition Left { get; } = new SidebarPosition("left");
+        /// <summary>
+        /// A compact horizontal band above the chat.
+        /// </summary>
+        public static SidebarPosition Top { get; } = new SidebarPosition("top");
+        /// <summary>
+        /// A compact horizontal band below the chat.
+        /// </summary>
+        public static SidebarPosition Bottom { get; } = new SidebarPosition("bottom");
+
+        public static bool operator ==(SidebarPosition left, SidebarPosition right) => left.Equals(right);
+        public static bool operator !=(SidebarPosition left, SidebarPosition right) => !left.Equals(right);
+
+        public static explicit operator string(SidebarPosition value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is SidebarPosition other && Equals(other);
+        public bool Equals(SidebarPosition other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
+    public readonly struct StructuredOutputMode : IEquatable<StructuredOutputMode>
+    {
+        private readonly string _value;
+
+        private StructuredOutputMode(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Passes it to the provider's native structured-output support (the default).
+        /// </summary>
+        public static StructuredOutputMode Native { get; } = new StructuredOutputMode("native");
+        /// <summary>
+        /// Exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema.
+        /// </summary>
+        public static StructuredOutputMode Tool { get; } = new StructuredOutputMode("tool");
+
+        public static bool operator ==(StructuredOutputMode left, StructuredOutputMode right) => left.Equals(right);
+        public static bool operator !=(StructuredOutputMode left, StructuredOutputMode right) => !left.Equals(right);
+
+        public static explicit operator string(StructuredOutputMode value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is StructuredOutputMode other && Equals(other);
+        public bool Equals(StructuredOutputMode other) => string.Equals(_value, other._value, StringComparison.Ordinal);
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         public override int GetHashCode() => _value?.GetHashCode() ?? 0;

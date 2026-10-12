@@ -18,17 +18,17 @@ namespace ediri.DockerAgent.Outputs
     public sealed class EvaluatorPolicy
     {
         /// <summary>
-        /// Choice keys (or true/false for booleans) mapped to guard decisions. Allowed values: `allow`, `ask`, `deny`.
+        /// Choice keys (or true/false for booleans) mapped to guard decisions.
         /// </summary>
-        public readonly ImmutableDictionary<string, string> Decisions;
+        public readonly ImmutableDictionary<string, ediri.DockerAgent.EvaluatorDecision> Decisions;
         /// <summary>
         /// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         /// </summary>
         public readonly ImmutableDictionary<string, object>? Extra;
         /// <summary>
-        /// Decision for uncertainty or unmapped outcomes; provider failures always block. Allowed values: `ask`, `deny`.
+        /// Decision for uncertainty or unmapped outcomes; provider failures always block.
         /// </summary>
-        public readonly string Fallback;
+        public readonly ediri.DockerAgent.EvaluatorFallback Fallback;
         /// <summary>
         /// Minimum selected-outcome probability to apply its mapping; not the confidence metric.
         /// </summary>
@@ -36,11 +36,11 @@ namespace ediri.DockerAgent.Outputs
 
         [OutputConstructor]
         private EvaluatorPolicy(
-            ImmutableDictionary<string, string> decisions,
+            ImmutableDictionary<string, ediri.DockerAgent.EvaluatorDecision> decisions,
 
             ImmutableDictionary<string, object>? extra,
 
-            string fallback,
+            ediri.DockerAgent.EvaluatorFallback fallback,
 
             double minProbability)
         {

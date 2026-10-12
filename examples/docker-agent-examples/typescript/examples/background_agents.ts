@@ -1,0 +1,58 @@
+// Generated from docker-agent v1.150.0 examples/background_agents.yaml by `make generate_config_types`. Do not edit.
+//
+// This example demonstrates the background_agents toolset, which lets a
+// coordinator dispatch work to multiple sub-agents in parallel rather than
+// waiting for each one sequentially.
+//
+// The coordinator fans out research tasks to two specialists at the same time,
+// joins their results, and synthesises a final answer once both are done.
+
+import * as dockeragent from "@ediri/pulumi-docker-agent";
+
+export const config = new dockeragent.AgentConfig("background_agents", {
+    agents: [
+        {
+            name: "root",
+            model: "anthropic/claude-sonnet-4-5",
+            description: "Research coordinator that dispatches work in parallel",
+            instruction: `\
+You are a research coordinator. When the user asks a question:
+
+1. Break the question into independent research tasks.
+2. Dispatch each task to the appropriate sub-agent using
+   \`run_background_agent\` so they run in parallel.
+3. Call \`wait_background_agents\` with both task IDs to join their results.
+   If \`all_done\` is false after a timeout, wait again. Inspect each task's
+   status and handle failures before synthesising the findings.
+4. Synthesise the findings into a clear, well-structured answer.
+
+Always run independent tasks concurrently — do not wait for one to
+finish before starting the next.
+`,
+            subAgents: ["web_researcher", "code_analyst"],
+            toolsets: [{ type: "think" }, { type: "background_agents" }],
+        },
+        {
+            name: "web_researcher",
+            model: "openai/gpt-4o",
+            description: "Searches the web for information and summarises findings",
+            instruction: `\
+You are a web researcher. Use the search tools to find relevant,
+up-to-date information. Provide concise summaries with sources.
+`,
+            toolsets: [{ type: "mcp", ref: "docker:duckduckgo" }],
+        },
+        {
+            name: "code_analyst",
+            model: "anthropic/claude-sonnet-4-5",
+            description: "Analyses local code and provides technical insights",
+            instruction: `\
+You are a code analyst. Read the codebase to answer technical
+questions. Reference specific files and line numbers in your answers.
+`,
+            toolsets: [{ type: "filesystem" }, { type: "shell" }],
+        },
+    ],
+});
+
+export const yaml = config.yaml;

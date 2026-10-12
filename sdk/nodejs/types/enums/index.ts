@@ -2,6 +2,26 @@
 // *** Do not edit by hand unless you're certain you know what you are doing! ***
 
 
+export const ApiType = {
+    OpenAIChatCompletions: "openai_chatcompletions",
+    OpenAIResponses: "openai_responses",
+} as const;
+
+export type ApiType = (typeof ApiType)[keyof typeof ApiType];
+
+export const BusySendMode = {
+    /**
+     * Inject the message into the running turn (the default).
+     */
+    Steer: "steer",
+    /**
+     * Hold the message until the turn ends.
+     */
+    Queue: "queue",
+} as const;
+
+export type BusySendMode = (typeof BusySendMode)[keyof typeof BusySendMode];
+
 export const DeleteBehavior = {
     /**
      * Leave the artifact in the registry.
@@ -14,6 +34,261 @@ export const DeleteBehavior = {
 } as const;
 
 export type DeleteBehavior = (typeof DeleteBehavior)[keyof typeof DeleteBehavior];
+
+export const EvaluatorDecision = {
+    Allow: "allow",
+    Ask: "ask",
+    Deny: "deny",
+} as const;
+
+export type EvaluatorDecision = (typeof EvaluatorDecision)[keyof typeof EvaluatorDecision];
+
+export const EvaluatorFallback = {
+    Ask: "ask",
+    Deny: "deny",
+} as const;
+
+export type EvaluatorFallback = (typeof EvaluatorFallback)[keyof typeof EvaluatorFallback];
+
+export const EvaluatorType = {
+    Boolean: "boolean",
+    Choice: "choice",
+    Score: "score",
+} as const;
+
+export type EvaluatorType = (typeof EvaluatorType)[keyof typeof EvaluatorType];
+
+export const HarnessEffort = {
+    Low: "low",
+    Medium: "medium",
+    High: "high",
+    XHigh: "xhigh",
+    Max: "max",
+} as const;
+
+export type HarnessEffort = (typeof HarnessEffort)[keyof typeof HarnessEffort];
+
+export const HarnessType = {
+    ClaudeCode: "claude-code",
+    Codex: "codex",
+    Pi: "pi",
+    OpenCode: "opencode",
+} as const;
+
+export type HarnessType = (typeof HarnessType)[keyof typeof HarnessType];
+
+export const HookErrorPolicy = {
+    /**
+     * Reports and continues (default).
+     */
+    Warn: "warn",
+    /**
+     * Continues silently.
+     */
+    Ignore: "ignore",
+    /**
+     * Denies block-capable events.
+     */
+    Block: "block",
+} as const;
+
+export type HookErrorPolicy = (typeof HookErrorPolicy)[keyof typeof HookErrorPolicy];
+
+export const HookType = {
+    /**
+     * Executes a shell command.
+     */
+    Command: "command",
+    /**
+     * Invokes a named in-process Go function registered by the runtime.
+     */
+    Builtin: "builtin",
+    /**
+     * Asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code).
+     */
+    Model: "model",
+    /**
+     * Assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+     */
+    Evaluator: "evaluator",
+} as const;
+
+export type HookType = (typeof HookType)[keyof typeof HookType];
+
+export const HttpMethod = {
+    Get: "GET",
+    Post: "POST",
+    Put: "PUT",
+    Patch: "PATCH",
+    Delete: "DELETE",
+} as const;
+
+export type HttpMethod = (typeof HttpMethod)[keyof typeof HttpMethod];
+
+export const InterruptConfirmation = {
+    /**
+     * Ask for confirmation (the default).
+     */
+    Always: "always",
+    /**
+     * Interrupt when Esc is pressed twice within a second.
+     */
+    DoubleTap: "double-tap",
+    /**
+     * Interrupt immediately.
+     */
+    None: "none",
+} as const;
+
+export type InterruptConfirmation = (typeof InterruptConfirmation)[keyof typeof InterruptConfirmation];
+
+export const LifecycleProfile = {
+    /**
+     * Auto-restart on failure with exponential backoff (the default).
+     */
+    Resilient: "resilient",
+    /**
+     * Fail fast — the agent refuses to start when the toolset is unavailable.
+     */
+    Strict: "strict",
+    /**
+     * Single attempt, no auto-restart.
+     */
+    BestEffort: "best-effort",
+} as const;
+
+export type LifecycleProfile = (typeof LifecycleProfile)[keyof typeof LifecycleProfile];
+
+export const Logging = {
+    /**
+     * Report nothing while the agent runs, and no summary.
+     */
+    None: "none",
+    /**
+     * Show the run's progress as status messages that are replaced by the next one (an agent started, a task was transferred or the conversation handed off, a tool call was approved or rejected, a model fell back to the next one), and log a summary of the run (duration, tool calls, tokens and estimated cost).
+     */
+    Status: "status",
+    /**
+     * `status`, and also log every tool call with its arguments and whether it was approved.
+     */
+    Tools: "tools",
+    /**
+     * `tools`, and also log the agents' messages and the tools' results.
+     */
+    Full: "full",
+} as const;
+
+export type Logging = (typeof Logging)[keyof typeof Logging];
+
+export const RagFusionStrategy = {
+    RRF: "rrf",
+    ReciprocalRankFusion: "reciprocal_rank_fusion",
+    Weighted: "weighted",
+    Max: "max",
+} as const;
+
+export type RagFusionStrategy = (typeof RagFusionStrategy)[keyof typeof RagFusionStrategy];
+
+export const RagStrategyType = {
+    BM25: "bm25",
+    ChunkedEmbeddings: "chunked-embeddings",
+    SemanticEmbeddings: "semantic-embeddings",
+} as const;
+
+export type RagStrategyType = (typeof RagStrategyType)[keyof typeof RagStrategyType];
+
+export const RestartPolicy = {
+    Never: "never",
+    OnFailure: "on_failure",
+    Always: "always",
+} as const;
+
+export type RestartPolicy = (typeof RestartPolicy)[keyof typeof RestartPolicy];
+
+export const SafetyMode = {
+    /**
+     * Prompt for every tool call.
+     */
+    Strict: "strict",
+    /**
+     * Auto-approve the tool calls docker-agent's classifier considers safe; prompt for the others.
+     */
+    Balanced: "balanced",
+    /**
+     * Auto-approve the calls the classifier considers safe and deny every other unmatched call without prompting: the fail-closed profile for unattended runs. Custom permission rules still win.
+     */
+    Restricted: "restricted",
+    /**
+     * Auto-approve every tool call (the legacy YOLO mode). Review configurations from URLs or OCI registries before running them.
+     */
+    Autonomous: "autonomous",
+} as const;
+
+export type SafetyMode = (typeof SafetyMode)[keyof typeof SafetyMode];
+
+export const SectionSpacing = {
+    /**
+     * The default spacing.
+     */
+    Normal: "normal",
+    /**
+     * Less space between sections.
+     */
+    Compact: "compact",
+    /**
+     * More space between sections.
+     */
+    Relaxed: "relaxed",
+} as const;
+
+export type SectionSpacing = (typeof SectionSpacing)[keyof typeof SectionSpacing];
+
+export const SidebarInfoMode = {
+    /**
+     * Two lines per agent (the default).
+     */
+    Compact: "compact",
+    /**
+     * Cards with effort, context and cost metrics.
+     */
+    Detailed: "detailed",
+} as const;
+
+export type SidebarInfoMode = (typeof SidebarInfoMode)[keyof typeof SidebarInfoMode];
+
+export const SidebarPosition = {
+    /**
+     * Right of the chat (the default).
+     */
+    Right: "right",
+    /**
+     * Left of the chat.
+     */
+    Left: "left",
+    /**
+     * A compact horizontal band above the chat.
+     */
+    Top: "top",
+    /**
+     * A compact horizontal band below the chat.
+     */
+    Bottom: "bottom",
+} as const;
+
+export type SidebarPosition = (typeof SidebarPosition)[keyof typeof SidebarPosition];
+
+export const StructuredOutputMode = {
+    /**
+     * Passes it to the provider's native structured-output support (the default).
+     */
+    Native: "native",
+    /**
+     * Exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema.
+     */
+    Tool: "tool",
+} as const;
+
+export type StructuredOutputMode = (typeof StructuredOutputMode)[keyof typeof StructuredOutputMode];
 
 export const ToolApproval = {
     /**

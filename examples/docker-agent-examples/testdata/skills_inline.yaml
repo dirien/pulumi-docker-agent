@@ -1,0 +1,39 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o-mini
+    description: An agent that demonstrates inline skill definitions.
+    instruction: |
+      You are a helpful assistant. Use the available skills when the user's
+      request matches one.
+    toolsets:
+      - type: filesystem
+    skills:
+      - local
+      - name: changelog
+        description: Write a concise, well-structured changelog entry from a diff or description.
+        instructions: |
+          Produce a single changelog entry in Keep a Changelog style.
+
+          1. Pick the right category: Added, Changed, Fixed, Removed.
+          2. Write one imperative sentence summarising the user-visible change.
+          3. Avoid implementation detail; focus on what changed for users.
+      - name: release-notes
+        description: Draft release notes for the commits since the last tag.
+        instructions: |
+          Draft release notes for this repository.
+
+          Current branch: !`git branch --show-current`
+          Commits since the last tag:
+          !`git log $(git describe --tags --abbrev=0)..HEAD --oneline`
+
+          Group the commits by theme and summarise each group in one sentence.
+      - name: triage
+        description: Triage a bug report and propose next steps in an isolated context.
+        instructions: |
+          You are triaging a bug report.
+
+          - Restate the problem in one sentence.
+          - List the most likely root causes, most probable first.
+          - Propose the smallest reproduction and the next concrete action.
+        context: fork

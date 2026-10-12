@@ -38,9 +38,9 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly string? Instruction;
         /// <summary>
-        /// HTTP method. Allowed values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+        /// HTTP method.
         /// </summary>
-        public readonly string Method;
+        public readonly ediri.DockerAgent.HttpMethod Method;
         /// <summary>
         /// Name of the API tool
         /// </summary>
@@ -66,7 +66,7 @@ namespace ediri.DockerAgent.Outputs
 
             string? instruction,
 
-            string method,
+            ediri.DockerAgent.HttpMethod method,
 
             string name,
 

@@ -4,6 +4,8 @@
 package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
+import io.github.dirien.dockeragent.enums.LifecycleProfile;
+import io.github.dirien.dockeragent.enums.RestartPolicy;
 import io.github.dirien.dockeragent.outputs.LifecycleBackoff;
 import java.lang.Boolean;
 import java.lang.Integer;
@@ -37,20 +39,20 @@ public final class Lifecycle {
      */
     private @Nullable Integer maxRestarts;
     /**
-     * @return Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+     * @return Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart.
      * 
      */
-    private @Nullable String profile;
+    private @Nullable LifecycleProfile profile;
     /**
      * @return Marks the toolset as critical to the agent. NOTE: not yet enforced — a planned eager-startup phase will refuse to start the agent when a required toolset cannot reach Ready within startup_timeout. Defaults to true under the &#39;strict&#39; profile, false otherwise.
      * 
      */
     private @Nullable Boolean required;
     /**
-     * @return How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+     * @return How the supervisor reacts to an unexpected disconnect.
      * 
      */
-    private @Nullable String restart;
+    private @Nullable RestartPolicy restart;
     /**
      * @return Cap on the initial Connect+initialize duration. Enforced since v1.94.0: on expiry the toolset stays stopped and the runtime retries on the next turn. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0 means no timeout.
      * 
@@ -87,10 +89,10 @@ public final class Lifecycle {
         return Optional.ofNullable(this.maxRestarts);
     }
     /**
-     * @return Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart. Allowed values: `resilient`, `strict`, `best-effort`.
+     * @return Shorthand that picks defaults for all the other fields. &#39;resilient&#39; (default): auto-restart on failure with exponential backoff. &#39;strict&#39;: fail fast — the agent refuses to start when the toolset is unavailable. &#39;best-effort&#39;: single attempt, no auto-restart.
      * 
      */
-    public Optional<String> profile() {
+    public Optional<LifecycleProfile> profile() {
         return Optional.ofNullable(this.profile);
     }
     /**
@@ -101,10 +103,10 @@ public final class Lifecycle {
         return Optional.ofNullable(this.required);
     }
     /**
-     * @return How the supervisor reacts to an unexpected disconnect. Allowed values: `never`, `on_failure`, `always`.
+     * @return How the supervisor reacts to an unexpected disconnect.
      * 
      */
-    public Optional<String> restart() {
+    public Optional<RestartPolicy> restart() {
         return Optional.ofNullable(this.restart);
     }
     /**
@@ -128,9 +130,9 @@ public final class Lifecycle {
         private @Nullable String callTimeout;
         private @Nullable Map<String,Object> extra;
         private @Nullable Integer maxRestarts;
-        private @Nullable String profile;
+        private @Nullable LifecycleProfile profile;
         private @Nullable Boolean required;
-        private @Nullable String restart;
+        private @Nullable RestartPolicy restart;
         private @Nullable String startupTimeout;
         public Builder() {}
         public Builder(Lifecycle defaults) {
@@ -170,7 +172,7 @@ public final class Lifecycle {
             return this;
         }
         @CustomType.Setter
-        public Builder profile(@Nullable String profile) {
+        public Builder profile(@Nullable LifecycleProfile profile) {
 
             this.profile = profile;
             return this;
@@ -182,7 +184,7 @@ public final class Lifecycle {
             return this;
         }
         @CustomType.Setter
-        public Builder restart(@Nullable String restart) {
+        public Builder restart(@Nullable RestartPolicy restart) {
 
             this.restart = restart;
             return this;

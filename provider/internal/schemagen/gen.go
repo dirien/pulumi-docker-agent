@@ -42,7 +42,12 @@ type generator struct {
 	types map[string]*goType
 	// defTypes caches the Go type name of each definition.
 	defTypes map[string]string
-	errs     []string
+	// enums are the generated Pulumi enum types by name, enumAt their names by schema path.
+	enums  map[string]*goEnum
+	enumAt map[string]string
+	// notes are remarks printed by `schemagen generate` that need no action to continue.
+	notes []string
+	errs  []string
 }
 
 func newGenerator(schema *jnode) *generator {
@@ -51,6 +56,8 @@ func newGenerator(schema *jnode) *generator {
 		defs:     schema.get("definitions"),
 		types:    map[string]*goType{},
 		defTypes: map[string]string{},
+		enums:    map[string]*goEnum{},
+		enumAt:   map[string]string{},
 	}
 }
 
@@ -186,8 +193,9 @@ func (g *generator) buildFields(t *goType, path string, node *jnode) {
 			}
 			continue
 		}
+		goType := g.typeExpr(t.name, ppath, prop, req) // before describe, which depends on the enums
 		f := &goField{goName: pascal(k), pulumi: camel(k), yamlKey: k, required: req,
-			goType: g.typeExpr(ppath, prop, req), desc: g.describe(ppath, prop), path: ppath, schema: schemaType(prop)}
+			goType: goType, desc: g.describe(ppath, prop), path: ppath, schema: schemaType(prop)}
 		if path == "Config" && k == "version" {
 			f.setDef = "DefaultConfigVersion"
 		}
@@ -205,8 +213,9 @@ func (g *generator) addExtra() {
 	}
 }
 
-// typeExpr returns the Go type of the value at path.
-func (g *generator) typeExpr(path string, n *jnode, required bool) string {
+// typeExpr returns the Go type of the value at path. owner is the Go type the value belongs
+// to; it names enums that have no name in enumTypes.
+func (g *generator) typeExpr(owner, path string, n *jnode, required bool) string {
 	ptr := func(s string) string {
 		if required {
 			return s
@@ -247,7 +256,7 @@ func (g *generator) typeExpr(path string, n *jnode, required bool) string {
 			g.fail("%s: array without items", path)
 			return "[]any"
 		}
-		return "[]" + g.typeExpr(path+"[]", items, true)
+		return "[]" + g.typeExpr(owner, path+"[]", items, true)
 	case slices.Contains(types, "object"):
 		if n.get("properties") != nil {
 			name, ok := typeNames[path]
@@ -263,14 +272,17 @@ func (g *generator) typeExpr(path string, n *jnode, required bool) string {
 			return ptr(name)
 		}
 		if ap := n.get("additionalProperties"); ap != nil && ap.kind == jObj {
-			return "map[string]" + g.typeExpr(path+"{}", ap, true)
+			return "map[string]" + g.typeExpr(owner, path+"{}", ap, true)
 		}
 		if pp := n.get("patternProperties"); pp != nil && len(pp.keys) == 1 {
-			return "map[string]" + g.typeExpr(path+"{}", pp.get(pp.keys[0]), true)
+			return "map[string]" + g.typeExpr(owner, path+"{}", pp.get(pp.keys[0]), true)
 		}
 		g.fail("%s: free-form object needs an entry in freeForm", path)
 		return goAnyMap
 	case len(types) == 1:
+		if e := g.enumType(owner, path, n); e != "" {
+			return ptr(e)
+		}
 		if s := scalarGo(types[0]); s != "" {
 			return ptr(s)
 		}
@@ -324,7 +336,11 @@ func (g *generator) describe(path string, n *jnode) string {
 		desc = "The `" + path[strings.LastIndex(path, ".")+1:] + "` setting (no description in agent-schema.json)."
 	}
 	desc = strings.TrimSpace(desc)
-	if enum := enumValues(n); len(enum) > 0 && !strings.Contains(desc, "Allowed values") {
+	switch enum := enumValues(n); {
+	case g.isEnum(path):
+		// The Pulumi enum type lists the values, with their descriptions.
+		desc = strings.TrimSpace(sentence(desc))
+	case len(enum) > 0 && !strings.Contains(desc, "Allowed values"):
 		desc = sentence(desc) + "Allowed values: " + backtickList(enum) + "."
 	}
 	if def := n.get("default"); def != nil && def.kind != jObj && def.kind != jArr &&

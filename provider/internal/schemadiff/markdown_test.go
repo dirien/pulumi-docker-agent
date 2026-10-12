@@ -20,9 +20,9 @@ func classifyFixture(path string) (bool, string) {
 
 func TestMarkdownReport(t *testing.T) {
 	d := mustCompare(t, oldFixture, newFixture)
-	md := d.Markdown("v1.149.0", "v1.150.0", classifyFixture)
+	md := d.Markdown("v1.149.0", "v1.150.0", classifyFixture, nil)
 
-	if again := d.Markdown("v1.149.0", "v1.150.0", classifyFixture); again != md {
+	if again := d.Markdown("v1.149.0", "v1.150.0", classifyFixture, nil); again != md {
 		t.Fatal("Markdown is not deterministic")
 	}
 	for _, want := range []string{
@@ -68,7 +68,7 @@ func TestMarkdownReport(t *testing.T) {
 
 func TestMarkdownWithoutClassifier(t *testing.T) {
 	d := mustCompare(t, oldFixture, newFixture)
-	md := d.Markdown("a", "b", nil)
+	md := d.Markdown("a", "b", nil, nil)
 	if strings.Contains(md, "Typed?") {
 		t.Error("Typed? column without classifier")
 	}
@@ -82,7 +82,7 @@ func TestMarkdownWithoutClassifier(t *testing.T) {
 
 func TestMarkdownAllTyped(t *testing.T) {
 	d := mustCompare(t, oldFixture, newFixture)
-	md := d.Markdown("a", "b", func(string) (bool, string) { return false, "" })
+	md := d.Markdown("a", "b", func(string) (bool, string) { return false, "" }, nil)
 	if !strings.Contains(md, "None: every added or changed property maps to a typed input.") {
 		t.Errorf("missing all-typed note:\n%s", md)
 	}
@@ -90,7 +90,7 @@ func TestMarkdownAllTyped(t *testing.T) {
 
 func TestMarkdownNoChanges(t *testing.T) {
 	d := mustCompare(t, newFixture, newFixture)
-	md := d.Markdown("v1.150.0", "v1.150.1", classifyFixture)
+	md := d.Markdown("v1.150.0", "v1.150.1", classifyFixture, nil)
 	for _, want := range []string{
 		"## Summary\n\nNo configuration schema changes between v1.150.0 and v1.150.1.\n",
 		"- latest config version: 11 (unchanged)\n",
@@ -116,7 +116,7 @@ func TestMarkdownConstraintsAndManyDescriptions(t *testing.T) {
 	for i := 0; i < 11; i++ {
 		d.DescriptionChanges = append(d.DescriptionChanges, "D.p"+string(rune('a'+i)))
 	}
-	md := d.Markdown("a", "b", func(p string) (bool, string) { return p == "Toolset|1", "" })
+	md := d.Markdown("a", "b", func(p string) (bool, string) { return p == "Toolset|1", "" }, nil)
 	for _, want := range []string{
 		"## Changed union constraints\n",
 		"- added `Toolset|11|0.type`: `const:webhook`\n",
@@ -216,5 +216,55 @@ func TestCellEscaping(t *testing.T) {
 	}
 	if got := code("oneOf[a|b]"); got != "`oneOf[a|b]`" {
 		t.Errorf("code = %q", got)
+	}
+}
+
+func TestMarkdownSDKBreaking(t *testing.T) {
+	d := mustCompare(t, oldFixture, newFixture)
+	d.EnumChanges = append(d.EnumChanges,
+		EnumChange{Path: "Agent.transport", Added: []string{"sse", "http"}}, // a string that became an enum
+		EnumChange{Path: "Agent.level", Added: []string{"max"}},             // an enum that only gained a value
+	)
+	enumAt := func(names map[string]string) EnumClassifier {
+		return func(path string) (string, bool) {
+			name, ok := names[path]
+			return name, ok
+		}
+	}
+	enums := &Enums{
+		Old: enumAt(map[string]string{"Agent.mode": "AgentMode", "Agent.level": "Level"}),
+		New: enumAt(map[string]string{"Agent.mode": "AgentMode", "Agent.level": "Level", "Agent.transport": "Transport"}),
+	}
+	want := []EnumBreak{
+		{Path: "Agent.mode", Enum: "AgentMode", Removed: []string{"legacy"}, Added: []string{"auto"}},
+		{Path: "Agent.transport", Enum: "Transport", Added: []string{"sse", "http"}, NewEnum: true},
+	}
+	if got := d.SDKBreaking(enums); !reflect.DeepEqual(got, want) {
+		t.Errorf("SDKBreaking = %+v, want %+v", got, want)
+	}
+	md := d.Markdown("a", "b", nil, enums)
+	for _, want := range []string{
+		"## Summary\n",
+		"## SDK-breaking changes\n\nThese changes break Go, .NET and Java programs",
+		"| `Agent.mode` | `AgentMode` | `legacy` | `auto` |\n",
+		"| `Agent.transport` | `Transport` (new: the input was a string) |  | `sse`, `http` |\n",
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("report misses %q\n---\n%s", want, md)
+		}
+	}
+	if strings.Index(md, "## SDK-breaking changes") > strings.Index(md, "## Config version") {
+		t.Error("the SDK-breaking section must come right after the summary")
+	}
+
+	if md := d.Markdown("a", "b", nil, &Enums{Old: enumAt(nil), New: enumAt(nil)}); !strings.Contains(md,
+		"## SDK-breaking changes\n\nNone: no Pulumi enum lost a value, and no string input became an enum.\n") {
+		t.Errorf("missing none note:\n%s", md)
+	}
+	if md := d.Markdown("a", "b", nil, &Enums{New: enums.New}); !strings.Contains(md, "Not checked (the Pulumi enums") {
+		t.Errorf("missing not-checked note:\n%s", md)
+	}
+	if md := d.Markdown("a", "b", nil, nil); strings.Contains(md, "SDK-breaking") {
+		t.Error("SDK-breaking section without enum classifiers")
 	}
 }

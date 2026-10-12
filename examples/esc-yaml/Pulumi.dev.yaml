@@ -1,0 +1,5 @@
+# The dev stack imports the ESC environment docker-agent/dev of the stack's organization. Create it
+# from environment.yaml first (see README.md). `pulumi config env add docker-agent/dev` writes the
+# same entry.
+environment:
+  - docker-agent/dev

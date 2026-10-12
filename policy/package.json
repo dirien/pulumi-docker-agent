@@ -1,0 +1,21 @@
+{
+    "name": "docker-agent-policies",
+    "version": "0.1.0",
+    "description": "Pulumi Policies policy pack for Docker Agent resources.",
+    "private": true,
+    "license": "Apache-2.0",
+    "main": "index.ts",
+    "scripts": {
+        "build": "tsc -p .",
+        "test": "tsc -p . && node --test bin/tests/*.test.js"
+    },
+    "dependencies": {
+        "@ediri/pulumi-docker-agent": "file:../sdk/nodejs/bin",
+        "@pulumi/policy": "^1.21.0",
+        "@pulumi/pulumi": "^3.268.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "typescript": "^5.9.3"
+    }
+}

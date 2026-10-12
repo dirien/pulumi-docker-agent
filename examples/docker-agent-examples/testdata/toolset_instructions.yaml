@@ -1,0 +1,22 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o
+    description: A coding assistant with enriched toolset instructions
+    instruction: |
+      You are a helpful coding assistant.
+    toolsets:
+      - type: filesystem
+        instruction: |
+          {ORIGINAL_INSTRUCTIONS}
+
+          ## Project-specific rules
+          - Never modify files outside the `src/` directory.
+          - Always create a backup before overwriting a file.
+      - type: shell
+        instruction: |
+          {ORIGINAL_INSTRUCTIONS}
+
+          ## Extra safety rules
+          - Never run `rm -rf` commands.
+          - Always use `--dry-run` when available.

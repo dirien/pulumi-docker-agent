@@ -1,0 +1,19 @@
+version: "16"
+agents:
+  root:
+    model: anthropic/claude-sonnet-4-6
+    description: Agent restricted to a curated set of remote MCP servers.
+    instruction: |
+      You can discover and activate remote MCP servers on demand, but only
+      a curated subset of the catalog is available to you. Use
+      search_remote_mcp_servers to find one, then enable_remote_mcp_server
+      to activate it.
+    toolsets:
+      - type: mcp_catalog
+        allowed_servers:
+          - docker-docs
+          - microsoft-learn
+          - hugging-face
+          - gitmcp
+        blocked_servers:
+          - gitmcp

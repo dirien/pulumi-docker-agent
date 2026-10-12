@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.inputs;
 
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
+import io.github.dirien.dockeragent.enums.RagFusionStrategy;
 import java.lang.Double;
 import java.lang.Integer;
 import java.lang.Object;
@@ -54,17 +55,17 @@ public final class RagFusionArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+     * Fusion strategy to use. Defaults to `rrf`.
      * 
      */
     @Import(name="strategy")
-    private @Nullable Output<String> strategy;
+    private @Nullable Output<RagFusionStrategy> strategy;
 
     /**
-     * @return Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+     * @return Fusion strategy to use. Defaults to `rrf`.
      * 
      */
-    public Optional<Output<String>> strategy() {
+    public Optional<Output<RagFusionStrategy>> strategy() {
         return Optional.ofNullable(this.strategy);
     }
 
@@ -153,23 +154,23 @@ public final class RagFusionArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param strategy Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+         * @param strategy Fusion strategy to use. Defaults to `rrf`.
          * 
          * @return builder
          * 
          */
-        public Builder strategy(@Nullable Output<String> strategy) {
+        public Builder strategy(@Nullable Output<RagFusionStrategy> strategy) {
             $.strategy = strategy;
             return this;
         }
 
         /**
-         * @param strategy Fusion strategy to use. Allowed values: `rrf`, `reciprocal_rank_fusion`, `weighted`, `max`. Defaults to `rrf`.
+         * @param strategy Fusion strategy to use. Defaults to `rrf`.
          * 
          * @return builder
          * 
          */
-        public Builder strategy(String strategy) {
+        public Builder strategy(RagFusionStrategy strategy) {
             return strategy(Output.of(strategy));
         }
 

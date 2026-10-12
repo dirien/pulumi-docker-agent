@@ -42,6 +42,67 @@ jobs:
           version: v2.14.0
           working-directory: provider
 
+  schema:
+    name: SDK breaking-change check
+    # Compares the pull request's schema.json with the base branch's using pulumi/schema-tools.
+    # The report goes to the job summary, and a pull request that breaks SDK users (a removed or
+    # renamed property, a string that became an enum, ...) is labelled breaking-sdk-change. The
+    # check informs and does not fail: a breaking change is fine when the release notes say so.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # the breaking-sdk-change label; fork and Dependabot runs get a read-only token
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the base branch's schema.json
+          persist-credentials: false
+      - name: Compare schema.json with the base branch
+        id: compare
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          schema=provider/cmd/pulumi-resource-docker-agent/schema.json
+          base="${RUNNER_TEMP}/schema-base.json"
+          report="${RUNNER_TEMP}/schema-report.md"
+          if ! git show "${BASE_SHA}:${schema}" > "${base}" 2>/dev/null; then
+            echo "${BASE_REF} has no ${schema}; nothing to compare." >> "$GITHUB_STEP_SUMMARY"
+            echo "breaking=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          scripts/schema-compare.sh "${base}" "${schema}" "${report}"
+          {
+            echo "## Pulumi schema compared with ${BASE_REF}"
+            echo
+            cat "${report}"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Flag breaking SDK changes
+        if: steps.compare.outputs.breaking == 'true'
+        run: |
+          echo "::warning title=Breaking SDK change::schema.json changes the Pulumi SDKs in a breaking way; see the job summary of 'SDK breaking-change check' and call it out in CHANGELOG.md."
+      - name: Label the pull request
+        # Fork and Dependabot pull requests run with a read-only token: they get the job summary only.
+        if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BREAKING: ${{ steps.compare.outputs.breaking }}
+          PR: ${{ github.event.pull_request.number }}
+          LABEL: breaking-sdk-change
+        run: |
+          if [ "${BREAKING}" = "true" ]; then
+            gh label create "${LABEL}" --repo "${GITHUB_REPOSITORY}" --force --color b60205 \
+              --description "Changes the Pulumi schema in a way that breaks SDK users" ||
+              echo "::warning::could not create the ${LABEL} label"
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels" -f "labels[]=${LABEL}" >/dev/null ||
+              echo "::warning::could not add the ${LABEL} label to #${PR}"
+          else
+            # A later push may have removed the breaking change.
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/${LABEL}" >/dev/null 2>&1 || true
+          fi
+
   provider:
     name: Build, test and codegen
     runs-on: ubuntu-latest
@@ -68,9 +129,10 @@ jobs:
         with:
           pulumi-version-file: .pulumi.version
       - name: Check the generated config types
-        # Regenerates the typed AgentConfig inputs, the vendored agent-schema.json and the
-        # upstream examples from the docker-agent version in provider/go.mod, and fails on any
-        # difference, so a docker-agent bump cannot land without regenerated types.
+        # Regenerates the typed AgentConfig inputs, the vendored agent-schema.json, the
+        # upstream examples and their TypeScript and Python programs (examples/docker-agent-examples)
+        # from the docker-agent version in provider/go.mod, and fails on any difference, so a
+        # docker-agent bump cannot land without regenerated types and examples.
         run: make check_config_types
       - name: Build provider
         run: make provider
@@ -84,15 +146,18 @@ jobs:
           echo "docker-agent ${want}: constant and go.mod agree"
       - name: Unit and integration tests
         run: make test_provider
-      - name: Regenerate schema and SDKs
+      - name: Regenerate examples, schema and SDKs
+        # `make docs` (part of codegen) converts docs/yaml with `pulumi convert` into the Example
+        # Usage sections of every language: provider/pkg/provider/embed and docs/_index.md.
         run: make codegen
-      - name: Fail if the committed schema or SDKs are stale
+      - name: Fail if the committed examples, schema or SDKs are stale
         run: |
           git update-index -q --refresh
           if [ -n "$(git status --porcelain)" ]; then
-            echo "::error title=Stale generated code::schema.json and/or sdk/ differ from 'make codegen'. Run 'make codegen' locally and commit the result."
+            echo "::error title=Stale generated code::the generated examples (provider/pkg/provider/embed, docs/_index.md), schema.json and/or sdk/ differ from 'make codegen'. Run 'make codegen' locally and commit the result."
             git status --porcelain
             git --no-pager diff --stat
+            git --no-pager diff -- provider/pkg/provider/embed docs/_index.md | head -100
             git --no-pager diff -- provider/cmd/pulumi-resource-docker-agent/schema.json | head -200
             exit 1
           fi
@@ -116,6 +181,7 @@ jobs:
           - python
           - dotnet
           - go
+          - java
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -153,7 +219,23 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 8.0.x
+      - name: Setup Java
+        if: matrix.language == 'java'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          # The generated sdk/java/build.gradle compiles with a Java 11 toolchain; Gradle runs on
+          # the last one, 21.
+          java-version: |
+            11
+            21
+      - name: Setup Gradle
+        if: matrix.language == 'java'
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "9.7.1"
       - name: Build SDK
+        # For java: the jar, the sources and javadoc jars and the POM, as the release publishes them.
         run: make build_${{ matrix.language }}
       - name: Check worktree clean
         run: |
@@ -212,6 +294,18 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 8.0.x
+      - name: Setup Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          # TestExampleJava builds sdk/java (Java 11 toolchain) in a composite build; Gradle runs on 21.
+          java-version: |
+            11
+            21
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: "9.7.1"
       - name: Install the matching docker-agent CLI (compatibility checks)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -238,14 +332,45 @@ jobs:
       - name: Run examples
         # Builds the provider and the nodejs, python and dotnet SDKs, then runs up, preview,
         # refresh and destroy for every program in examples/ (YAML, TypeScript, Python, Go, C#,
-        # HCL and docker-serve-ts) against the registry service. The CLI downloads the HCL
-        # language plugin on first use.
+        # Java, HCL and docker-serve-ts) against the registry service. The Java example builds
+        # sdk/java itself (a Gradle composite build). The CLI downloads the HCL
+        # language plugin on first use. The generated docker-agent example programs
+        # (examples/docker-agent-examples, TypeScript and Python) need no registry; their tests
+        # compare the YAML of every example with the golden files.
         # The examples use bin/ through `plugins.providers`, so no plugin install is needed.
         # docker-agent (installed above) is on PATH, so the tests also pull each artifact
         # with `docker-agent share pull` and `docker-agent debug config`.
         env:
           DOCKER_AGENT_TEST_REGISTRY: localhost:5000
         run: make test_examples
+      - name: Policy pack unit tests
+        # make test_examples built sdk/nodejs/bin, which the pack depends on.
+        run: make test_policy
+
+  esc:
+    name: ESC environment check (Pulumi Cloud)
+    # PULUMI_ACCESS_TOKEN never reaches a job that runs pull request code: the e2e job runs the
+    # provider, the examples and, on the docker-agent upgrade pull request, new upstream code.
+    # This job runs only for pushes to main and manual runs on main, builds nothing and runs only
+    # TestExampleESCEnvironment, which skips itself without a token. The check API saves nothing.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: examples/go.mod
+          cache-dependency-path: examples/go.sum
+      - name: Check the ESC example environment with Pulumi Cloud
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        run: cd examples && go test -count=1 -run '^TestExampleESCEnvironment$' -v .
 
   goreleaser:
     name: GoReleaser check

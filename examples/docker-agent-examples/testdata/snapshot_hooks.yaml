@@ -1,0 +1,20 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-5-mini
+    description: Coder with shadow-git snapshots enabled
+    instruction: |
+      You are a coding assistant. Make focused changes and explain what you changed.
+    toolsets:
+      - type: shell
+      - type: filesystem
+    hooks:
+      turn_start:
+        - type: builtin
+          command: snapshot
+      turn_end:
+        - type: builtin
+          command: snapshot
+      session_end:
+        - type: builtin
+          command: snapshot

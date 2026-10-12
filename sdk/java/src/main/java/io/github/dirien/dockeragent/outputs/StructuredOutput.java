@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.StructuredOutputMode;
 import java.lang.Boolean;
 import java.lang.Object;
 import java.lang.String;
@@ -26,10 +27,10 @@ public final class StructuredOutput {
      */
     private @Nullable Map<String,Object> extra;
     /**
-     * @return How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+     * @return How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
      * 
      */
-    private @Nullable String mode;
+    private @Nullable StructuredOutputMode mode;
     /**
      * @return Name of the response format schema
      * 
@@ -62,10 +63,10 @@ public final class StructuredOutput {
         return this.extra == null ? Map.of() : this.extra;
     }
     /**
-     * @return How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider. Allowed values: `native`, `tool`.
+     * @return How the schema is enforced. &#39;native&#39; (default) passes it to the provider&#39;s native structured-output support. &#39;tool&#39; exposes an internal tool the model must call with the final JSON; the runtime validates the arguments against the schema. Works with any tool-calling provider.
      * 
      */
-    public Optional<String> mode() {
+    public Optional<StructuredOutputMode> mode() {
         return Optional.ofNullable(this.mode);
     }
     /**
@@ -101,7 +102,7 @@ public final class StructuredOutput {
     public static final class Builder {
         private @Nullable String description;
         private @Nullable Map<String,Object> extra;
-        private @Nullable String mode;
+        private @Nullable StructuredOutputMode mode;
         private String name;
         private Map<String,Object> schema;
         private @Nullable Boolean strict;
@@ -129,7 +130,7 @@ public final class StructuredOutput {
             return this;
         }
         @CustomType.Setter
-        public Builder mode(@Nullable String mode) {
+        public Builder mode(@Nullable StructuredOutputMode mode) {
 
             this.mode = mode;
             return this;

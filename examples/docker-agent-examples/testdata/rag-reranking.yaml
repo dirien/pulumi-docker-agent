@@ -1,0 +1,74 @@
+version: "16"
+agents:
+  root:
+    model: openai-agent
+    description: assistant with hybrid search
+    instruction: |
+      You are a helpful assistant with access to hybrid retrieval
+      combining semantic and keyword search for comprehensive results.
+    toolsets:
+      - type: rag
+        ref: knowledge_base
+models:
+  claude-rerank:
+    provider: anthropic
+    model: claude-sonnet-5
+    max_tokens: 64000
+  dmr-embedder:
+    provider: dmr
+    model: ai/embeddinggemma
+    max_tokens: 2048
+    provider_opts:
+      runtime_flags: -ub 1024
+  dmr-rerank:
+    provider: dmr
+    model: hf.co/ggml-org/qwen3-reranker-0.6b-q8_0-gguf
+    max_tokens: 32000
+  gemini-rerank:
+    provider: google
+    model: gemini-2.5-flash
+    max_tokens: 64000
+  openai-agent:
+    provider: openai
+    model: gpt-5.6-terra
+    max_tokens: 64000
+    thinking_budget: minimal
+  openai-embedder:
+    provider: openai
+    model: text-embedding-3-small
+  openai-rerank:
+    provider: openai
+    model: gpt-4.1-nano
+    max_tokens: 64000
+rag:
+  knowledge_base:
+    tool:
+      description: to be used to search for information about blorks
+    docs:
+      - ./docs
+      - ./blork_field_guide.txt
+    strategies:
+      - type: chunked-embeddings
+        embedding_model: openai-embedder
+        database: ./chunked_embeddings.db
+        similarity_metric: cosine_similarity
+        vector_dimensions: 1536
+        chunking:
+          size: 1500
+          overlap: 75
+          respect_word_boundaries: true
+        max_embedding_concurrency: 5
+      - type: bm25
+        database: ./bm25.db
+    results:
+      fusion:
+        strategy: rrf
+      reranking:
+        model: openai-rerank
+        criteria: |
+          When scoring relevance, prioritize:
+          - Content from official documentation (field_guide.txt) over blog posts
+          - Recent information (check created_at dates)
+          - Practical examples and field observations over theory
+          - Documents from docs/ directory when available
+      deduplicate: true

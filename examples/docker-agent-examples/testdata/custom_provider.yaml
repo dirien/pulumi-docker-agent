@@ -1,0 +1,51 @@
+version: "16"
+agents:
+  root:
+    model: responses_model
+    description: Main assistant using the custom gateway
+    instruction: |
+      You are a helpful AI assistant. Be concise and helpful in your responses.
+  subagent:
+    model: my_gateway/gpt-5.6-terra
+    description: Sub-agent for specialized tasks
+    instruction: |
+      You are a specialized assistant for specific tasks.
+  researcher:
+    model: my_anthropic/claude-sonnet-5
+    description: Research assistant
+    instruction: |
+      You are a research assistant that provides thorough analysis.
+models:
+  claude_fast:
+    provider: my_anthropic
+    model: claude-haiku-4-5
+    thinking_budget: low
+  claude_model:
+    provider: my_anthropic
+    model: claude-sonnet-5
+  gateway_gpt:
+    provider: my_gateway
+    model: gpt-5.6-sol
+    temperature: 0.7
+    max_tokens: 32768
+  responses_model:
+    provider: responses_provider
+    model: gpt-5.6-sol
+    max_tokens: 16000
+providers:
+  my_anthropic:
+    provider: anthropic
+    token_key: MY_ANTHROPIC_KEY
+    max_tokens: 16384
+    thinking_budget: high
+  my_gateway:
+    api_type: openai_chatcompletions
+    base_url: https://api.example.com/
+    token_key: API_KEY_ENV_VAR_NAME
+  my_google:
+    provider: google
+    temperature: 0.7
+  responses_provider:
+    api_type: openai_responses
+    base_url: https://responses.example.com/
+    token_key: API_KEY_ENV_VAR_NAME

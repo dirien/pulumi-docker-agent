@@ -24,45 +24,12 @@ The reference can be a tag or a digest. When the provider's ` + "`registryAuth`"
 they are used right away. Otherwise the function first tries anonymous access and retries with the Docker
 credential store when the registry answers 401, 403, 404 or 429. It accepts artifacts pushed by
 ` + "`docker agent share push`" + ` and by ` + "`AgentArtifact`" + `, and
-rejects manifests without the ` + "`io.docker.agent.version`" + ` annotation.
-
-{{% examples %}}
-## Example Usage
-{{% example %}}
-### Read a shared agent
-
-` + "```typescript" + `
-import * as dockeragent from "@ediri/pulumi-docker-agent";
-
-const agent = dockeragent.getAgentOutput({ reference: "docker.io/my-org/assistant:latest" });
-
-export const agentYaml = agent.yaml;
-export const agentNames = agent.agentNames;
-` + "```" + `
-` + "```python" + `
-import pulumi
-import ediri_docker_agent as dockeragent
-
-agent = dockeragent.get_agent_output(reference="docker.io/my-org/assistant:latest")
-pulumi.export("agentYaml", agent.yaml)
-` + "```" + `
-` + "```yaml" + `
-variables:
-  agent:
-    fn::invoke:
-      function: docker-agent:index:getAgent
-      arguments:
-        reference: docker.io/my-org/assistant:latest
-outputs:
-  agentYaml: ${agent.yaml}
-` + "```" + `
-{{% /example %}}
-{{% /examples %}}`
+rejects manifests without the ` + "`io.docker.agent.version`" + ` annotation.`
 
 // Annotate describes the function.
 func (g *GetAgent) Annotate(a infer.Annotator) {
 	a.SetToken("index", "getAgent")
-	a.Describe(&g, getAgentDoc)
+	a.Describe(&g, describe(getAgentDoc, getAgentExamples, ""))
 }
 
 // GetAgentArgs are the inputs of getAgent.
@@ -77,7 +44,7 @@ func (a *GetAgentArgs) Annotate(an infer.Annotator) {
 		"`latest`) or `registry/repository@sha256:...`.")
 	an.Describe(&a.Insecure, "Allow a plain-HTTP or self-signed registry. Without it, plain HTTP is only used "+
 		"as a fallback when HTTPS fails for `localhost`, `*.localhost`, loopback and private (RFC 1918) "+
-		"addresses, the same as the docker CLI.")
+		"addresses, the same as the `docker agent` CLI.")
 }
 
 // GetAgentResult is the result of getAgent.

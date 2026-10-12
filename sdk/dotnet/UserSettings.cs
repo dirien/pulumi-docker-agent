@@ -30,14 +30,158 @@ namespace ediri.DockerAgent
     /// If a file already exists at the path when the resource is created, the preview fails when its content differs
     /// from the rendered file, so existing aliases and settings are never replaced silently. Copy what you want to keep
     /// into the inputs, or set `overwrite: true`. Either way the existing file is moved to
-    /// `&lt;file&gt;.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a backup,
-    /// deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+    /// `&lt;file&gt;.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+    /// resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+    /// Set the `retainOnDelete` resource option to keep the file.
     /// 
     /// The resource owns the whole file. Changes docker-agent makes itself (`docker agent alias add`, the TUI's
     /// `/settings` dialog, `docker agent sandbox allow`) show up as drift and are reverted by the next
     /// `pulumi up --refresh`, so manage those settings here instead.
     /// 
     /// ## Example Usage
+    /// ### Write the user configuration
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // Docker Agent's user configuration, validated with docker-agent's own checks.
+    ///     var settings = new DockerAgent.UserSettings("settings", new()
+    ///     {
+    ///         Path = "~/.config/cagent/config.yaml",
+    ///         Settings = new DockerAgent.Inputs.UserGlobalSettingsArgs
+    ///         {
+    ///             Theme = "auto",
+    ///             ThemeDark = "dracula",
+    ///             Safety = DockerAgent.SafetyMode.Balanced,
+    ///             Sound = true,
+    ///             Layout = new DockerAgent.Inputs.UserLayoutSettingsArgs
+    ///             {
+    ///                 SidebarPosition = DockerAgent.SidebarPosition.Left,
+    ///                 HideUsage = true,
+    ///             },
+    ///             Permissions = new DockerAgent.Inputs.UserPermissionsArgs
+    ///             {
+    ///                 Deny = new[]
+    ///                 {
+    ///                     "shell:cmd=sudo*",
+    ///                 },
+    ///                 Allow = new[]
+    ///                 {
+    ///                     "read_*",
+    ///                 },
+    ///             },
+    ///             Keybindings = new[]
+    ///             {
+    ///                 new DockerAgent.Inputs.UserKeybindingArgs
+    ///                 {
+    ///                     Action = "commands",
+    ///                     Keys = new[]
+    ///                     {
+    ///                         "f2",
+    ///                         "ctrl+k",
+    ///                     },
+    ///                 },
+    ///             },
+    ///         },
+    ///         Aliases =
+    ///         {
+    ///             { "reviewer", new DockerAgent.Inputs.UserAliasArgs
+    ///             {
+    ///                 Path = "docker.io/myorg/reviewer:latest",
+    ///                 Safety = DockerAgent.SafetyMode.Restricted,
+    ///             } },
+    ///         },
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["configPath"] = settings.FilePath,
+    ///         ["configSha256"] = settings.Sha256,
+    ///     };
+    /// });
+    /// ```
+    /// ### Render only, with a global provider and hooks
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     // No `path`: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
+    ///     var rendered = new DockerAgent.UserSettings("rendered", new()
+    ///     {
+    ///         Providers =
+    ///         {
+    ///             { "gateway", new DockerAgent.Inputs.UserProviderArgs
+    ///             {
+    ///                 BaseUrl = "https://llm.example.com/v1",
+    ///                 TokenKey = "GATEWAY_API_KEY",
+    ///             } },
+    ///         },
+    ///         DefaultModel = new DockerAgent.Inputs.UserModelArgs
+    ///         {
+    ///             Provider = "gateway",
+    ///             Model = "qwen3-coder",
+    ///         },
+    ///         SandboxAllowlist = new[]
+    ///         {
+    ///             "registry.npmjs.org:443",
+    ///         },
+    ///         Settings = new DockerAgent.Inputs.UserGlobalSettingsArgs
+    ///         {
+    ///             Hooks = new DockerAgent.Inputs.UserHooksArgs
+    ///             {
+    ///                 SessionStart = new[]
+    ///                 {
+    ///                     new DockerAgent.Inputs.UserHookArgs
+    ///                     {
+    ///                         Type = DockerAgent.HookType.Command,
+    ///                         Command = "~/.config/cagent/hooks/session-start.sh",
+    ///                     },
+    ///                 },
+    ///                 PreToolUse = new[]
+    ///                 {
+    ///                     new DockerAgent.Inputs.UserHookMatcherArgs
+    ///                     {
+    ///                         Matcher = "shell",
+    ///                         Hooks = new[]
+    ///                         {
+    ///                             new DockerAgent.Inputs.UserHookArgs
+    ///                             {
+    ///                                 Type = DockerAgent.HookType.Builtin,
+    ///                                 Command = "redact_secrets",
+    ///                             },
+    ///                         },
+    ///                     },
+    ///                 },
+    ///             },
+    ///         },
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["userConfigYaml"] = rendered.Yaml,
+    ///     };
+    /// });
+    /// ```
+    /// 
+    /// ## Import
+    /// 
+    /// An existing user configuration can be imported with its path (or `file://&lt;path&gt;`)
+    /// as ID. It is read with docker-agent's own types, and `pulumi import` generates the typed inputs,
+    /// `path` included. The file is adopted: the import writes nothing and takes no backup, `overwrite` is
+    /// not needed, and deleting the resource leaves the file in place (with the content Pulumi last wrote) instead of
+    /// removing it. The resource ID is the file's absolute path.
+    /// 
+    /// ```sh
+    /// $ pulumi import docker-agent:index:UserSettings settings ~/.config/cagent/config.yaml
+    /// ```
     /// </summary>
     [DockerAgentResourceType("docker-agent:index:UserSettings")]
     public partial class UserSettings : global::Pulumi.CustomResource
@@ -49,7 +193,7 @@ namespace ediri.DockerAgent
         public Output<ImmutableDictionary<string, Outputs.UserAlias>?> Aliases { get; private set; } = null!;
 
         /// <summary>
-        /// Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+        /// Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
         /// </summary>
         [Output("backupPath")]
         public Output<string?> BackupPath { get; private set; } = null!;

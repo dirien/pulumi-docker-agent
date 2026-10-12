@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import io.github.dirien.dockeragent.enums.SafetyMode;
 import io.github.dirien.dockeragent.outputs.AgentRouting;
 import io.github.dirien.dockeragent.outputs.Command;
 import io.github.dirien.dockeragent.outputs.Fallback;
@@ -183,10 +184,10 @@ public final class Agent {
      */
     private @Nullable AgentRouting routing;
     /**
-     * @return Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+     * @return Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them.
      * 
      */
-    private @Nullable String safety;
+    private @Nullable SafetyMode safety;
     /**
      * @return Enabled by default. When true (the default), the runtime automatically compacts the session: proactively when the estimated context usage crosses the compaction threshold, and reactively to recover from a context-overflow error. Set to false to disable both automatic triggers for this agent; the manual /compact command remains available.
      * 
@@ -457,10 +458,10 @@ public final class Agent {
         return Optional.ofNullable(this.routing);
     }
     /**
-     * @return Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+     * @return Safety mode new sessions started on this agent default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). Takes precedence over the config-wide runtime.safety. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them.
      * 
      */
-    public Optional<String> safety() {
+    public Optional<SafetyMode> safety() {
         return Optional.ofNullable(this.safety);
     }
     /**
@@ -574,7 +575,7 @@ public final class Agent {
         private @Nullable Boolean readonly;
         private @Nullable Boolean redactSecrets;
         private @Nullable AgentRouting routing;
-        private @Nullable String safety;
+        private @Nullable SafetyMode safety;
         private @Nullable Boolean sessionCompaction;
         private @Nullable Map<String,String> simpleCommands;
         private @Nullable List<String> skills;
@@ -836,7 +837,7 @@ public final class Agent {
             return this;
         }
         @CustomType.Setter
-        public Builder safety(@Nullable String safety) {
+        public Builder safety(@Nullable SafetyMode safety) {
 
             this.safety = safety;
             return this;

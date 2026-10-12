@@ -102,16 +102,36 @@ def validate_agent_config(yaml: Optional[_builtins.str] = None,
     for unknown toolset types and model providers.
 
     Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-    `valid: false` and the reasons in `errors`.
+    `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+    docker-agent stops at.
 
     ## Example Usage
     ### Validate an agent file
     ```python
     import pulumi
-    import ediri_docker_agent as dockeragent
+    import ediri_docker_agent as docker_agent
 
-    result = dockeragent.validate_agent_config_output(yaml=open("agent.yaml").read())
+    # An agent file kept as raw YAML next to the program.
+    agent_file = (lambda path: open(path).read())("./agent.yaml")
+
+    # Never fails on an invalid document: check `valid` and `errors`.
+    result = docker_agent.validate_agent_config_output(yaml=agent_file)
     pulumi.export("valid", result.valid)
+    pulumi.export("errors", result.errors)
+    pulumi.export("requiredEnvVars", result.required_env_vars)
+    ```
+    ### Validate a shared agent before running it
+    ```python
+    import pulumi
+    import ediri_docker_agent as docker_agent
+
+    shared = docker_agent.get_agent_output(reference="docker.io/my-org/assistant:latest")
+
+    # Checks the pulled configuration against the docker-agent version of the provider.
+    check = docker_agent.validate_agent_config_output(yaml=shared.yaml)
+    pulumi.export("valid", check.valid)
+    pulumi.export("errors", check.errors)
+    pulumi.export("agentNames", check.agent_names)
     ```
 
     :param _builtins.str yaml: The docker-agent YAML document to validate.
@@ -135,16 +155,36 @@ def validate_agent_config_output(yaml: pulumi.Input[Optional[_builtins.str]] = N
     for unknown toolset types and model providers.
 
     Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-    `valid: false` and the reasons in `errors`.
+    `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+    docker-agent stops at.
 
     ## Example Usage
     ### Validate an agent file
     ```python
     import pulumi
-    import ediri_docker_agent as dockeragent
+    import ediri_docker_agent as docker_agent
 
-    result = dockeragent.validate_agent_config_output(yaml=open("agent.yaml").read())
+    # An agent file kept as raw YAML next to the program.
+    agent_file = (lambda path: open(path).read())("./agent.yaml")
+
+    # Never fails on an invalid document: check `valid` and `errors`.
+    result = docker_agent.validate_agent_config_output(yaml=agent_file)
     pulumi.export("valid", result.valid)
+    pulumi.export("errors", result.errors)
+    pulumi.export("requiredEnvVars", result.required_env_vars)
+    ```
+    ### Validate a shared agent before running it
+    ```python
+    import pulumi
+    import ediri_docker_agent as docker_agent
+
+    shared = docker_agent.get_agent_output(reference="docker.io/my-org/assistant:latest")
+
+    # Checks the pulled configuration against the docker-agent version of the provider.
+    check = docker_agent.validate_agent_config_output(yaml=shared.yaml)
+    pulumi.export("valid", check.valid)
+    pulumi.export("errors", check.errors)
+    pulumi.export("agentNames", check.agent_names)
     ```
 
     :param _builtins.str yaml: The docker-agent YAML document to validate.

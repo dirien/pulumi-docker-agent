@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  coordinator:
+    model: openai/gpt-5-mini
+    description: Routes work between specialist agents
+    instruction_file:
+      - instructions/coordinator.md
+    sub_agents:
+      - writer
+  writer:
+    model: openai/gpt-5-mini
+    description: Drafts and edits written content
+    instruction_file:
+      - instructions/shared-preamble.md
+      - instructions/writer.md

@@ -1,0 +1,86 @@
+name: docker-agent-policy-violations
+runtime: yaml
+description: >-
+  A test fixture that violates the policies of the policy pack in policy/. examples/policy_test.go
+  only previews it; it is never deployed.
+plugins:
+  # Use the provider binary built by `make provider` in this repository.
+  providers:
+    - name: docker-agent
+      path: ../../../bin
+
+resources:
+  unsafe-agent:
+    type: docker-agent:index:AgentConfig
+    properties:
+      models:
+        gpt:
+          provider: openai
+          model: gpt-5-mini
+      # permissions-no-wildcard-allow (mandatory): "*" approves every tool call, also under
+      # AgentRun's toolApproval deny.
+      permissions:
+        allow: ["*"]
+      agents:
+        - name: root
+          model: gpt
+          description: Changes the repository on request
+          instruction: Do whatever the user asks for in the repository.
+          # agentconfig-no-autonomous-safety (mandatory)
+          safety: autonomous
+          toolsets:
+            # agentconfig-sandbox-for-local-tools (advisory): a shell without runtime.sandbox.
+            - type: shell
+            # agentconfig-allowed-mcp-refs (when enabled): a ref outside of the allowlist.
+            - type: mcp
+              ref: docker:github-official
+              env:
+                # agentconfig-no-literal-credentials (mandatory): a literal value instead of
+                # ${env.GITHUB_PERSONAL_ACCESS_TOKEN}.
+                GITHUB_PERSONAL_ACCESS_TOKEN: literal-token-value-0123456789
+
+  unattended-run:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${unsafe-agent.yaml}
+      prompt: Clean up the repository.
+      # agentrun-tool-approval-deny (mandatory)
+      toolApproval: allow
+
+  hooked-run:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${unsafe-agent.yaml}
+      prompt: Clean up the repository.
+      # agentrun-tool-approval-deny (mandatory): hooks may approve tool calls under deny.
+      allowHookApprovals: true
+
+  user-settings:
+    type: docker-agent:index:UserSettings
+    properties:
+      # No path: the settings are only rendered, never written.
+      settings:
+        # usersettings-no-autonomous-safety (mandatory)
+        safety: autonomous
+        permissions:
+          # permissions-no-wildcard-allow (mandatory): every shell command runs without asking.
+          allow: ["shell:cmd=*"]
+      aliases:
+        # usersettings-no-autonomous-safety (mandatory)
+        pirate:
+          path: ./pirate.yaml
+          yolo: true
+
+  tagged-run:
+    type: docker-agent:index:AgentRun
+    properties:
+      # agentrun-reference-pinned (advisory): a tag instead of a digest.
+      reference: ghcr.io/example/agents/reviewer:v1
+      prompt: Review the change.
+
+  artifact:
+    type: docker-agent:index:AgentArtifact
+    properties:
+      # agentartifact-allowed-registries (when enabled): Docker Hub is not in the allowlist.
+      reference: docker.io/example/unsafe-agent:v1
+      yaml: ${unsafe-agent.yaml}

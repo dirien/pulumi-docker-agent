@@ -1,0 +1,26 @@
+version: "16"
+agents:
+  text-only:
+    model: text-only
+    description: Text-only model — attached images are stripped before the call
+    instruction: You are a helpful assistant. Describe any images the user attaches.
+  vision:
+    model: vision
+    description: Vision model — attached images reach the provider untouched
+    instruction: You are a helpful assistant. Describe any images the user attaches.
+  override:
+    model: claims-vision
+    description: Text-only model with an explicit image capability override
+    instruction: You are a helpful assistant. Describe any images the user attaches.
+models:
+  claims-vision:
+    provider: openai
+    model: gpt-3.5-turbo
+    capabilities:
+      image: true
+  text-only:
+    provider: openai
+    model: gpt-3.5-turbo
+  vision:
+    provider: openai
+    model: gpt-4o

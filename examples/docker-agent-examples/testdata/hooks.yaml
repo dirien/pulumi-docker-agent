@@ -1,0 +1,215 @@
+version: "16"
+agents:
+  root:
+    model: openai/gpt-4o
+    description: One-stop example demonstrating every hook event and both handler kinds.
+    instruction: |
+      You are a helpful assistant with access to shell and filesystem tools.
+      Use them to help the user with their tasks. When asked to run a
+      command, use the shell tool directly.
+    toolsets:
+      - type: shell
+      - type: filesystem
+    hooks:
+      pre_tool_use:
+        - matcher: shell
+          hooks:
+            - type: command
+              command: "INPUT=$(cat)\nCMD=$(echo \"$INPUT\" | jq -r '.tool_input.cmd // \"\"')\nif echo \"$CMD\" | grep -qiE 'rm\\s+(-[^\\s]*)?\\s*-rf|rm\\s+(-[^\\s]*)?\\s*-fr|sudo|mkfs|dd\\s+if=|:(\\(\\)\\{|\\s*){.*}'; then\n  cat <<EOF\n{\"hook_specific_output\":{\"permission_decision\":\"deny\",\"permission_decision_reason\":\"\U0001F6AB HOOK BLOCKED: dangerous command pattern detected. rm -rf, sudo, mkfs, dd are not allowed.\"}}\nEOF\nelse\n  echo '{\"continue\": true}'\nfi\n"
+              timeout: 10
+        - matcher: shell
+          hooks:
+            - type: command
+              command: "INPUT=$(cat)\nCMD=$(echo \"$INPUT\" | jq -r '.tool_input.cmd // \"\"')\nif echo \"$CMD\" | grep -qE '^ls(\\s|$)' && ! echo \"$CMD\" | grep -q '\\-h'; then\n  NEW_CMD=$(echo \"$CMD\" | sed 's/^ls/ls -h/')\n  cat <<EOF\n{\"hook_specific_output\":{\"permission_decision\":\"allow\",\"updated_input\":{\"cmd\":\"$NEW_CMD\"}},\"system_message\":\"\U0001F4DD Hook modified command: added -h for human-readable output\"}\nEOF\nfi\n"
+              timeout: 10
+      post_tool_use:
+        - matcher: shell
+          hooks:
+            - type: command
+              name: summarize shell output
+              command: |
+                INPUT=$(cat)
+                TOOL=$(echo "$INPUT" | jq -r '.tool_name')
+                ERROR=$(echo "$INPUT" | jq -r '.tool_error // false')
+                OUTPUT_LEN=$(echo "$INPUT" | jq -r '.tool_response // ""' | wc -c | tr -d ' ')
+                echo "✅ Post-hook: $TOOL completed (error=$ERROR, output=$OUTPUT_LEN chars, profile=$HOOK_PROFILE)"
+              timeout: 10
+              env:
+                HOOK_PROFILE: dev
+              working_dir: .
+              on_error: warn
+      permission_request:
+        - matcher: shell
+          hooks:
+            - type: command
+              command: |
+                INPUT=$(cat)
+                CMD=$(echo "$INPUT" | jq -r '.tool_input.cmd // ""')
+                echo "[$(date)] permission request: $CMD" >> /tmp/agent-permissions.log
+                if echo "$CMD" | grep -qE '^(ls|pwd|cat|echo|date|whoami)( |$)'; then
+                  echo '{"hook_specific_output":{"permission_decision":"allow","permission_decision_reason":"safe read-only command"}}'
+                fi
+              timeout: 5
+      session_start:
+        - type: builtin
+          command: add_context
+          args:
+            - 'Current session ID: {{ .SessionID }}'
+        - type: builtin
+          command: add_environment_info
+        - type: command
+          command: "INPUT=$(cat)\nSESSION_ID=$(echo \"$INPUT\" | jq -r '.session_id // \"unknown\"')\necho \"\U0001F680 Session $SESSION_ID started at $(date)\" >> /tmp/agent-session.log\necho '{\"hook_specific_output\":{\"additional_context\":\"Session log: /tmp/agent-session.log\"}}'\n"
+          timeout: 10
+      user_prompt_submit:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            PROMPT=$(echo "$INPUT" | jq -r '.prompt // ""')
+            echo "[$(date)] [$SESSION_ID] $PROMPT" >> /tmp/agent-prompts.log
+            # Example: inject a hint when the user asks about logs.
+            if echo "$PROMPT" | grep -qiE '\blogs?\b'; then
+              echo '{"hook_specific_output":{"additional_context":"Hook hint: agent log files live under /tmp/agent-*.log"}}'
+            fi
+          timeout: 5
+      user_steering_messages_submit:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            COUNT=$(echo "$INPUT" | jq -r '.steering_messages | length')
+            echo "$INPUT" | jq -r '.steering_messages[]' \
+              | sed "s/^/[$(date)] [$SESSION_ID] steer: /" >> /tmp/agent-steering.log
+            # Example: nudge the model to acknowledge mid-flight steering.
+            if [ "$COUNT" -gt 0 ]; then
+              echo '{"hook_specific_output":{"additional_context":"The user sent new instructions while you were working — re-read the latest user messages and adjust course before continuing."}}'
+            fi
+          timeout: 5
+      user_followup_submit:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            echo "$INPUT" | jq -r '.prompt' \
+              | sed "s/^/[$(date)] [$SESSION_ID] followup: /" >> /tmp/agent-followups.log
+          timeout: 5
+      turn_start:
+        - type: builtin
+          command: add_date
+        - type: builtin
+          command: add_prompt_files
+          args:
+            - GUIDELINES.md
+            - PROJECT.md
+      turn_end:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            AGENT=$(echo "$INPUT" | jq -r '.agent_name // "unknown"')
+            REASON=$(echo "$INPUT" | jq -r '.reason // "unknown"')
+            echo "[$(date)] [←] $SESSION_ID $AGENT turn ended (reason=$REASON)" >> /tmp/agent-turns.log
+          timeout: 5
+      before_llm_call:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            echo "[$(date)] [→] $SESSION_ID llm call starting" >> /tmp/agent-llm-calls.log
+          timeout: 5
+      after_llm_call:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            LEN=$(echo "$INPUT" | jq -r '.stop_response // ""' | wc -c | tr -d ' ')
+            echo "[$(date)] [←] $SESSION_ID llm call complete, content=$LEN chars" >> /tmp/agent-llm-calls.log
+            # Per-call cost ledger: timestamp, session, model, tokens, cost.
+            echo "$INPUT" | jq -r '[
+              (now | todateiso8601), .session_id, .model_id,
+              (.usage.input_tokens // 0), (.usage.output_tokens // 0),
+              (if has("cost") then (.cost | tostring) else "unpriced" end)
+            ] | @csv' >> /tmp/agent-cost-ledger.csv
+          timeout: 5
+      session_end:
+        - type: command
+          command: "INPUT=$(cat)\nSESSION_ID=$(echo \"$INPUT\" | jq -r '.session_id // \"unknown\"')\nREASON=$(echo \"$INPUT\" | jq -r '.reason // \"unknown\"')\necho \"\U0001F44B Session $SESSION_ID ended (reason: $REASON) at $(date)\" >> /tmp/agent-session.log\n"
+          timeout: 10
+      pre_compact:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            SOURCE=$(echo "$INPUT" | jq -r '.source // "unknown"')
+            echo "[$(date)] $SESSION_ID compacting (source=$SOURCE)" >> /tmp/agent-compactions.log
+            echo '{"hook_specific_output":{"additional_context":"When summarizing, please preserve any TODOs, file paths, and command outputs verbatim."}}'
+          timeout: 5
+      subagent_stop:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            AGENT=$(echo "$INPUT" | jq -r '.agent_name // "unknown"')
+            CHILD=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            PARENT=$(echo "$INPUT" | jq -r '.parent_session_id // "unknown"')
+            LEN=$(echo "$INPUT" | jq -r '.stop_response // ""' | wc -c | tr -d ' ')
+            echo "[$(date)] $AGENT child=$CHILD parent=$PARENT len=$LEN" >> /tmp/agent-subagents.log
+          timeout: 5
+      on_user_input:
+        - type: command
+          command: |
+            # macOS only — adapt for Linux notify-send / Windows toast.
+            osascript -e 'display notification "ready!" with title "docker-agent"' 2>/dev/null || true
+      stop:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+            LEN=$(echo "$INPUT" | jq -r '.stop_response // ""' | wc -c | tr -d ' ')
+            echo "[$(date)] Session $SESSION_ID - response length: $LEN chars" >> /tmp/agent-responses.log
+          timeout: 10
+      notification:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            LEVEL=$(echo "$INPUT" | jq -r '.notification_level // "unknown"')
+            MESSAGE=$(echo "$INPUT" | jq -r '.notification_message // "no message"')
+            echo "[$(date)] [$LEVEL] $MESSAGE" >> /tmp/agent-notifications.log
+          timeout: 10
+      on_error:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            MESSAGE=$(echo "$INPUT" | jq -r '.notification_message // "no message"')
+            echo "[$(date)] error: $MESSAGE" >> /tmp/agent-errors.log
+          timeout: 10
+      on_max_iterations:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            MESSAGE=$(echo "$INPUT" | jq -r '.notification_message // "no message"')
+            echo "[$(date)] max-iterations: $MESSAGE" >> /tmp/agent-max-iter.log
+          timeout: 10
+      before_compaction:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            REASON=$(echo "$INPUT" | jq -r '.compaction_reason // "manual"')
+            INPUT_TOK=$(echo "$INPUT" | jq -r '.input_tokens // 0')
+            OUTPUT_TOK=$(echo "$INPUT" | jq -r '.output_tokens // 0')
+            LIMIT=$(echo "$INPUT" | jq -r '.context_limit // 0')
+            echo "[$(date)] [→] compacting (reason=$REASON, in=$INPUT_TOK, out=$OUTPUT_TOK, ctx=$LIMIT)" \
+              >> /tmp/agent-compactions.log
+            # Pure observability — fall through to the LLM-based default.
+            echo '{"continue": true}'
+          timeout: 30
+      after_compaction:
+        - type: command
+          command: |
+            INPUT=$(cat)
+            REASON=$(echo "$INPUT" | jq -r '.compaction_reason // "manual"')
+            BEFORE_IN=$(echo "$INPUT" | jq -r '.input_tokens // 0')
+            BEFORE_OUT=$(echo "$INPUT" | jq -r '.output_tokens // 0')
+            LEN=$(echo "$INPUT" | jq -r '.summary // ""' | wc -c | tr -d ' ')
+            echo "[$(date)] [✓] compacted (reason=$REASON, ${BEFORE_IN}+${BEFORE_OUT} tokens → ${LEN} chars summary)" \
+              >> /tmp/agent-compactions.log
+          timeout: 10

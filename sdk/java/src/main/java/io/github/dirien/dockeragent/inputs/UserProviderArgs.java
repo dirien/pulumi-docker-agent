@@ -5,6 +5,7 @@ package io.github.dirien.dockeragent.inputs;
 
 import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
+import io.github.dirien.dockeragent.enums.ApiType;
 import io.github.dirien.dockeragent.inputs.UserModelAuthArgs;
 import io.github.dirien.dockeragent.inputs.UserTaskBudgetArgs;
 import io.github.dirien.dockeragent.inputs.UserThinkingBudgetArgs;
@@ -32,13 +33,13 @@ public final class UserProviderArgs extends com.pulumi.resources.ResourceArgs {
      * 
      */
     @Import(name="apiType")
-    private @Nullable Output<String> apiType;
+    private @Nullable Output<ApiType> apiType;
 
     /**
      * @return The API flavour of OpenAI-compatible providers: `openai_chatcompletions` (default) or `openai_responses`.
      * 
      */
-    public Optional<Output<String>> apiType() {
+    public Optional<Output<ApiType>> apiType() {
         return Optional.ofNullable(this.apiType);
     }
 
@@ -328,7 +329,7 @@ public final class UserProviderArgs extends com.pulumi.resources.ResourceArgs {
          * @return builder
          * 
          */
-        public Builder apiType(@Nullable Output<String> apiType) {
+        public Builder apiType(@Nullable Output<ApiType> apiType) {
             $.apiType = apiType;
             return this;
         }
@@ -339,7 +340,7 @@ public final class UserProviderArgs extends com.pulumi.resources.ResourceArgs {
          * @return builder
          * 
          */
-        public Builder apiType(String apiType) {
+        public Builder apiType(ApiType apiType) {
             return apiType(Output.of(apiType));
         }
 

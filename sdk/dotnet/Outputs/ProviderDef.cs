@@ -18,9 +18,9 @@ namespace ediri.DockerAgent.Outputs
     public sealed class ProviderDef
     {
         /// <summary>
-        /// The API schema type to use. Only applicable for OpenAI-compatible providers. Allowed values: `openai_chatcompletions`, `openai_responses`. Defaults to `openai_chatcompletions`.
+        /// The API schema type to use. Only applicable for OpenAI-compatible providers. Defaults to `openai_chatcompletions`.
         /// </summary>
-        public readonly string? ApiType;
+        public readonly ediri.DockerAgent.ApiType? ApiType;
         /// <summary>
         /// Non-API-key authentication scheme. When set, the provider's regular API-key path is bypassed.
         /// </summary>
@@ -96,7 +96,7 @@ namespace ediri.DockerAgent.Outputs
 
         [OutputConstructor]
         private ProviderDef(
-            string? apiType,
+            ediri.DockerAgent.ApiType? apiType,
 
             Outputs.ModelAuth? auth,
 

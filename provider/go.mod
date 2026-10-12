@@ -8,9 +8,12 @@ require (
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/goccy/go-yaml v1.19.2
 	github.com/google/go-containerregistry v0.22.1
+	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/pulumi/pulumi-go-provider v1.7.0
+	github.com/pulumi/pulumi/pkg/v3 v3.265.0
 	github.com/pulumi/pulumi/sdk/v3 v3.268.0
 	github.com/stretchr/testify v1.12.1
+	github.com/zclconf/go-cty v1.19.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -112,7 +115,6 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
-	github.com/hashicorp/hcl/v2 v2.25.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -150,8 +152,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/pulumi/appdash v0.0.0-20231130102222-75f619a67231 // indirect
+	github.com/pulumi/inflector v0.1.1 // indirect
 	github.com/pulumi/pulumi-cloud-sdk/go v1.20260924.0 // indirect
-	github.com/pulumi/pulumi/pkg/v3 v3.265.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
@@ -163,6 +165,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82 // indirect
+	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
@@ -181,7 +184,6 @@ require (
 	github.com/xo/terminfo v1.2.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	github.com/zclconf/go-cty v1.19.0 // indirect
 	go.mongodb.org/mongo-driver v1.17.10 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/collector/featuregate v1.67.0 // indirect

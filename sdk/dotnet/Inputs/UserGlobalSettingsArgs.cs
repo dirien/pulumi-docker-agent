@@ -20,7 +20,7 @@ namespace ediri.DockerAgent.Inputs
         /// What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         /// </summary>
         [Input("busySendMode")]
-        public Input<string>? BusySendMode { get; set; }
+        public Input<ediri.DockerAgent.BusySendMode>? BusySendMode { get; set; }
 
         /// <summary>
         /// Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
@@ -62,7 +62,7 @@ namespace ediri.DockerAgent.Inputs
         /// How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
         /// </summary>
         [Input("interruptConfirmation")]
-        public Input<string>? InterruptConfirmation { get; set; }
+        public Input<ediri.DockerAgent.InterruptConfirmation>? InterruptConfirmation { get; set; }
 
         [Input("keybindings")]
         private InputList<Inputs.UserKeybindingArgs>? _keybindings;
@@ -110,7 +110,7 @@ namespace ediri.DockerAgent.Inputs
         /// The default safety mode for new sessions (`safety`): `strict`, `balanced`, `restricted` or `autonomous`. It beats the safety defaults declared in agent configurations; explicit `--safety`/`--yolo` flags and alias options beat it. Any other value fails docker-agent's config loading, so the provider rejects it.
         /// </summary>
         [Input("safety")]
-        public Input<string>? Safety { get; set; }
+        public Input<ediri.DockerAgent.SafetyMode>? Safety { get; set; }
 
         /// <summary>
         /// Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).

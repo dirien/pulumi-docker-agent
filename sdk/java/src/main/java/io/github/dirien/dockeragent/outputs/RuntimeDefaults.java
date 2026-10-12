@@ -4,6 +4,7 @@
 package io.github.dirien.dockeragent.outputs;
 
 import com.pulumi.core.annotations.CustomType;
+import io.github.dirien.dockeragent.enums.SafetyMode;
 import java.lang.Boolean;
 import java.lang.Object;
 import java.lang.String;
@@ -26,10 +27,10 @@ public final class RuntimeDefaults {
      */
     private @Nullable List<String> networkAllowlist;
     /**
-     * @return Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+     * @return Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them.
      * 
      */
-    private @Nullable String safety;
+    private @Nullable SafetyMode safety;
     /**
      * @return When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
      * 
@@ -52,10 +53,10 @@ public final class RuntimeDefaults {
         return this.networkAllowlist == null ? List.of() : this.networkAllowlist;
     }
     /**
-     * @return Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them. Allowed values: `strict`, `balanced`, `restricted`, `autonomous`.
+     * @return Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent &#39;safety&#39; takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. &#39;restricted&#39; is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: &#39;autonomous&#39; auto-approves every tool call — review configs from URLs or OCI registries before running them.
      * 
      */
-    public Optional<String> safety() {
+    public Optional<SafetyMode> safety() {
         return Optional.ofNullable(this.safety);
     }
     /**
@@ -77,7 +78,7 @@ public final class RuntimeDefaults {
     public static final class Builder {
         private @Nullable Map<String,Object> extra;
         private @Nullable List<String> networkAllowlist;
-        private @Nullable String safety;
+        private @Nullable SafetyMode safety;
         private @Nullable Boolean sandbox;
         public Builder() {}
         public Builder(RuntimeDefaults defaults) {
@@ -104,7 +105,7 @@ public final class RuntimeDefaults {
             return networkAllowlist(List.of(networkAllowlist));
         }
         @CustomType.Setter
-        public Builder safety(@Nullable String safety) {
+        public Builder safety(@Nullable SafetyMode safety) {
 
             this.safety = safety;
             return this;

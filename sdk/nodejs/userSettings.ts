@@ -27,8 +27,9 @@ import * as utilities from "./utilities";
  * If a file already exists at the path when the resource is created, the preview fails when its content differs
  * from the rendered file, so existing aliases and settings are never replaced silently. Copy what you want to keep
  * into the inputs, or set `overwrite: true`. Either way the existing file is moved to
- * `<file>.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a backup,
- * deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+ * `<file>.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+ * resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+ * Set the `retainOnDelete` resource option to keep the file.
  *
  * The resource owns the whole file. Changes docker-agent makes itself (`docker agent alias add`, the TUI's
  * `/settings` dialog, `docker agent sandbox allow`) show up as drift and are reverted by the next
@@ -38,47 +39,91 @@ import * as utilities from "./utilities";
  * ### Write the user configuration
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * const settings = new dockeragent.UserSettings("settings", {
+ * // Docker Agent's user configuration, validated with docker-agent's own checks.
+ * const settings = new docker_agent.UserSettings("settings", {
  *     path: "~/.config/cagent/config.yaml",
  *     settings: {
  *         theme: "auto",
  *         themeDark: "dracula",
- *         safety: "balanced",
+ *         safety: docker_agent.SafetyMode.Balanced,
  *         sound: true,
- *         layout: { sidebarPosition: "left", hideUsage: true },
- *         permissions: { deny: ["shell:cmd=sudo*"], allow: ["read_*"] },
- *         keybindings: [{ action: "commands", keys: ["f2", "ctrl+k"] }],
+ *         layout: {
+ *             sidebarPosition: docker_agent.SidebarPosition.Left,
+ *             hideUsage: true,
+ *         },
+ *         permissions: {
+ *             deny: ["shell:cmd=sudo*"],
+ *             allow: ["read_*"],
+ *         },
+ *         keybindings: [{
+ *             action: "commands",
+ *             keys: [
+ *                 "f2",
+ *                 "ctrl+k",
+ *             ],
+ *         }],
  *     },
  *     aliases: {
- *         reviewer: { path: "docker.io/myorg/reviewer:latest", safety: "restricted" },
+ *         reviewer: {
+ *             path: "docker.io/myorg/reviewer:latest",
+ *             safety: docker_agent.SafetyMode.Restricted,
+ *         },
  *     },
  * });
- *
+ * export const configPath = settings.filePath;
  * export const configSha256 = settings.sha256;
  * ```
  * ### Render only, with a global provider and hooks
  *
  * ```typescript
- * import * as dockeragent from "@ediri/pulumi-docker-agent";
+ * import * as pulumi from "@pulumi/pulumi";
+ * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * // No path: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
- * const rendered = new dockeragent.UserSettings("image-settings", {
+ * // No `path`: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
+ * const rendered = new docker_agent.UserSettings("rendered", {
  *     providers: {
- *         gateway: { baseUrl: "https://llm.example.com/v1", tokenKey: "GATEWAY_API_KEY" },
+ *         gateway: {
+ *             baseUrl: "https://llm.example.com/v1",
+ *             tokenKey: "GATEWAY_API_KEY",
+ *         },
  *     },
- *     defaultModel: { provider: "gateway", model: "qwen3-coder" },
+ *     defaultModel: {
+ *         provider: "gateway",
+ *         model: "qwen3-coder",
+ *     },
  *     sandboxAllowlist: ["registry.npmjs.org:443"],
  *     settings: {
  *         hooks: {
- *             sessionStart: [{ type: "command", command: "~/.config/cagent/hooks/session-start.sh" }],
- *             preToolUse: [{ matcher: "shell", hooks: [{ type: "builtin", command: "redact_secrets" }] }],
+ *             sessionStart: [{
+ *                 type: docker_agent.HookType.Command,
+ *                 command: "~/.config/cagent/hooks/session-start.sh",
+ *             }],
+ *             preToolUse: [{
+ *                 matcher: "shell",
+ *                 hooks: [{
+ *                     type: docker_agent.HookType.Builtin,
+ *                     command: "redact_secrets",
+ *                 }],
+ *             }],
  *         },
  *     },
  * });
- *
  * export const userConfigYaml = rendered.yaml;
+ * ```
+ *
+ * ## Import
+ *
+ * An existing user configuration can be imported with its path (or `file://<path>`)
+ * as ID. It is read with docker-agent's own types, and `pulumi import` generates the typed inputs,
+ * `path` included. The file is adopted: the import writes nothing and takes no backup, `overwrite` is
+ * not needed, and deleting the resource leaves the file in place (with the content Pulumi last wrote) instead of
+ * removing it. The resource ID is the file's absolute path.
+ *
+ * ```sh
+ * $ pulumi import docker-agent:index:UserSettings settings ~/.config/cagent/config.yaml
  * ```
  */
 export class UserSettings extends pulumi.CustomResource {
@@ -113,7 +158,7 @@ export class UserSettings extends pulumi.CustomResource {
      */
     declare public readonly aliases: pulumi.Output<{[key: string]: outputs.UserAlias} | undefined>;
     /**
-     * Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+     * Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
      */
     declare public /*out*/ readonly backupPath: pulumi.Output<string | undefined>;
     /**

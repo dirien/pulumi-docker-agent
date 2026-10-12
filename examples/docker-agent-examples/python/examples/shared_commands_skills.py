@@ -1,0 +1,64 @@
+# Generated from docker-agent v1.150.0 examples/shared-commands-skills.yaml by `make generate_config_types`. Do not edit.
+#
+# This example demonstrates the top-level `commands` and `skills` sections.
+# Define reusable command and skill groups once, then reference them by name
+# from multiple agents via `use_commands` / `use_skills`, avoiding duplication.
+
+import ediri_docker_agent as dockeragent
+
+config = dockeragent.AgentConfig(
+    "shared-commands-skills",
+    models={
+        "model": {
+            "provider": "anthropic",
+            "model": "claude-sonnet-5",
+            "max_tokens": 64000,
+        },
+    },
+    # Reusable, named command groups.
+    commands={
+        "ci": {
+            "simple_commands": {
+                "deploy": "Deploy the application",
+                "test": "Run the test suite",
+            },
+        },
+        "docs": {
+            "commands": {
+                "build-docs": {
+                    "description": "Build the documentation site",
+                    "instruction": "Build the docs and report any broken links.",
+                },
+            },
+        },
+    },
+    # Reusable, named skill groups (same value format as an agent's `skills`).
+    skills={"base": {"skills": ["local", "git"]}},
+    agents=[
+        {
+            "name": "root",
+            "model": "model",
+            "description": "Lead developer",
+            "instruction": """\
+You are the lead developer. Coordinate the team.
+""",
+            "sub_agents": ["docs-writer"],
+            # Pull in the "ci" command group and the "base" skill group by name.
+            "use_commands": ["ci"],
+            "use_skills": ["base"],
+            # Inline commands are merged in and win on name conflicts.
+            "simple_commands": {"lint": "Run the linter"},
+        },
+        {
+            "name": "docs-writer",
+            "model": "model",
+            "description": "Documentation writer",
+            "instruction": """\
+You write and maintain the project documentation.
+""",
+            # Reuse the same groups, plus the docs-specific commands.
+            "use_commands": ["ci", "docs"],
+            "use_skills": ["base"],
+        },
+    ],
+)

@@ -14,6 +14,7 @@ else:
     from typing_extensions import NotRequired, TypedDict, TypeAlias
 from . import _utilities
 from . import outputs
+from ._enums import *
 from ._inputs import *
 
 __all__ = ['UserSettingsArgs', 'UserSettings']
@@ -260,8 +261,9 @@ class UserSettings(pulumi.CustomResource):
         If a file already exists at the path when the resource is created, the preview fails when its content differs
         from the rendered file, so existing aliases and settings are never replaced silently. Copy what you want to keep
         into the inputs, or set `overwrite: true`. Either way the existing file is moved to
-        `<file>.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a backup,
-        deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+        `<file>.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+        resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+        Set the `retainOnDelete` resource option to keep the file.
 
         The resource owns the whole file. Changes docker-agent makes itself (`docker agent alias add`, the TUI's
         `/settings` dialog, `docker agent sandbox allow`) show up as drift and are reverted by the next
@@ -271,24 +273,87 @@ class UserSettings(pulumi.CustomResource):
         ### Write the user configuration
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
-        settings = dockeragent.UserSettings("settings",
+        # Docker Agent's user configuration, validated with docker-agent's own checks.
+        settings = docker_agent.UserSettings("settings",
             path="~/.config/cagent/config.yaml",
             settings={
                 "theme": "auto",
                 "theme_dark": "dracula",
-                "safety": "balanced",
+                "safety": docker_agent.SafetyMode.BALANCED,
                 "sound": True,
-                "layout": {"sidebar_position": "left", "hide_usage": True},
-                "permissions": {"deny": ["shell:cmd=sudo*"], "allow": ["read_*"]},
-                "keybindings": [{"action": "commands", "keys": ["f2", "ctrl+k"]}],
+                "layout": {
+                    "sidebar_position": docker_agent.SidebarPosition.LEFT,
+                    "hide_usage": True,
+                },
+                "permissions": {
+                    "deny": ["shell:cmd=sudo*"],
+                    "allow": ["read_*"],
+                },
+                "keybindings": [{
+                    "action": "commands",
+                    "keys": [
+                        "f2",
+                        "ctrl+k",
+                    ],
+                }],
             },
             aliases={
-                "reviewer": {"path": "docker.io/myorg/reviewer:latest", "safety": "restricted"},
+                "reviewer": {
+                    "path": "docker.io/myorg/reviewer:latest",
+                    "safety": docker_agent.SafetyMode.RESTRICTED,
+                },
             })
-
+        pulumi.export("configPath", settings.file_path)
         pulumi.export("configSha256", settings.sha256)
+        ```
+        ### Render only, with a global provider and hooks
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # No `path`: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
+        rendered = docker_agent.UserSettings("rendered",
+            providers={
+                "gateway": {
+                    "base_url": "https://llm.example.com/v1",
+                    "token_key": "GATEWAY_API_KEY",
+                },
+            },
+            default_model={
+                "provider": "gateway",
+                "model": "qwen3-coder",
+            },
+            sandbox_allowlist=["registry.npmjs.org:443"],
+            settings={
+                "hooks": {
+                    "session_start": [{
+                        "type": docker_agent.HookType.COMMAND,
+                        "command": "~/.config/cagent/hooks/session-start.sh",
+                    }],
+                    "pre_tool_use": [{
+                        "matcher": "shell",
+                        "hooks": [{
+                            "type": docker_agent.HookType.BUILTIN,
+                            "command": "redact_secrets",
+                        }],
+                    }],
+                },
+            })
+        pulumi.export("userConfigYaml", rendered.yaml)
+        ```
+
+        ## Import
+
+        An existing user configuration can be imported with its path (or `file://<path>`)
+        as ID. It is read with docker-agent's own types, and `pulumi import` generates the typed inputs,
+        `path` included. The file is adopted: the import writes nothing and takes no backup, `overwrite` is
+        not needed, and deleting the resource leaves the file in place (with the content Pulumi last wrote) instead of
+        removing it. The resource ID is the file's absolute path.
+
+        ```sh
+        $ pulumi import docker-agent:index:UserSettings settings ~/.config/cagent/config.yaml
         ```
 
         :param str resource_name: The name of the resource.
@@ -332,8 +397,9 @@ class UserSettings(pulumi.CustomResource):
         If a file already exists at the path when the resource is created, the preview fails when its content differs
         from the rendered file, so existing aliases and settings are never replaced silently. Copy what you want to keep
         into the inputs, or set `overwrite: true`. Either way the existing file is moved to
-        `<file>.pulumi-backup` (output `backupPath`), and deleting the resource moves it back; without a backup,
-        deleting the resource removes the file. Set the `retainOnDelete` resource option to keep the file.
+        `<file>.pulumi-backup` (output `backupPath`), and deleting the resource moves it back. Deleting the
+        resource removes a file that the provider created, and leaves a file adopted with `pulumi import` in place.
+        Set the `retainOnDelete` resource option to keep the file.
 
         The resource owns the whole file. Changes docker-agent makes itself (`docker agent alias add`, the TUI's
         `/settings` dialog, `docker agent sandbox allow`) show up as drift and are reverted by the next
@@ -343,24 +409,87 @@ class UserSettings(pulumi.CustomResource):
         ### Write the user configuration
         ```python
         import pulumi
-        import ediri_docker_agent as dockeragent
+        import ediri_docker_agent as docker_agent
 
-        settings = dockeragent.UserSettings("settings",
+        # Docker Agent's user configuration, validated with docker-agent's own checks.
+        settings = docker_agent.UserSettings("settings",
             path="~/.config/cagent/config.yaml",
             settings={
                 "theme": "auto",
                 "theme_dark": "dracula",
-                "safety": "balanced",
+                "safety": docker_agent.SafetyMode.BALANCED,
                 "sound": True,
-                "layout": {"sidebar_position": "left", "hide_usage": True},
-                "permissions": {"deny": ["shell:cmd=sudo*"], "allow": ["read_*"]},
-                "keybindings": [{"action": "commands", "keys": ["f2", "ctrl+k"]}],
+                "layout": {
+                    "sidebar_position": docker_agent.SidebarPosition.LEFT,
+                    "hide_usage": True,
+                },
+                "permissions": {
+                    "deny": ["shell:cmd=sudo*"],
+                    "allow": ["read_*"],
+                },
+                "keybindings": [{
+                    "action": "commands",
+                    "keys": [
+                        "f2",
+                        "ctrl+k",
+                    ],
+                }],
             },
             aliases={
-                "reviewer": {"path": "docker.io/myorg/reviewer:latest", "safety": "restricted"},
+                "reviewer": {
+                    "path": "docker.io/myorg/reviewer:latest",
+                    "safety": docker_agent.SafetyMode.RESTRICTED,
+                },
             })
-
+        pulumi.export("configPath", settings.file_path)
         pulumi.export("configSha256", settings.sha256)
+        ```
+        ### Render only, with a global provider and hooks
+        ```python
+        import pulumi
+        import ediri_docker_agent as docker_agent
+
+        # No `path`: nothing is written. Use the YAML in a Dockerfile, a sandbox kit or a ConfigMap.
+        rendered = docker_agent.UserSettings("rendered",
+            providers={
+                "gateway": {
+                    "base_url": "https://llm.example.com/v1",
+                    "token_key": "GATEWAY_API_KEY",
+                },
+            },
+            default_model={
+                "provider": "gateway",
+                "model": "qwen3-coder",
+            },
+            sandbox_allowlist=["registry.npmjs.org:443"],
+            settings={
+                "hooks": {
+                    "session_start": [{
+                        "type": docker_agent.HookType.COMMAND,
+                        "command": "~/.config/cagent/hooks/session-start.sh",
+                    }],
+                    "pre_tool_use": [{
+                        "matcher": "shell",
+                        "hooks": [{
+                            "type": docker_agent.HookType.BUILTIN,
+                            "command": "redact_secrets",
+                        }],
+                    }],
+                },
+            })
+        pulumi.export("userConfigYaml", rendered.yaml)
+        ```
+
+        ## Import
+
+        An existing user configuration can be imported with its path (or `file://<path>`)
+        as ID. It is read with docker-agent's own types, and `pulumi import` generates the typed inputs,
+        `path` included. The file is adopted: the import writes nothing and takes no backup, `overwrite` is
+        not needed, and deleting the resource leaves the file in place (with the content Pulumi last wrote) instead of
+        removing it. The resource ID is the file's absolute path.
+
+        ```sh
+        $ pulumi import docker-agent:index:UserSettings settings ~/.config/cagent/config.yaml
         ```
 
         :param str resource_name: The name of the resource.
@@ -469,7 +598,7 @@ class UserSettings(pulumi.CustomResource):
     @pulumi.getter(name="backupPath")
     def backup_path(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file.
+        Where the file that already existed at `path` was moved when the resource took it over. Deleting the resource moves it back. Unset when there was no file, and for an imported resource.
         """
         return pulumi.get(self, "backup_path")
 

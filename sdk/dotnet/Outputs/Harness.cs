@@ -22,9 +22,9 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly string? Agent;
         /// <summary>
-        /// Claude Code effort level forwarded as --effort. Allowed values: `low`, `medium`, `high`, `xhigh`, `max`.
+        /// Claude Code effort level forwarded as --effort.
         /// </summary>
-        public readonly string? Effort;
+        public readonly ediri.DockerAgent.HarnessEffort? Effort;
         /// <summary>
         /// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         /// </summary>
@@ -38,15 +38,15 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly bool? Thinking;
         /// <summary>
-        /// External coding harness provider to use. Allowed values: `claude-code`, `codex`, `pi`, `opencode`.
+        /// External coding harness provider to use.
         /// </summary>
-        public readonly string Type;
+        public readonly ediri.DockerAgent.HarnessType Type;
 
         [OutputConstructor]
         private Harness(
             string? agent,
 
-            string? effort,
+            ediri.DockerAgent.HarnessEffort? effort,
 
             ImmutableDictionary<string, object>? extra,
 
@@ -54,7 +54,7 @@ namespace ediri.DockerAgent.Outputs
 
             bool? thinking,
 
-            string type)
+            ediri.DockerAgent.HarnessType type)
         {
             Agent = agent;
             Effort = effort;

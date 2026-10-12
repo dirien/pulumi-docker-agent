@@ -29,6 +29,99 @@ public final class DockeragentFunctions {
      * rejects manifests without the `io.docker.agent.version` annotation.
      * 
      * ## Example Usage
+     * ### Read a shared agent
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads the artifact like `docker agent share pull`, without writing a file.
+     *         final var agent = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         ctx.export("agentYaml", agent.applyValue(_agent -> _agent.yaml()));
+     *         ctx.export("agentNames", agent.applyValue(_agent -> _agent.agentNames()));
+     *         ctx.export("pinnedReference", agent.applyValue(_agent -> _agent.pinnedReference()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read back an agent pushed by the same program
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.MetadataArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import io.github.dirien.dockeragent.AgentArtifact;
+     * import io.github.dirien.dockeragent.AgentArtifactArgs;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .metadata(MetadataArgs.builder()
+     *                 .author("platform-team")
+     *                 .version("1.0.0")
+     *                 .build())
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("openai/gpt-5-mini")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         var artifact = new AgentArtifact("artifact", AgentArtifactArgs.builder()
+     *             .reference("localhost:5000/agents/assistant:v1")
+     *             .yaml(assistant.yaml())
+     *             .build());
+     * 
+     *         // Reads the pushed artifact by digest once the push is done.
+     *         final var pulled = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference(artifact.pinnedReference())
+     *             .build());
+     * 
+     *         ctx.export("digest", pulled.applyValue(_pulled -> _pulled.digest()));
+     *         ctx.export("defaultAgent", pulled.applyValue(_pulled -> _pulled.defaultAgent()));
+     *         ctx.export("annotations", pulled.applyValue(_pulled -> _pulled.annotations()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static Output<GetAgentResult> getAgent(GetAgentArgs args) {
@@ -45,6 +138,99 @@ public final class DockeragentFunctions {
      * rejects manifests without the `io.docker.agent.version` annotation.
      * 
      * ## Example Usage
+     * ### Read a shared agent
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads the artifact like `docker agent share pull`, without writing a file.
+     *         final var agent = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         ctx.export("agentYaml", agent.applyValue(_agent -> _agent.yaml()));
+     *         ctx.export("agentNames", agent.applyValue(_agent -> _agent.agentNames()));
+     *         ctx.export("pinnedReference", agent.applyValue(_agent -> _agent.pinnedReference()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read back an agent pushed by the same program
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.MetadataArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import io.github.dirien.dockeragent.AgentArtifact;
+     * import io.github.dirien.dockeragent.AgentArtifactArgs;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .metadata(MetadataArgs.builder()
+     *                 .author("platform-team")
+     *                 .version("1.0.0")
+     *                 .build())
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("openai/gpt-5-mini")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         var artifact = new AgentArtifact("artifact", AgentArtifactArgs.builder()
+     *             .reference("localhost:5000/agents/assistant:v1")
+     *             .yaml(assistant.yaml())
+     *             .build());
+     * 
+     *         // Reads the pushed artifact by digest once the push is done.
+     *         final var pulled = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference(artifact.pinnedReference())
+     *             .build());
+     * 
+     *         ctx.export("digest", pulled.applyValue(_pulled -> _pulled.digest()));
+     *         ctx.export("defaultAgent", pulled.applyValue(_pulled -> _pulled.defaultAgent()));
+     *         ctx.export("annotations", pulled.applyValue(_pulled -> _pulled.annotations()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static CompletableFuture<GetAgentResult> getAgentPlain(GetAgentPlainArgs args) {
@@ -61,6 +247,99 @@ public final class DockeragentFunctions {
      * rejects manifests without the `io.docker.agent.version` annotation.
      * 
      * ## Example Usage
+     * ### Read a shared agent
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads the artifact like `docker agent share pull`, without writing a file.
+     *         final var agent = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         ctx.export("agentYaml", agent.applyValue(_agent -> _agent.yaml()));
+     *         ctx.export("agentNames", agent.applyValue(_agent -> _agent.agentNames()));
+     *         ctx.export("pinnedReference", agent.applyValue(_agent -> _agent.pinnedReference()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read back an agent pushed by the same program
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.MetadataArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import io.github.dirien.dockeragent.AgentArtifact;
+     * import io.github.dirien.dockeragent.AgentArtifactArgs;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .metadata(MetadataArgs.builder()
+     *                 .author("platform-team")
+     *                 .version("1.0.0")
+     *                 .build())
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("openai/gpt-5-mini")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         var artifact = new AgentArtifact("artifact", AgentArtifactArgs.builder()
+     *             .reference("localhost:5000/agents/assistant:v1")
+     *             .yaml(assistant.yaml())
+     *             .build());
+     * 
+     *         // Reads the pushed artifact by digest once the push is done.
+     *         final var pulled = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference(artifact.pinnedReference())
+     *             .build());
+     * 
+     *         ctx.export("digest", pulled.applyValue(_pulled -> _pulled.digest()));
+     *         ctx.export("defaultAgent", pulled.applyValue(_pulled -> _pulled.defaultAgent()));
+     *         ctx.export("annotations", pulled.applyValue(_pulled -> _pulled.annotations()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static Output<GetAgentResult> getAgent(GetAgentArgs args, InvokeOptions options) {
@@ -77,6 +356,99 @@ public final class DockeragentFunctions {
      * rejects manifests without the `io.docker.agent.version` annotation.
      * 
      * ## Example Usage
+     * ### Read a shared agent
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads the artifact like `docker agent share pull`, without writing a file.
+     *         final var agent = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         ctx.export("agentYaml", agent.applyValue(_agent -> _agent.yaml()));
+     *         ctx.export("agentNames", agent.applyValue(_agent -> _agent.agentNames()));
+     *         ctx.export("pinnedReference", agent.applyValue(_agent -> _agent.pinnedReference()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read back an agent pushed by the same program
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.MetadataArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import io.github.dirien.dockeragent.AgentArtifact;
+     * import io.github.dirien.dockeragent.AgentArtifactArgs;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .metadata(MetadataArgs.builder()
+     *                 .author("platform-team")
+     *                 .version("1.0.0")
+     *                 .build())
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("openai/gpt-5-mini")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         var artifact = new AgentArtifact("artifact", AgentArtifactArgs.builder()
+     *             .reference("localhost:5000/agents/assistant:v1")
+     *             .yaml(assistant.yaml())
+     *             .build());
+     * 
+     *         // Reads the pushed artifact by digest once the push is done.
+     *         final var pulled = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference(artifact.pinnedReference())
+     *             .build());
+     * 
+     *         ctx.export("digest", pulled.applyValue(_pulled -> _pulled.digest()));
+     *         ctx.export("defaultAgent", pulled.applyValue(_pulled -> _pulled.defaultAgent()));
+     *         ctx.export("annotations", pulled.applyValue(_pulled -> _pulled.annotations()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static Output<GetAgentResult> getAgent(GetAgentArgs args, InvokeOutputOptions options) {
@@ -93,6 +465,99 @@ public final class DockeragentFunctions {
      * rejects manifests without the `io.docker.agent.version` annotation.
      * 
      * ## Example Usage
+     * ### Read a shared agent
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads the artifact like `docker agent share pull`, without writing a file.
+     *         final var agent = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         ctx.export("agentYaml", agent.applyValue(_agent -> _agent.yaml()));
+     *         ctx.export("agentNames", agent.applyValue(_agent -> _agent.agentNames()));
+     *         ctx.export("pinnedReference", agent.applyValue(_agent -> _agent.pinnedReference()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read back an agent pushed by the same program
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.MetadataArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import io.github.dirien.dockeragent.AgentArtifact;
+     * import io.github.dirien.dockeragent.AgentArtifactArgs;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .metadata(MetadataArgs.builder()
+     *                 .author("platform-team")
+     *                 .version("1.0.0")
+     *                 .build())
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("openai/gpt-5-mini")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         var artifact = new AgentArtifact("artifact", AgentArtifactArgs.builder()
+     *             .reference("localhost:5000/agents/assistant:v1")
+     *             .yaml(assistant.yaml())
+     *             .build());
+     * 
+     *         // Reads the pushed artifact by digest once the push is done.
+     *         final var pulled = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference(artifact.pinnedReference())
+     *             .build());
+     * 
+     *         ctx.export("digest", pulled.applyValue(_pulled -> _pulled.digest()));
+     *         ctx.export("defaultAgent", pulled.applyValue(_pulled -> _pulled.defaultAgent()));
+     *         ctx.export("annotations", pulled.applyValue(_pulled -> _pulled.annotations()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static CompletableFuture<GetAgentResult> getAgentPlain(GetAgentPlainArgs args, InvokeOptions options) {
@@ -104,9 +569,98 @@ public final class DockeragentFunctions {
      * for unknown toolset types and model providers.
      * 
      * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-     * `valid: false` and the reasons in `errors`.
+     * `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+     * docker-agent stops at.
      * 
      * ## Example Usage
+     * ### Validate an agent file
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.io.IOException;
+     * import java.io.UncheckedIOException;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // An agent file kept as raw YAML next to the program.
+     *         final var agentFile = readFile("./agent.yaml");
+     * 
+     *         // Never fails on an invalid document: check `valid` and `errors`.
+     *         final var result = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(agentFile)
+     *             .build());
+     * 
+     *         ctx.export("valid", result.applyValue(_result -> _result.valid()));
+     *         ctx.export("errors", result.applyValue(_result -> _result.errors()));
+     *         ctx.export("requiredEnvVars", result.applyValue(_result -> _result.requiredEnvVars()));
+     *     }
+     * 
+     *     private static String readFile(String path) {
+     *         try {
+     *             return Files.readString(Paths.get(path));
+     *         } catch (IOException e) {
+     *             throw new UncheckedIOException(e);
+     *         }
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Validate a shared agent before running it
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var shared = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         // Checks the pulled configuration against the docker-agent version of the provider.
+     *         final var check = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(shared.applyValue(_shared -> _shared.yaml()))
+     *             .build());
+     * 
+     *         ctx.export("valid", check.applyValue(_check -> _check.valid()));
+     *         ctx.export("errors", check.applyValue(_check -> _check.errors()));
+     *         ctx.export("agentNames", check.applyValue(_check -> _check.agentNames()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static Output<ValidateAgentConfigResult> validateAgentConfig(ValidateAgentConfigArgs args) {
@@ -118,9 +672,98 @@ public final class DockeragentFunctions {
      * for unknown toolset types and model providers.
      * 
      * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-     * `valid: false` and the reasons in `errors`.
+     * `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+     * docker-agent stops at.
      * 
      * ## Example Usage
+     * ### Validate an agent file
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.io.IOException;
+     * import java.io.UncheckedIOException;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // An agent file kept as raw YAML next to the program.
+     *         final var agentFile = readFile("./agent.yaml");
+     * 
+     *         // Never fails on an invalid document: check `valid` and `errors`.
+     *         final var result = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(agentFile)
+     *             .build());
+     * 
+     *         ctx.export("valid", result.applyValue(_result -> _result.valid()));
+     *         ctx.export("errors", result.applyValue(_result -> _result.errors()));
+     *         ctx.export("requiredEnvVars", result.applyValue(_result -> _result.requiredEnvVars()));
+     *     }
+     * 
+     *     private static String readFile(String path) {
+     *         try {
+     *             return Files.readString(Paths.get(path));
+     *         } catch (IOException e) {
+     *             throw new UncheckedIOException(e);
+     *         }
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Validate a shared agent before running it
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var shared = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         // Checks the pulled configuration against the docker-agent version of the provider.
+     *         final var check = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(shared.applyValue(_shared -> _shared.yaml()))
+     *             .build());
+     * 
+     *         ctx.export("valid", check.applyValue(_check -> _check.valid()));
+     *         ctx.export("errors", check.applyValue(_check -> _check.errors()));
+     *         ctx.export("agentNames", check.applyValue(_check -> _check.agentNames()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static CompletableFuture<ValidateAgentConfigResult> validateAgentConfigPlain(ValidateAgentConfigPlainArgs args) {
@@ -132,9 +775,98 @@ public final class DockeragentFunctions {
      * for unknown toolset types and model providers.
      * 
      * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-     * `valid: false` and the reasons in `errors`.
+     * `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+     * docker-agent stops at.
      * 
      * ## Example Usage
+     * ### Validate an agent file
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.io.IOException;
+     * import java.io.UncheckedIOException;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // An agent file kept as raw YAML next to the program.
+     *         final var agentFile = readFile("./agent.yaml");
+     * 
+     *         // Never fails on an invalid document: check `valid` and `errors`.
+     *         final var result = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(agentFile)
+     *             .build());
+     * 
+     *         ctx.export("valid", result.applyValue(_result -> _result.valid()));
+     *         ctx.export("errors", result.applyValue(_result -> _result.errors()));
+     *         ctx.export("requiredEnvVars", result.applyValue(_result -> _result.requiredEnvVars()));
+     *     }
+     * 
+     *     private static String readFile(String path) {
+     *         try {
+     *             return Files.readString(Paths.get(path));
+     *         } catch (IOException e) {
+     *             throw new UncheckedIOException(e);
+     *         }
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Validate a shared agent before running it
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var shared = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         // Checks the pulled configuration against the docker-agent version of the provider.
+     *         final var check = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(shared.applyValue(_shared -> _shared.yaml()))
+     *             .build());
+     * 
+     *         ctx.export("valid", check.applyValue(_check -> _check.valid()));
+     *         ctx.export("errors", check.applyValue(_check -> _check.errors()));
+     *         ctx.export("agentNames", check.applyValue(_check -> _check.agentNames()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static Output<ValidateAgentConfigResult> validateAgentConfig(ValidateAgentConfigArgs args, InvokeOptions options) {
@@ -146,9 +878,98 @@ public final class DockeragentFunctions {
      * for unknown toolset types and model providers.
      * 
      * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-     * `valid: false` and the reasons in `errors`.
+     * `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+     * docker-agent stops at.
      * 
      * ## Example Usage
+     * ### Validate an agent file
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.io.IOException;
+     * import java.io.UncheckedIOException;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // An agent file kept as raw YAML next to the program.
+     *         final var agentFile = readFile("./agent.yaml");
+     * 
+     *         // Never fails on an invalid document: check `valid` and `errors`.
+     *         final var result = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(agentFile)
+     *             .build());
+     * 
+     *         ctx.export("valid", result.applyValue(_result -> _result.valid()));
+     *         ctx.export("errors", result.applyValue(_result -> _result.errors()));
+     *         ctx.export("requiredEnvVars", result.applyValue(_result -> _result.requiredEnvVars()));
+     *     }
+     * 
+     *     private static String readFile(String path) {
+     *         try {
+     *             return Files.readString(Paths.get(path));
+     *         } catch (IOException e) {
+     *             throw new UncheckedIOException(e);
+     *         }
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Validate a shared agent before running it
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var shared = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         // Checks the pulled configuration against the docker-agent version of the provider.
+     *         final var check = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(shared.applyValue(_shared -> _shared.yaml()))
+     *             .build());
+     * 
+     *         ctx.export("valid", check.applyValue(_check -> _check.valid()));
+     *         ctx.export("errors", check.applyValue(_check -> _check.errors()));
+     *         ctx.export("agentNames", check.applyValue(_check -> _check.agentNames()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static Output<ValidateAgentConfigResult> validateAgentConfig(ValidateAgentConfigArgs args, InvokeOutputOptions options) {
@@ -160,9 +981,98 @@ public final class DockeragentFunctions {
      * for unknown toolset types and model providers.
      * 
      * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
-     * `valid: false` and the reasons in `errors`.
+     * `valid: false` and the reasons in `errors`: every independent problem, not only the first one
+     * docker-agent stops at.
      * 
      * ## Example Usage
+     * ### Validate an agent file
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.io.IOException;
+     * import java.io.UncheckedIOException;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // An agent file kept as raw YAML next to the program.
+     *         final var agentFile = readFile("./agent.yaml");
+     * 
+     *         // Never fails on an invalid document: check `valid` and `errors`.
+     *         final var result = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(agentFile)
+     *             .build());
+     * 
+     *         ctx.export("valid", result.applyValue(_result -> _result.valid()));
+     *         ctx.export("errors", result.applyValue(_result -> _result.errors()));
+     *         ctx.export("requiredEnvVars", result.applyValue(_result -> _result.requiredEnvVars()));
+     *     }
+     * 
+     *     private static String readFile(String path) {
+     *         try {
+     *             return Files.readString(Paths.get(path));
+     *         } catch (IOException e) {
+     *             throw new UncheckedIOException(e);
+     *         }
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Validate a shared agent before running it
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentArgs;
+     * import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var shared = DockeragentFunctions.getAgent(GetAgentArgs.builder()
+     *             .reference("docker.io/my-org/assistant:latest")
+     *             .build());
+     * 
+     *         // Checks the pulled configuration against the docker-agent version of the provider.
+     *         final var check = DockeragentFunctions.validateAgentConfig(ValidateAgentConfigArgs.builder()
+     *             .yaml(shared.applyValue(_shared -> _shared.yaml()))
+     *             .build());
+     * 
+     *         ctx.export("valid", check.applyValue(_check -> _check.valid()));
+     *         ctx.export("errors", check.applyValue(_check -> _check.errors()));
+     *         ctx.export("agentNames", check.applyValue(_check -> _check.agentNames()));
+     *     }
+     * }
+     * }
+     * </pre>
      * 
      */
     public static CompletableFuture<ValidateAgentConfigResult> validateAgentConfigPlain(ValidateAgentConfigPlainArgs args, InvokeOptions options) {
