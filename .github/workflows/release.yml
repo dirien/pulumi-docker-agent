@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance, NuGet Trusted Publishing (and PyPI trusted publishing, if enabled)
+      id-token: write # trusted publishing to npm, PyPI and NuGet; npm provenance
     strategy:
       fail-fast: false
       matrix:
@@ -145,6 +145,14 @@ jobs:
             exit 1
           fi
 
+      # npm trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10.
+      - name: Update npm
+        if: matrix.language == 'nodejs' && env.PUBLISH_NPM == 'true'
+        run: npm install -g npm@11.21.0
+
+      # npm tries trusted publishing (OIDC) first and falls back to NPM_TOKEN. Trusted
+      # publishing can only be set up once the package exists, so the first release needs
+      # the token; after it, add the trusted publisher on npmjs.com and delete the secret.
       - name: Publish to npm
         if: matrix.language == 'nodejs' && env.PUBLISH_NPM == 'true'
         working-directory: sdk/nodejs/bin
@@ -159,10 +167,9 @@ jobs:
         if: matrix.language == 'python' && env.PUBLISH_PYPI == 'true'
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
+          # PyPI Trusted Publishing: no password. pypi.org has a (pending) publisher for
+          # dirien/pulumi-docker-agent and release.yml.
           packages-dir: sdk/python/bin/dist
-          # PyPI API token (user __token__), as in dirien/pulumi-fly. Remove this line to
-          # switch to PyPI Trusted Publishing once the project is configured on pypi.org.
-          password: ${{ secrets.PYPI_PASSWORD }}
           skip-existing: true
 
       # NuGet Trusted Publishing: exchanges the job's OIDC token for an API key that is valid

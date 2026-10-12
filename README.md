@@ -218,7 +218,8 @@ Tags with a pre-release suffix (`v0.2.0-rc.1`) become GitHub pre-releases and ar
 
 Once, before the first release:
 
-- [ ] Set the repository secrets of the release workflow: `NPM_TOKEN` (an npm token that can publish `@ediri/pulumi-docker-agent`), and `PYPI_PASSWORD` (a PyPI API token; the user is `__token__`). Actions provides `GITHUB_TOKEN`.
+- [ ] Set the repository secret `NPM_TOKEN`, a granular npm token that can publish `@ediri/pulumi-docker-agent`, with a short expiry. npm trusted publishing can only be set up once the package exists, so only the first release uses it. Actions provides `GITHUB_TOKEN`.
+- [ ] Add a pending [trusted publisher](https://pypi.org/manage/account/publishing/) on PyPI: project `ediri_docker_agent`, owner `dirien`, repository `pulumi-docker-agent`, workflow `release.yml`, no environment. The release needs no PyPI token.
 - [ ] Add a [Trusted Publishing](https://www.nuget.org/account/trustedpublishing) policy on nuget.org for the `ediri` account: GitHub Actions, repository `dirien/pulumi-docker-agent`, workflow file `release.yml`, no environment, package `ediri.DockerAgent`. The release logs in with `NuGet/login`, so NuGet needs no secret.
 - [ ] Only to publish the Java SDK (off for now): set `PUBLISH_JAVA: "true"` in the release workflow and the Maven Central secrets `PUBLISH_REPO_USERNAME` and `PUBLISH_REPO_PASSWORD` (a Central Portal user token), `SIGNING_KEY` (an ASCII-armored GPG private key) and `SIGNING_PASSWORD`, verify the `io.github.dirien` namespace on the Central Portal and publish the GPG public key to a key server. [Maven Central (Java SDK)](https://github.com/dirien/pulumi-docker-agent/blob/main/CONTRIBUTING.md#maven-central-java-sdk) in CONTRIBUTING.md has the steps.
 - [ ] Optionally set `PULUMI_ACCESS_TOKEN`. Only the `build` workflow uses it, to check the ESC example environment with the Pulumi Cloud API on pushes to `main`; without it, that check skips itself.
@@ -235,7 +236,7 @@ For every release:
   git push origin v0.1.0
   ```
 
-- [ ] When the `release` workflow has finished, check the [GitHub release](https://github.com/dirien/pulumi-docker-agent/releases/tag/v0.1.0): it is **not** a pre-release and has twelve archives (six `pulumi-resource-docker-agent-v0.1.0-<os>-<arch>.tar.gz` and six `pulumi-converter-docker-agent-v0.1.0-<os>-<arch>.tar.gz`), `pulumi-docker-agent_0.1.0_checksums.txt` with its `.sigstore.json` bundle, and the SBOMs. Check that the `sdk/v0.1.0` tag exists and that the "Publish Java SDK" job published rather than skipped.
+- [ ] When the `release` workflow has finished, check the [GitHub release](https://github.com/dirien/pulumi-docker-agent/releases/tag/v0.1.0): it is **not** a pre-release and has twelve archives (six `pulumi-resource-docker-agent-v0.1.0-<os>-<arch>.tar.gz` and six `pulumi-converter-docker-agent-v0.1.0-<os>-<arch>.tar.gz`), `pulumi-docker-agent_0.1.0_checksums.txt` with its `.sigstore.json` bundle, and the SBOMs. Check that the `sdk/v0.1.0` tag exists, and that the "Publish Java SDK" job published, or skipped with a notice while `PUBLISH_JAVA` is `"false"`.
 - [ ] Run the install probes that the Pulumi Registry runs:
 
   ```bash
@@ -248,6 +249,7 @@ For every release:
 
 After the first release:
 
+- [ ] Switch npm to trusted publishing: in the [package settings](https://www.npmjs.com/package/@ediri/pulumi-docker-agent/access) on npmjs.com, add a trusted publisher for GitHub Actions with owner `dirien`, repository `pulumi-docker-agent`, workflow `release.yml` and no environment. Then delete the `NPM_TOKEN` secret and revoke the token.
 - [ ] List the package in the Pulumi Registry (below).
 - [ ] Switch the policy pack from the local SDK build to the published one: in `policy/package.json`, replace `file:../sdk/nodejs/bin` with `^0.1.0` ([details](https://github.com/dirien/pulumi-docker-agent/blob/main/policy/README.md#use-it-locally)).
 
