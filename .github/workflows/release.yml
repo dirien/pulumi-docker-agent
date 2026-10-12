@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance (and PyPI trusted publishing, if enabled)
+      id-token: write # npm provenance, NuGet Trusted Publishing (and PyPI trusted publishing, if enabled)
     strategy:
       fail-fast: false
       matrix:
@@ -165,14 +165,24 @@ jobs:
           password: ${{ secrets.PYPI_PASSWORD }}
           skip-existing: true
 
+      # NuGet Trusted Publishing: exchanges the job's OIDC token for an API key that is valid
+      # for one hour. Needs a Trusted Publishing policy on nuget.org for this repository and
+      # release.yml; `user` is the nuget.org account that owns the policy.
+      - name: Log in to NuGet
+        if: matrix.language == 'dotnet' && env.PUBLISH_NUGET == 'true'
+        id: nuget_login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ediri
+
       - name: Publish to NuGet
         if: matrix.language == 'dotnet' && env.PUBLISH_NUGET == 'true'
         env:
-          NUGET_PUBLISH_KEY: ${{ secrets.NUGET_PUBLISH_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: |
           dotnet nuget push "sdk/dotnet/bin/Debug/*.nupkg" \
             --source https://api.nuget.org/v3/index.json \
-            --api-key "${NUGET_PUBLISH_KEY}" \
+            --api-key "${NUGET_API_KEY}" \
             --skip-duplicate
 
   publish_java:

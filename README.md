@@ -218,7 +218,8 @@ Tags with a pre-release suffix (`v0.2.0-rc.1`) become GitHub pre-releases and ar
 
 Once, before the first release:
 
-- [ ] Set the repository secrets of the release workflow: `NPM_TOKEN` (an npm token that can publish `@ediri/pulumi-docker-agent`), `PYPI_PASSWORD` (a PyPI API token; the user is `__token__`), and `NUGET_PUBLISH_KEY`. Actions provides `GITHUB_TOKEN`.
+- [ ] Set the repository secrets of the release workflow: `NPM_TOKEN` (an npm token that can publish `@ediri/pulumi-docker-agent`), and `PYPI_PASSWORD` (a PyPI API token; the user is `__token__`). Actions provides `GITHUB_TOKEN`.
+- [ ] Add a [Trusted Publishing](https://www.nuget.org/account/trustedpublishing) policy on nuget.org for the `ediri` account: GitHub Actions, repository `dirien/pulumi-docker-agent`, workflow file `release.yml`, no environment, package `ediri.DockerAgent`. The release logs in with `NuGet/login`, so NuGet needs no secret.
 - [ ] Only to publish the Java SDK (off for now): set `PUBLISH_JAVA: "true"` in the release workflow and the Maven Central secrets `PUBLISH_REPO_USERNAME` and `PUBLISH_REPO_PASSWORD` (a Central Portal user token), `SIGNING_KEY` (an ASCII-armored GPG private key) and `SIGNING_PASSWORD`, verify the `io.github.dirien` namespace on the Central Portal and publish the GPG public key to a key server. [Maven Central (Java SDK)](https://github.com/dirien/pulumi-docker-agent/blob/main/CONTRIBUTING.md#maven-central-java-sdk) in CONTRIBUTING.md has the steps.
 - [ ] Optionally set `PULUMI_ACCESS_TOKEN`. Only the `build` workflow uses it, to check the ESC example environment with the Pulumi Cloud API on pushes to `main`; without it, that check skips itself.
 
