@@ -17,13 +17,17 @@
 //     snapshot embedded in the docker-agent library (no network lookup);
 //   - tool calls are approved by docker-agent's own rules for unattended runs
 //     (see ToolApproval), without hook approvals unless allowed (see policy.go);
-//   - errors, warnings and logs are redacted (see secrets.go).
+//   - errors, warnings and logs are redacted (see secrets.go);
+//   - coding-harness agents run only with Request.AllowHarnessAgents, and only claude-code:
+//     AgentRun runs the Claude Code CLI itself, in the run's working directory and
+//     environment (see harness.go).
 //
 // docker-agent keeps its data, config and cache directories in process-global state, so
 // runs in one process are serialized.
 package agentrun
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -38,9 +42,11 @@ import (
 	"github.com/docker/docker-agent/pkg/agent"
 	"github.com/docker/docker-agent/pkg/bootstrap"
 	"github.com/docker/docker-agent/pkg/chat"
+	"github.com/docker/docker-agent/pkg/codingharness"
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/sources"
 	"github.com/docker/docker-agent/pkg/environment"
+	"github.com/docker/docker-agent/pkg/harness"
 	"github.com/docker/docker-agent/pkg/js"
 	"github.com/docker/docker-agent/pkg/model/provider/providers"
 	"github.com/docker/docker-agent/pkg/modelsdev"
@@ -125,6 +131,24 @@ type Request struct {
 	// warnings, errors and logs (for a secret configuration), and the tool calls' arguments
 	// and results out of the progress messages.
 	HideNames bool
+	// AllowHarnessAgents lets the configuration's coding-harness agents run: agents with
+	// `harness: {type: claude-code}`, on Linux and macOS. They start the Claude Code CLI,
+	// which runs its own tools without docker-agent's tool approval (see harness.go).
+	// Without it, a configuration with a harness agent fails.
+	AllowHarnessAgents bool
+	// AnnounceHarness reports CheckConfig's warnings about running claude-code agents (no
+	// tool approval, the credentials Claude Code would bill) through Warn when the run
+	// starts. It is for runs whose configuration no preview checked: a `reference`, or a
+	// run when the resource is deleted.
+	AnnounceHarness bool
+	// Warn receives warnings while the run is in progress, redacted: those of
+	// AnnounceHarness, and, when the run fails, that Claude Code billed API credentials.
+	// The warnings of a successful run are in Result.Warnings. Nil drops them.
+	Warn func(msg string)
+	// Start is called once the run holds the run slot (runs of one process are serialized),
+	// before the agent starts, from the goroutine that called Run. When it returns an error,
+	// Run returns that error, unchanged, without running the agent. Nil starts the run.
+	Start func() error
 }
 
 // Usage is the token usage and cost of a run, including sub-agents.
@@ -190,6 +214,10 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 		timeout = DefaultTimeout
 	}
 	secrets := redactionSet(req)
+	if req.AllowHarnessAgents {
+		// A SIGINT from now on also refuses the CLIs this run would start.
+		WatchShutdownSignals()
+	}
 
 	select {
 	case runSlot <- struct{}{}:
@@ -199,6 +227,11 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 	defer func() { <-runSlot }()
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if req.Start != nil {
+		if err := req.Start(); err != nil {
+			return nil, err
+		}
 	}
 
 	// docker-agent logs to slog: keep its records (which can quote API errors) off the
@@ -240,11 +273,22 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 		workingDir = abs
 	}
 
+	warn := func(msg string) {
+		if req.Warn != nil {
+			req.Warn(redact(names.hide(msg), secrets))
+		}
+	}
 	prog := newProgress(req, secrets, names)
-	res, err := run(ctx, req, approval, timeout, workingDir, prog)
+	info := &harnessInfo{}
+	res, err := run(ctx, req, runSetup{approval, timeout, workingDir, secrets, info, warn}, prog)
+	harnessWarnings := reportHarness(info, prog)
 	if err != nil {
+		for _, w := range harnessWarnings {
+			warn(w)
+		}
 		return nil, errors.New(redact(names.hide(err.Error()), secrets))
 	}
+	res.Warnings = append(res.Warnings, harnessWarnings...)
 	for i, w := range res.Warnings {
 		res.Warnings[i] = redact(w, secrets)
 	}
@@ -261,9 +305,68 @@ func idleRoot() string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("pulumi-docker-agent-idle-%d", os.Getpid()))
 }
 
-func run(ctx context.Context, req Request, approval ToolApproval, timeout time.Duration, workingDir string,
-	prog *progress,
-) (*Result, error) {
+// reportHarness reports what the Claude Code CLI of a run said about itself, as a progress
+// record, and returns the warnings: that it billed something other than a Claude
+// subscription, and that its answer replaced an empty result.
+//
+// apiKeySource none only says that Claude Code used no Anthropic API key. The record then
+// names what the CLI's environment selects instead: a cloud provider (Bedrock, Vertex AI,
+// Foundry), ANTHROPIC_AUTH_TOKEN, or a Claude login, and whether a gateway
+// (ANTHROPIC_BASE_URL) got the requests.
+func reportHarness(info *harnessInfo, prog *progress) []string {
+	r := info.get()
+	if !r.seen {
+		return nil
+	}
+	var warnings []string
+	source, billed := cmp.Or(r.apiKeySource, "unknown"), ""
+	switch r.apiKeySource {
+	case "", "unknown":
+	case "none":
+		n := r.noKey
+		used := n.what
+		source = "none (" + n.what
+		if n.via != "" {
+			source, used = source+", "+n.via, used+" ("+n.via+")"
+		}
+		if n.gateway {
+			source += ", through ANTHROPIC_BASE_URL"
+		}
+		source += ")"
+		if n.billed != "" {
+			billed = fmt.Sprintf("%s used %s, which bills %s, not a Claude subscription", codingharness.TypeClaudeCode,
+				used, n.billed)
+		}
+	default:
+		billed = fmt.Sprintf("%s authenticated with %s, which bills API usage, not a Claude subscription",
+			codingharness.TypeClaudeCode, r.apiKeySource)
+	}
+	if prog.at(LoggingStatus) {
+		prog.record("%s %s (%s), apiKeySource %s", codingharness.TypeClaudeCode, r.version, prog.name(r.model, "a model"),
+			source)
+	}
+	if billed != "" {
+		warnings = append(warnings, billed)
+	}
+	if r.emptyResults > 0 {
+		warnings = append(warnings, codingharness.TypeClaudeCode+" returned an empty final result, so the agent's "+
+			"answer is the text that Claude Code wrote during the run instead")
+	}
+	return warnings
+}
+
+// runSetup is what Run prepared for run.
+type runSetup struct {
+	approval   ToolApproval
+	timeout    time.Duration
+	workingDir string
+	secrets    []string
+	harness    *harnessInfo
+	warn       func(string)
+}
+
+func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result, error) {
+	approval, timeout, workingDir := rs.approval, rs.timeout, rs.workingDir
 	// Remote MCP servers get a token store private to this run.
 	ctx = mcp.WithOAuthTokenStore(ctx, mcp.NewInMemoryTokenStore())
 
@@ -280,6 +383,28 @@ func run(ctx context.Context, req Request, approval ToolApproval, timeout time.D
 		name = "agent"
 	}
 	source := config.NewBytesSource(name+".yaml", req.YAML)
+
+	// Coding-harness agents fail with the messages CheckConfig gives in a preview. Errors of
+	// the configuration itself are the loader's.
+	harnessEnv := claudeEnv(req, workingDir)
+	rs.harness.setNoKey(harnessEnv.noKeySource())
+	if cfg, err := config.Load(ctx, source); err == nil {
+		agents := harnessAgentsOf(cfg)
+		if problems := agents.problems(req.AllowHarnessAgents, req.HideNames); len(problems) > 0 {
+			return nil, errors.New(strings.Join(problems, "; "))
+		}
+		if req.AnnounceHarness {
+			for _, w := range agents.runWarnings(harnessEnv, req.HideNames) {
+				rs.warn(w)
+			}
+		}
+	}
+	// Harness agents run through AgentRun's own runner, never through a driver registered
+	// globally with runtime.RegisterHarness.
+	var harnessFactory harness.Factory
+	if req.AllowHarnessAgents {
+		harnessFactory = newHarnessFactory(harnessRun{dir: workingDir, env: harnessEnv, secrets: rs.secrets, info: rs.harness})
+	}
 
 	policy := &approvalPolicy{}
 	loaded, err := teamloader.LoadWithConfig(ctx, source, runConfig, loaderOpts(req, policy)...)
@@ -319,9 +444,9 @@ func run(ctx context.Context, req Request, approval ToolApproval, timeout time.D
 		runtime.WithEnv(hookEnv(req)),
 		// Headless: elicitations (MCP OAuth, forms) are declined instead of waiting.
 		runtime.WithNonInteractive(true),
-		// Coding-harness agents are rejected at load time; slash commands are not
-		// resolved, so JavaScript command expressions are not needed either.
-		runtime.WithHarnessFactory(nil),
+		// Nil unless harness agents are allowed. Slash commands are not resolved, so
+		// JavaScript command expressions are not needed.
+		runtime.WithHarnessFactory(harnessFactory),
 		runtime.WithCommandEvaluatorFactory(nil),
 	)
 	rt, err := runtime.New(ctx, t, opts...)
@@ -370,6 +495,9 @@ func run(ctx context.Context, req Request, approval ToolApproval, timeout time.D
 		return nil, fmt.Errorf("the agent did not finish within %s (timeoutSeconds)", timeout)
 	}
 	if err := ctx.Err(); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, errors.New("the operation's time limit (customTimeouts) ran out before the agent finished")
+		}
 		return nil, fmt.Errorf("the agent run was canceled: %w", err)
 	}
 	if len(col.errors) > 0 {
@@ -393,8 +521,13 @@ func run(ctx context.Context, req Request, approval ToolApproval, timeout time.D
 	}
 
 	if a, err := t.Agent(res.AgentName); err == nil && a.StructuredOutput() != nil {
+		answer := strings.TrimSpace(res.Output)
+		if a.HasHarness() {
+			// A harness does not enforce the schema, and Claude Code tends to fence JSON.
+			answer = stripCodeFence(answer)
+		}
 		var v any
-		if err := json.Unmarshal([]byte(strings.TrimSpace(res.Output)), &v); err != nil {
+		if err := json.Unmarshal([]byte(answer), &v); err != nil {
 			return nil, fmt.Errorf("agent %q declares structured_output but its answer is not valid JSON: %w", res.AgentName, err)
 		}
 		res.StructuredOutput = v
@@ -415,11 +548,15 @@ func run(ctx context.Context, req Request, approval ToolApproval, timeout time.D
 
 // loaderOpts mirror docker-agent's loader defaults (pkg/teamloader/defaults.LoaderOpts:
 // every model provider, toolset, agent source and optional feature) in strict mode,
-// except coding-harness agents: they start an external coding agent CLI that executes
-// its own tools outside docker-agent's approval flow. The defaults package is not
-// imported because it links that harness driver. The toolset registry is the run's own
-// (see toolsetCreators).
+// except coding-harness agents unless Request.AllowHarnessAgents is set: they start an
+// external coding agent CLI that executes its own tools outside docker-agent's approval
+// flow. The defaults package is not imported because it registers docker-agent's own
+// harness driver globally. The toolset registry is the run's own (see toolsetCreators).
 func loaderOpts(req Request, policy *approvalPolicy) []teamloader.Opt {
+	features := enabledFeatures
+	if req.AllowHarnessAgents {
+		features = append(slices.Clone(enabledFeatures), config.FeatureHarness)
+	}
 	return []teamloader.Opt{
 		teamloader.WithToolsetRegistry(teamloader.NewToolsetRegistry(toolsetCreators(req, policy))),
 		teamloader.WithProviderRegistry(providers.NewDefaultRegistry()),
@@ -430,7 +567,7 @@ func loaderOpts(req Request, policy *approvalPolicy) []teamloader.Opt {
 		teamloader.WithCodeMode(codemode.Wrap),
 		teamloader.WithToon(toon.Wrap),
 		teamloader.WithDeferredTools(deferred.New),
-		teamloader.WithStrict(enabledFeatures...),
+		teamloader.WithStrict(features...),
 	}
 }
 
@@ -440,32 +577,17 @@ var enabledFeatures = []config.Feature{
 	config.FeatureSkills, config.FeatureToon,
 }
 
-// CheckConfig reports problems that prevent a valid configuration from running in
-// AgentRun (today: coding-harness agents), so they surface during a preview.
-func CheckConfig(ctx context.Context, name string, yamlDoc []byte) []string {
-	cfg, err := config.Load(ctx, config.NewBytesSource(name, yamlDoc))
-	if err != nil {
-		// Configuration errors are reported by the validator.
-		return nil
-	}
-	var out []string
-	if locs := config.Requires(cfg).Features[config.FeatureHarness]; len(locs) > 0 {
-		out = append(out, harnessMessage(locs))
-	}
-	return out
-}
-
-func harnessMessage(locs []string) string {
-	return fmt.Sprintf("coding-harness agents (%s) cannot run in AgentRun: they start an external coding agent CLI "+
-		"that executes its own tools without docker-agent's tool approval", strings.Join(locs, ", "))
-}
-
+// describeLoadError explains a configuration the loader rejected. Run reports coding-harness
+// agents that cannot run before it loads the configuration (see harnessAgents.problems);
+// this covers what the loader still finds.
 func describeLoadError(err error) error {
 	var ue *config.UnsupportedError
 	if errors.As(err, &ue) {
 		for _, f := range ue.Features {
 			if f.Name == string(config.FeatureHarness) {
-				return errors.New(harnessMessage(f.Locations))
+				return fmt.Errorf("coding-harness agents (%s) run only with allowHarnessAgents: true: they start an "+
+					"external coding agent CLI that runs its own tools without docker-agent's tool approval",
+					strings.Join(f.Locations, ", "))
 			}
 		}
 	}
@@ -573,7 +695,10 @@ func (c *collector) observe(ev runtime.Event) {
 			c.toolCalls = append(c.toolCalls, toolCall{id: e.ToolCall.ID, name: e.ToolCall.Function.Name})
 		}
 	case *runtime.ToolCallResponseEvent:
-		if e.Result != nil && e.Result.IsError && isRejection(e.Response) {
+		// The approval flow never sees the calls a harness reports: their results only quote
+		// what the harness's tools printed.
+		if e.ToolDefinition.Category != harnessToolCategory && e.Result != nil && e.Result.IsError &&
+			isRejection(e.Response) {
 			c.rejected = append(c.rejected, rejection{tool: e.ToolDefinition.Name, agent: e.AgentName, reason: e.Response})
 			// The approval guard rejects a call after docker-agent announced it.
 			c.toolCalls = slices.DeleteFunc(c.toolCalls, func(tc toolCall) bool { return tc.id != "" && tc.id == e.ToolCallID })
@@ -636,6 +761,19 @@ func isRejection(response string) bool {
 		strings.Contains(response, "requires user confirmation but the session is non-interactive") ||
 		strings.Contains(response, "The user rejected the tool call") ||
 		(strings.HasPrefix(response, "Tool '") && strings.Contains(response, "' is denied by"))
+}
+
+// stripCodeFence removes one Markdown code fence around s (for example ```json ... ```).
+func stripCodeFence(s string) string {
+	if len(s) < 6 || !strings.HasPrefix(s, "```") || !strings.HasSuffix(s, "```") {
+		return s
+	}
+	body := strings.TrimSuffix(s, "```")
+	nl := strings.IndexByte(body, '\n')
+	if nl < 0 {
+		return s
+	}
+	return strings.TrimSpace(body[nl+1:])
 }
 
 func sortedKeys(m map[string]string) []string {

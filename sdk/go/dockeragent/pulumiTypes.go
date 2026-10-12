@@ -662,7 +662,7 @@ func (o AgentRoutingPtrOutput) Extra() pulumi.MapOutput {
 
 // Token usage and cost of an agent run, including sub-agents.
 type AgentRunUsage struct {
-	// Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers.
+	// Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers. For a coding-harness agent, the cost Claude Code reports (`total_cost_usd`), an API-price estimate also under a subscription.
 	Cost float64 `pulumi:"cost"`
 	// Prompt tokens, including cached input tokens.
 	InputTokens int `pulumi:"inputTokens"`
@@ -685,7 +685,7 @@ func (o AgentRunUsageOutput) ToAgentRunUsageOutputWithContext(ctx context.Contex
 	return o
 }
 
-// Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers.
+// Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers. For a coding-harness agent, the cost Claude Code reports (`total_cost_usd`), an API-price estimate also under a subscription.
 func (o AgentRunUsageOutput) Cost() pulumi.Float64Output {
 	return o.ApplyT(func(v AgentRunUsage) float64 { return v.Cost }).(pulumi.Float64Output)
 }

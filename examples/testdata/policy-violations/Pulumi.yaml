@@ -55,6 +55,24 @@ resources:
       # agentrun-tool-approval-deny (mandatory): hooks may approve tool calls under deny.
       allowHookApprovals: true
 
+  harness-agent:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          description: Changes the repository with Claude Code
+          harness:
+            type: claude-code
+            model: sonnet
+
+  harness-run:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${harness-agent.yaml}
+      prompt: Clean up the repository.
+      # agentrun-tool-approval-deny (mandatory): Claude Code runs its own tools without approval.
+      allowHarnessAgents: true
+
   user-settings:
     type: docker-agent:index:UserSettings
     properties:

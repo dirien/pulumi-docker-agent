@@ -18,7 +18,7 @@ namespace ediri.DockerAgent.Outputs
     public sealed class AgentRunUsage
     {
         /// <summary>
-        /// Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers.
+        /// Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers. For a coding-harness agent, the cost Claude Code reports (`total_cost_usd`), an API-price estimate also under a subscription.
         /// </summary>
         public readonly double Cost;
         /// <summary>

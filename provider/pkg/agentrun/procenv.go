@@ -107,6 +107,224 @@ func hookEnv(req Request) []string {
 	return env
 }
 
+// The Claude Code CLI of a coding-harness agent (harness.go) gets an environment that
+// AgentRun builds itself, in this order:
+//
+//  1. the provider's environment, or, without Request.InheritEnvironment, its system
+//     variables plus the Claude configuration locations of claudeKeptEnvVars when they are
+//     set. They select the login (the macOS keychain entry and ~/.claude/.credentials.json
+//     depend on CLAUDE_CONFIG_DIR) and are not credentials;
+//  2. without the variables a parent Claude Code session sets (claudeSessionEnvVars), so the
+//     CLI starts a top-level session also when `pulumi up` runs inside Claude Code;
+//  3. without an inherited ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN when Request.Env sets
+//     CLAUDE_CODE_OAUTH_TOKEN: Claude Code prefers them to the token in print mode, which
+//     would silently bill API usage instead of the subscription the token belongs to;
+//  4. Request.Env, which wins over everything else. An explicit ANTHROPIC_API_KEY, also an
+//     empty one that blanks an inherited key, is passed through;
+//  5. PWD, set to the working directory, because exec does not update it.
+//
+// Check (CheckConfig) computes its billing and root warnings from the same environment.
+
+// claudeKeptEnvVars are kept for the CLI when the environment is not inherited.
+var claudeKeptEnvVars = []string{
+	"CLAUDE_CONFIG_DIR", "CLAUDE_SECURESTORAGE_CONFIG_DIR",
+	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME",
+	"IS_SANDBOX",
+}
+
+// claudeSessionEnvVars mark a process as part of a running Claude Code session, or carry
+// that session's state: Claude Code sets them for the processes it starts (its trace
+// context, its executable and temporary directory, the skills it invoked).
+var claudeSessionEnvVars = []string{
+	"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_PID",
+	"CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN", "AI_AGENT", "CLAUDE_EFFORT",
+	"TRACEPARENT", "CLAUDE_CODE_EXECPATH", "CLAUDE_CODE_TMPDIR", "CLAUDE_CODE_INVOKED_SKILLS",
+}
+
+const claudeOAuthTokenVar = "CLAUDE_CODE_OAUTH_TOKEN" //nolint:gosec // the name of a variable, not a credential
+
+// claudeAPICredentialVars bill API usage instead of a Claude subscription.
+var claudeAPICredentialVars = []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"}
+
+// claudeRoutingVars send Claude Code to another provider when they are true.
+var claudeRoutingVars = []struct{ name, target string }{
+	{"CLAUDE_CODE_USE_BEDROCK", "Amazon Bedrock"},
+	{"CLAUDE_CODE_USE_VERTEX", "Google Vertex AI"},
+	{"CLAUDE_CODE_USE_FOUNDRY", "Microsoft Foundry"},
+}
+
+// claudeEnvironment is the environment of a Claude Code CLI.
+type claudeEnvironment struct {
+	vars map[string]string
+	// fromEnv marks the variables Request.Env sets.
+	fromEnv map[string]bool
+	// dropped lists the inherited credentials removed for an explicit CLAUDE_CODE_OAUTH_TOKEN.
+	dropped []string
+}
+
+// claudeEnv is the environment of the Claude Code CLI of a run working in dir.
+func claudeEnv(req Request, dir string) claudeEnvironment {
+	return newClaudeEnvironment(os.Environ(), req.Env, req.InheritEnvironment, dir)
+}
+
+// newClaudeEnvironment builds the environment of a Claude Code CLI from the provider's
+// environment (environ), Request.Env (env) and Request.InheritEnvironment (inherit). An
+// empty dir sets no PWD.
+func newClaudeEnvironment(environ []string, env map[string]string, inherit bool, dir string) claudeEnvironment {
+	e := claudeEnvironment{vars: map[string]string{}, fromEnv: map[string]bool{}}
+	for _, kv := range environ {
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok || k == "" || strings.ContainsAny(k, "=\x00") {
+			continue
+		}
+		if inherit || isSystemEnvVar(k) || slices.Contains(claudeKeptEnvVars, k) {
+			e.vars[k] = v
+		}
+	}
+	for _, k := range claudeSessionEnvVars {
+		delete(e.vars, k)
+	}
+	if env[claudeOAuthTokenVar] != "" {
+		for _, k := range claudeAPICredentialVars {
+			if v, ok := e.vars[k]; ok {
+				if _, explicit := env[k]; !explicit && v != "" {
+					e.dropped = append(e.dropped, k)
+				}
+				delete(e.vars, k)
+			}
+		}
+	}
+	for k, v := range env {
+		e.vars[k] = v
+		e.fromEnv[k] = true
+	}
+	if dir != "" {
+		e.vars["PWD"] = dir
+		delete(e.fromEnv, "PWD")
+	}
+	return e
+}
+
+// list returns the environment as KEY=VALUE entries, sorted by name.
+func (e claudeEnvironment) list() []string {
+	out := make([]string, 0, len(e.vars))
+	for _, k := range sortedKeys(e.vars) {
+		out = append(out, k+"="+e.vars[k])
+	}
+	return out
+}
+
+// origin says where a variable of the environment comes from.
+func (e claudeEnvironment) origin(name string) string {
+	if e.fromEnv[name] {
+		return "from env"
+	}
+	return "inherited from the environment of the Pulumi CLI"
+}
+
+// remedy says how to keep a variable of the environment away from the CLI.
+func (e claudeEnvironment) remedy(name string) string {
+	if e.fromEnv[name] {
+		return "remove it from env to use the Claude login of the machine or CLAUDE_CODE_OAUTH_TOKEN"
+	}
+	return fmt.Sprintf("set inheritEnvironment: false, or blank it with env: {%s: \"\"}", name)
+}
+
+// billingWarnings explains the variables that make Claude Code use something other than a
+// Claude subscription login, without their values.
+func (e claudeEnvironment) billingWarnings() []string {
+	var out []string
+	for _, k := range claudeAPICredentialVars {
+		if e.vars[k] == "" {
+			continue
+		}
+		remedy := e.remedy(k)
+		if !e.fromEnv[k] {
+			remedy = "pass " + claudeOAuthTokenVar + " in env, " + remedy
+		}
+		out = append(out, fmt.Sprintf("claude-code would use %s (%s) instead of a Claude subscription login and bill API "+
+			"usage to it; %s", k, e.origin(k), remedy))
+	}
+	for _, r := range claudeRoutingVars {
+		if isTrue(e.vars[r.name]) {
+			out = append(out, fmt.Sprintf("%s (%s) routes Claude Code to %s instead of a Claude subscription login; %s",
+				r.name, e.origin(r.name), r.target, e.remedy(r.name)))
+		}
+	}
+	if e.vars["ANTHROPIC_BASE_URL"] != "" {
+		out = append(out, fmt.Sprintf("ANTHROPIC_BASE_URL (%s) sends Claude Code's requests to ANTHROPIC_BASE_URL; %s",
+			e.origin("ANTHROPIC_BASE_URL"), e.remedy("ANTHROPIC_BASE_URL")))
+	}
+	for _, k := range e.dropped {
+		out = append(out, fmt.Sprintf("inherited %s is not passed to claude because env sets %s", k, claudeOAuthTokenVar))
+	}
+	return out
+}
+
+// noKeySource is what Claude Code bills when it reports apiKeySource none, which only says
+// that it uses no Anthropic API key: a cloud provider, ANTHROPIC_AUTH_TOKEN, or a Claude
+// login (CLAUDE_CODE_OAUTH_TOKEN or the machine's), as the CLI's environment selects.
+type noKeySource struct {
+	// what names it, for example "Amazon Bedrock", and via the variable that selects a
+	// cloud provider.
+	what, via string
+	// billed says that it is not a Claude subscription, and what is billed.
+	billed string
+	// gateway is set when ANTHROPIC_BASE_URL sends the requests elsewhere.
+	gateway bool
+}
+
+// noKeySource returns what the environment selects when Claude Code reports apiKeySource
+// none, in the order Claude Code checks: a cloud provider, then ANTHROPIC_AUTH_TOKEN.
+func (e claudeEnvironment) noKeySource() noKeySource {
+	n := noKeySource{gateway: e.vars["ANTHROPIC_BASE_URL"] != ""}
+	switch {
+	case e.routing() != nil:
+		r := e.routing()
+		n.what, n.via, n.billed = r.target, r.name, "usage to that cloud account"
+	case e.vars["ANTHROPIC_AUTH_TOKEN"] != "":
+		n.what, n.billed = "ANTHROPIC_AUTH_TOKEN", "API usage"
+	case e.vars[claudeOAuthTokenVar] != "":
+		n.what = claudeOAuthTokenVar
+	default:
+		n.what = "the Claude login of this machine"
+	}
+	return n
+}
+
+// isFlagEnvVar reports whether the value of a variable, not only whether it is set, decides
+// how Claude Code runs: the routing variables and IS_SANDBOX.
+func isFlagEnvVar(name string) bool {
+	return name == "IS_SANDBOX" || slices.ContainsFunc(claudeRoutingVars, func(r struct{ name, target string }) bool {
+		return r.name == name
+	})
+}
+
+// routing returns the cloud provider a routing variable selects, if one does.
+func (e claudeEnvironment) routing() *struct{ name, target string } {
+	for i, r := range claudeRoutingVars {
+		if isTrue(e.vars[r.name]) {
+			return &claudeRoutingVars[i]
+		}
+	}
+	return nil
+}
+
+// isTrue reports whether a flag variable is set to a true value, as Claude Code reads it.
+func isTrue(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", "0", "false", "no", "off":
+		return false
+	}
+	return true
+}
+
+// sandboxed reports whether IS_SANDBOX=1 lets Claude Code skip permissions as root.
+func (e claudeEnvironment) sandboxed() bool { return e.vars["IS_SANDBOX"] == "1" }
+
+// path returns the PATH of the environment.
+func (e claudeEnvironment) path() string { return e.vars["PATH"] }
+
 // toolsetCreators returns docker-agent's toolset registry for one run: every toolset is
 // guarded by the run's approval policy, and without an inherited environment the
 // process-starting toolsets get a scrubbed environment.

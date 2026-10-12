@@ -1,0 +1,17 @@
+name: docker-agent-claude-code
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+description: Runs Claude Code as a coding-harness agent during `pulumi up`, on the Claude subscription of the machine that runs Pulumi.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. Remove this
+  # block when you copy the example elsewhere; the SDK then downloads the released plugin.
+  providers:
+    - name: docker-agent
+      path: ../../bin
+config:
+  rerun:
+    type: string
+    default: onChange
+    description: When the notes agent runs again. `always` runs it on every `pulumi up`; `onChange` only when an input changes.

@@ -40,6 +40,13 @@ with structured output answers a prompt, and the program exports its `risk` and 
 any OpenAI-compatible endpoint (`baseUrl` stack setting, default OpenAI) and the API key is the secret `apiKey`
 setting. `make test_examples` runs it against a fake OpenAI-compatible server, so it needs no API key and no registry.
 
+[`agent-run-claude-code-ts/`](agent-run-claude-code-ts) runs Claude Code during `pulumi up` on the Claude subscription
+of the machine (no API key): an `AgentConfig` with a `claude-code` harness, and two `AgentRun`s of it with
+`allowHarnessAgents: true`. The first maintains `NOTES.md` in `workspace/` with a create, an update and a delete
+prompt; the second reviews its answer and runs again whenever the first one ran. Claude Code runs its own tools
+without approval, so read the example's README before you run it. `make test_examples` runs it with a fake `claude`
+on a restricted `PATH`.
+
 [`esc-yaml/`](esc-yaml) takes every credential from a Pulumi ESC environment ([`environment.yaml`](esc-yaml/environment.yaml)):
 `pulumiConfig` sets `docker-agent:registryAuth` and the program settings, `environmentVariables` export
 `ANTHROPIC_API_KEY` and AWS credentials from `fn::open::aws-login` for an `amazon-bedrock` agent. It needs Pulumi
@@ -53,6 +60,11 @@ program, file backend, `stack.outputs()`, destroy) and exits with 1 when the age
 
 [`testdata/policy-violations/`](testdata/policy-violations) violates every policy of the policy pack in
 [`../policy`](../policy); `make test_examples` previews it, and `yaml/`, with `--policy-pack`.
+[`testdata/agent-run-claude-code/`](testdata/agent-run-claude-code),
+[`testdata/agent-run-upgrade/`](testdata/agent-run-upgrade),
+[`testdata/agent-run-provider-upgrade/`](testdata/agent-run-provider-upgrade) and
+[`testdata/agent-run-provider-config/`](testdata/agent-run-provider-config) are fixtures of the Claude Code, upgrade
+and provider settings tests below.
 
 [`docker-agent-examples/`](docker-agent-examples) has every example configuration that docker-agent ships as a
 Pulumi program in TypeScript and in Python: one `AgentConfig` per example, with typed inputs and the comments of
@@ -124,7 +136,12 @@ with `outputDir` in a temp dir: it compares the written files with [`testdata/us
 `docker-agent` CLI when it is on `PATH`, checks that `refresh` reports an edited file as drift and `up`
 reverts it, and that `destroy` removes both files. `TestExampleAgentRun` runs `agent-run-yaml` against a fake
 OpenAI-compatible server and checks the structured answer, that the key is stored encrypted, that `preview` and
-`refresh` do not run the agent again and that a new trigger does. `TestDockerAgentExamplesTypeScript` and
+`refresh` do not run the agent again, that a new trigger does, and that `rerun: always` runs it on every `up`
+(also `up --refresh`) while `refresh --expect-no-changes` passes. `TestExampleAgentRunClaudeCode` runs
+`agent-run-claude-code-ts` with the fake `claude` of
+[`provider/pkg/agentrun/testdata/fake-claude`](../provider/pkg/agentrun/testdata/fake-claude) and checks how the CLI
+was started (prompt on stdin, working directory, environment), the outputs, the update prompt under
+`rerun: always` and the delete prompt on `destroy`. `TestDockerAgentExamplesTypeScript` and
 `TestDockerAgentExamplesPython` run the two projects of `docker-agent-examples`: the TypeScript one is
 type-checked with `tsc --noEmit` (strict) first, then both run `preview` and `up`, the names in `configs` must
 equal the files in [`docker-agent-examples/testdata`](docker-agent-examples/testdata) and every value must be
@@ -141,6 +158,9 @@ The other tests in this directory:
 | [`esc_test.go`](esc_test.go) | `TestExampleESCProgram` previews `esc-yaml/`; `TestExampleESCEnvironment` checks its environment with the Pulumi Cloud API when `PULUMI_ACCESS_TOKEN` is set. |
 | [`automation_test.go`](automation_test.go) | `TestAutomationAPI` runs `automation-ts/` against the fake OpenAI-compatible server. |
 | [`policy_test.go`](policy_test.go) | `TestPolicyPack` previews `testdata/policy-violations` and `yaml/` with the policy pack. |
+| [`harness_test.go`](harness_test.go) | `TestExampleAgentRunClaudeCode` (above), and the failure paths of a Claude Code `AgentRun` with `testdata/agent-run-claude-code` and the fake `claude`: redaction of the token (`TestAgentRunClaudeCodeRedaction`), an expired login (`TestAgentRunClaudeCodeFailure`), a timeout that stops the CLI with SIGTERM before SIGKILL (`TestAgentRunClaudeCodeTimeout`), and a failing delete prompt with the `DOCKER_AGENT_SKIP_DELETE_PROMPTS` escape hatch (`TestAgentRunClaudeCodeDeleteEscapeHatch`). Linux and macOS only. |
+| [`upgrade_test.go`](upgrade_test.go) | Provider version upgrades, the way SDK programs do them: the programs pin the version of each resource (`options.version`), so the default provider changes, and the versions are plugins in a `PULUMI_HOME` of the test's own. `TestAgentRunUpgradeFromV011E2E` deploys `testdata/agent-run-upgrade` with the released v0.1.1 provider (downloaded from its GitHub release), upgrades to the version of the provider in `bin/` and expects `pulumi preview --expect-no-changes` to pass, no changes in refresh and up, and no new run. `TestAgentRunProviderUpgradeE2E` upgrades `testdata/agent-run-provider-upgrade` (a `deletePrompt` in a `workingDir`) between two versions of `bin/` and expects neither a rerun nor the delete prompt until `pulumi destroy`. Set `DOCKER_AGENT_TEST_SKIP_UPGRADE=1` to skip `TestAgentRunUpgradeFromV011E2E` offline. |
+| [`provider_config_test.go`](provider_config_test.go) | Provider settings changes on `testdata/agent-run-provider-config` (an `AgentArtifact` and an `AgentRun` with a `deletePrompt`), with a proxy in front of the registry that needs basic authentication: `TestProviderSettingsUpdateInPlaceE2E` rotates the `registryAuth` password and runs one command with `DOCKER_AGENT_SKIP_VALIDATION=true`, `TestProviderSettingsAddRegistryAuthE2E` adds `registryAuth` together with an artifact that needs it. Both expect the provider to be updated in place (same ID, no resource replaced, no new run) and check in the gRPC log that Pulumi configured it with the new settings. |
 
 ```bash
 make test_examples                                   # builds everything, starts a throwaway registry:2

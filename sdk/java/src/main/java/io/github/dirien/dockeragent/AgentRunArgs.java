@@ -8,6 +8,7 @@ import com.pulumi.core.annotations.Import;
 import com.pulumi.core.internal.Codegen;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
 import io.github.dirien.dockeragent.enums.Logging;
+import io.github.dirien.dockeragent.enums.RerunPolicy;
 import io.github.dirien.dockeragent.enums.ToolApproval;
 import java.lang.Boolean;
 import java.lang.Integer;
@@ -40,6 +41,21 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
+     * Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+     * 
+     */
+    @Import(name="allowHarnessAgents")
+    private @Nullable Output<Boolean> allowHarnessAgents;
+
+    /**
+     * @return Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+     * 
+     */
+    public Optional<Output<Boolean>> allowHarnessAgents() {
+        return Optional.ofNullable(this.allowHarnessAgents);
+    }
+
+    /**
      * Let the configuration&#39;s hooks approve tool calls under `toolApproval: deny`. docker-agent runs a tool call that a `pre_tool_use` hook (`permission_decision: allow`) or a `permission_request` hook approves; by default AgentRun ignores such approvals and rejects the call, so `deny` only runs what docker-agent approves by its rules. Hook denials always apply. It has no effect with `toolApproval: allow`.
      * 
      */
@@ -55,14 +71,29 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
+     * A user message the agent runs when the resource is deleted: by `pulumi destroy`, by removing it from the program, or by a replacement. It runs with the configuration and inputs stored in the state, and the environment of the deleting command, for example to clean up what earlier runs created in `workingDir`. Its answer is not kept. When it fails, the delete fails and the resource stays in the state. For a resource that was removed or replaced, that fails every later `pulumi up` as well. To delete without running it, set `DOCKER_AGENT_SKIP_DELETE_PROMPTS=true` for that command. It is skipped with a warning when `workingDir` no longer exists or is no longer a directory, and when an AgentRun of the same provider already ran in that `workingDir` during the same `pulumi` command. That happens when a replacement or a rename creates the new run first; use the `deleteBeforeReplace` resource option or `aliases`. It does not run with the `retainOnDelete` resource option, or when the `deletedWith` resource is deleted in the same operation. Changing it updates the state without running the agent.
+     * 
+     */
+    @Import(name="deletePrompt")
+    private @Nullable Output<String> deletePrompt;
+
+    /**
+     * @return A user message the agent runs when the resource is deleted: by `pulumi destroy`, by removing it from the program, or by a replacement. It runs with the configuration and inputs stored in the state, and the environment of the deleting command, for example to clean up what earlier runs created in `workingDir`. Its answer is not kept. When it fails, the delete fails and the resource stays in the state. For a resource that was removed or replaced, that fails every later `pulumi up` as well. To delete without running it, set `DOCKER_AGENT_SKIP_DELETE_PROMPTS=true` for that command. It is skipped with a warning when `workingDir` no longer exists or is no longer a directory, and when an AgentRun of the same provider already ran in that `workingDir` during the same `pulumi` command. That happens when a replacement or a rename creates the new run first; use the `deleteBeforeReplace` resource option or `aliases`. It does not run with the `retainOnDelete` resource option, or when the `deletedWith` resource is deleted in the same operation. Changing it updates the state without running the agent.
+     * 
+     */
+    public Optional<Output<String>> deletePrompt() {
+        return Optional.ofNullable(this.deletePrompt);
+    }
+
+    /**
+     * Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
      * 
      */
     @Import(name="env")
     private @Nullable Output<Map<String,String>> env;
 
     /**
-     * @return Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
+     * @return Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
      * 
      */
     public Optional<Output<Map<String,String>>> env() {
@@ -70,14 +101,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+     * Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
      * 
      */
     @Import(name="inheritEnvironment")
     private @Nullable Output<Boolean> inheritEnvironment;
 
     /**
-     * @return Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+     * @return Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
      * 
      */
     public Optional<Output<Boolean>> inheritEnvironment() {
@@ -85,14 +116,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+     * What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`; for a delete run also a secret `deletePrompt`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
      * 
      */
     @Import(name="logging")
     private @Nullable Output<Logging> logging;
 
     /**
-     * @return What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+     * @return What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`; for a delete run also a secret `deletePrompt`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
      * 
      */
     public Optional<Output<Logging>> logging() {
@@ -100,14 +131,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Mark `output` and `structuredOutput` as secret. They are also secret when `prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
+     * Mark `output` and `structuredOutput` as secret. They are also secret when `prompt`, `updatePrompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
      * 
      */
     @Import(name="outputSecret")
     private @Nullable Output<Boolean> outputSecret;
 
     /**
-     * @return Mark `output` and `structuredOutput` as secret. They are also secret when `prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
+     * @return Mark `output` and `structuredOutput` as secret. They are also secret when `prompt`, `updatePrompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
      * 
      */
     public Optional<Output<Boolean>> outputSecret() {
@@ -115,14 +146,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * The user message sent to the agent.
+     * The user message sent when the resource is created, and on reruns caused by a change of `prompt`.
      * 
      */
     @Import(name="prompt", required=true)
     private Output<String> prompt;
 
     /**
-     * @return The user message sent to the agent.
+     * @return The user message sent when the resource is created, and on reruns caused by a change of `prompt`.
      * 
      */
     public Output<String> prompt() {
@@ -145,14 +176,29 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * How long the run may take, in seconds, before it fails. Changing it updates the state without running the agent again.
+     * When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless the new value is `always`.
+     * 
+     */
+    @Import(name="rerun")
+    private @Nullable Output<RerunPolicy> rerun;
+
+    /**
+     * @return When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless the new value is `always`.
+     * 
+     */
+    public Optional<Output<RerunPolicy>> rerun() {
+        return Optional.ofNullable(this.rerun);
+    }
+
+    /**
+     * How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
      * 
      */
     @Import(name="timeoutSeconds")
     private @Nullable Output<Integer> timeoutSeconds;
 
     /**
-     * @return How long the run may take, in seconds, before it fails. Changing it updates the state without running the agent again.
+     * @return How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
      * 
      */
     public Optional<Output<Integer>> timeoutSeconds() {
@@ -190,14 +236,29 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * The agent&#39;s working directory, used by the shell, filesystem and other local tools. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+     * The user message sent when the agent runs again while `prompt` is unchanged: after a change of `triggers`, `yaml`, `reference`, `agent`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval` or `allowHookApprovals`, or on every `pulumi up` with `rerun: always`. When `prompt` changes, the rerun sends `prompt`. Defaults to `prompt`. Use it to tell the agent that its earlier work exists, for example files in `workingDir`. Changing it updates the state without running the agent; the next rerun uses it.
+     * 
+     */
+    @Import(name="updatePrompt")
+    private @Nullable Output<String> updatePrompt;
+
+    /**
+     * @return The user message sent when the agent runs again while `prompt` is unchanged: after a change of `triggers`, `yaml`, `reference`, `agent`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval` or `allowHookApprovals`, or on every `pulumi up` with `rerun: always`. When `prompt` changes, the rerun sends `prompt`. Defaults to `prompt`. Use it to tell the agent that its earlier work exists, for example files in `workingDir`. Changing it updates the state without running the agent; the next rerun uses it.
+     * 
+     */
+    public Optional<Output<String>> updatePrompt() {
+        return Optional.ofNullable(this.updatePrompt);
+    }
+
+    /**
+     * The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
      * 
      */
     @Import(name="workingDir")
     private @Nullable Output<String> workingDir;
 
     /**
-     * @return The agent&#39;s working directory, used by the shell, filesystem and other local tools. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+     * @return The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
      * 
      */
     public Optional<Output<String>> workingDir() {
@@ -223,16 +284,20 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
 
     private AgentRunArgs(AgentRunArgs $) {
         this.agent = $.agent;
+        this.allowHarnessAgents = $.allowHarnessAgents;
         this.allowHookApprovals = $.allowHookApprovals;
+        this.deletePrompt = $.deletePrompt;
         this.env = $.env;
         this.inheritEnvironment = $.inheritEnvironment;
         this.logging = $.logging;
         this.outputSecret = $.outputSecret;
         this.prompt = $.prompt;
         this.reference = $.reference;
+        this.rerun = $.rerun;
         this.timeoutSeconds = $.timeoutSeconds;
         this.toolApproval = $.toolApproval;
         this.triggers = $.triggers;
+        this.updatePrompt = $.updatePrompt;
         this.workingDir = $.workingDir;
         this.yaml = $.yaml;
     }
@@ -277,6 +342,27 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
+         * @param allowHarnessAgents Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder allowHarnessAgents(@Nullable Output<Boolean> allowHarnessAgents) {
+            $.allowHarnessAgents = allowHarnessAgents;
+            return this;
+        }
+
+        /**
+         * @param allowHarnessAgents Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder allowHarnessAgents(Boolean allowHarnessAgents) {
+            return allowHarnessAgents(Output.of(allowHarnessAgents));
+        }
+
+        /**
          * @param allowHookApprovals Let the configuration&#39;s hooks approve tool calls under `toolApproval: deny`. docker-agent runs a tool call that a `pre_tool_use` hook (`permission_decision: allow`) or a `permission_request` hook approves; by default AgentRun ignores such approvals and rejects the call, so `deny` only runs what docker-agent approves by its rules. Hook denials always apply. It has no effect with `toolApproval: allow`.
          * 
          * @return builder
@@ -298,7 +384,28 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param env Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
+         * @param deletePrompt A user message the agent runs when the resource is deleted: by `pulumi destroy`, by removing it from the program, or by a replacement. It runs with the configuration and inputs stored in the state, and the environment of the deleting command, for example to clean up what earlier runs created in `workingDir`. Its answer is not kept. When it fails, the delete fails and the resource stays in the state. For a resource that was removed or replaced, that fails every later `pulumi up` as well. To delete without running it, set `DOCKER_AGENT_SKIP_DELETE_PROMPTS=true` for that command. It is skipped with a warning when `workingDir` no longer exists or is no longer a directory, and when an AgentRun of the same provider already ran in that `workingDir` during the same `pulumi` command. That happens when a replacement or a rename creates the new run first; use the `deleteBeforeReplace` resource option or `aliases`. It does not run with the `retainOnDelete` resource option, or when the `deletedWith` resource is deleted in the same operation. Changing it updates the state without running the agent.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder deletePrompt(@Nullable Output<String> deletePrompt) {
+            $.deletePrompt = deletePrompt;
+            return this;
+        }
+
+        /**
+         * @param deletePrompt A user message the agent runs when the resource is deleted: by `pulumi destroy`, by removing it from the program, or by a replacement. It runs with the configuration and inputs stored in the state, and the environment of the deleting command, for example to clean up what earlier runs created in `workingDir`. Its answer is not kept. When it fails, the delete fails and the resource stays in the state. For a resource that was removed or replaced, that fails every later `pulumi up` as well. To delete without running it, set `DOCKER_AGENT_SKIP_DELETE_PROMPTS=true` for that command. It is skipped with a warning when `workingDir` no longer exists or is no longer a directory, and when an AgentRun of the same provider already ran in that `workingDir` during the same `pulumi` command. That happens when a replacement or a rename creates the new run first; use the `deleteBeforeReplace` resource option or `aliases`. It does not run with the `retainOnDelete` resource option, or when the `deletedWith` resource is deleted in the same operation. Changing it updates the state without running the agent.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder deletePrompt(String deletePrompt) {
+            return deletePrompt(Output.of(deletePrompt));
+        }
+
+        /**
+         * @param env Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
          * 
          * @return builder
          * 
@@ -309,7 +416,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param env Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
+         * @param env Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
          * 
          * @return builder
          * 
@@ -319,7 +426,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
          * 
          * @return builder
          * 
@@ -330,7 +437,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
          * 
          * @return builder
          * 
@@ -340,7 +447,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param logging What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+         * @param logging What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`; for a delete run also a secret `deletePrompt`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -351,7 +458,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param logging What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+         * @param logging What `pulumi up` shows while the agent runs. `status` (default) shows the run&#39;s progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents&#39; messages and the tools&#39; results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`; for a delete run also a secret `deletePrompt`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -361,7 +468,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param outputSecret Mark `output` and `structuredOutput` as secret. They are also secret when `prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
+         * @param outputSecret Mark `output` and `structuredOutput` as secret. They are also secret when `prompt`, `updatePrompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -372,7 +479,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param outputSecret Mark `output` and `structuredOutput` as secret. They are also secret when `prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
+         * @param outputSecret Mark `output` and `structuredOutput` as secret. They are also secret when `prompt`, `updatePrompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -382,7 +489,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param prompt The user message sent to the agent.
+         * @param prompt The user message sent when the resource is created, and on reruns caused by a change of `prompt`.
          * 
          * @return builder
          * 
@@ -393,7 +500,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param prompt The user message sent to the agent.
+         * @param prompt The user message sent when the resource is created, and on reruns caused by a change of `prompt`.
          * 
          * @return builder
          * 
@@ -424,7 +531,28 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param timeoutSeconds How long the run may take, in seconds, before it fails. Changing it updates the state without running the agent again.
+         * @param rerun When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless the new value is `always`.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder rerun(@Nullable Output<RerunPolicy> rerun) {
+            $.rerun = rerun;
+            return this;
+        }
+
+        /**
+         * @param rerun When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless the new value is `always`.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder rerun(RerunPolicy rerun) {
+            return rerun(Output.of(rerun));
+        }
+
+        /**
+         * @param timeoutSeconds How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -435,7 +563,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param timeoutSeconds How long the run may take, in seconds, before it fails. Changing it updates the state without running the agent again.
+         * @param timeoutSeconds How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -497,7 +625,28 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param workingDir The agent&#39;s working directory, used by the shell, filesystem and other local tools. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+         * @param updatePrompt The user message sent when the agent runs again while `prompt` is unchanged: after a change of `triggers`, `yaml`, `reference`, `agent`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval` or `allowHookApprovals`, or on every `pulumi up` with `rerun: always`. When `prompt` changes, the rerun sends `prompt`. Defaults to `prompt`. Use it to tell the agent that its earlier work exists, for example files in `workingDir`. Changing it updates the state without running the agent; the next rerun uses it.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder updatePrompt(@Nullable Output<String> updatePrompt) {
+            $.updatePrompt = updatePrompt;
+            return this;
+        }
+
+        /**
+         * @param updatePrompt The user message sent when the agent runs again while `prompt` is unchanged: after a change of `triggers`, `yaml`, `reference`, `agent`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval` or `allowHookApprovals`, or on every `pulumi up` with `rerun: always`. When `prompt` changes, the rerun sends `prompt`. Defaults to `prompt`. Use it to tell the agent that its earlier work exists, for example files in `workingDir`. Changing it updates the state without running the agent; the next rerun uses it.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder updatePrompt(String updatePrompt) {
+            return updatePrompt(Output.of(updatePrompt));
+        }
+
+        /**
+         * @param workingDir The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
          * 
          * @return builder
          * 
@@ -508,7 +657,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param workingDir The agent&#39;s working directory, used by the shell, filesystem and other local tools. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+         * @param workingDir The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
          * 
          * @return builder
          * 
@@ -539,6 +688,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         public AgentRunArgs build() {
+            $.allowHarnessAgents = Codegen.booleanProp("allowHarnessAgents").output().arg($.allowHarnessAgents).def(false).getNullable();
             $.allowHookApprovals = Codegen.booleanProp("allowHookApprovals").output().arg($.allowHookApprovals).def(false).getNullable();
             $.inheritEnvironment = Codegen.booleanProp("inheritEnvironment").output().arg($.inheritEnvironment).def(true).getNullable();
             $.logging = Codegen.objectProp("logging", Logging.class).output().arg($.logging).def(Logging.Status).getNullable();
@@ -546,6 +696,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
             if ($.prompt == null) {
                 throw new MissingRequiredPropertyException("AgentRunArgs", "prompt");
             }
+            $.rerun = Codegen.objectProp("rerun", RerunPolicy.class).output().arg($.rerun).def(RerunPolicy.OnChange).getNullable();
             $.timeoutSeconds = Codegen.integerProp("timeoutSeconds").output().arg($.timeoutSeconds).def(300).getNullable();
             $.toolApproval = Codegen.objectProp("toolApproval", ToolApproval.class).output().arg($.toolApproval).def(ToolApproval.Deny).getNullable();
             return $;

@@ -23,6 +23,7 @@ __all__ = [
     'Logging',
     'RagFusionStrategy',
     'RagStrategyType',
+    'RerunPolicy',
     'RestartPolicy',
     'SafetyMode',
     'SectionSpacing',
@@ -210,6 +211,18 @@ class RagStrategyType(_builtins.str, Enum):
     BM25 = "bm25"
     CHUNKED_EMBEDDINGS = "chunked-embeddings"
     SEMANTIC_EMBEDDINGS = "semantic-embeddings"
+
+
+@pulumi.type_token("docker-agent:index:RerunPolicy")
+class RerunPolicy(_builtins.str, Enum):
+    ON_CHANGE = "onChange"
+    """
+    Run the agent again only when an input that affects the run changes, including `triggers` (default).
+    """
+    ALWAYS = "always"
+    """
+    Run the agent again on every `pulumi up` that includes this resource. Previews show it as an update and its run outputs as unknown; `pulumi refresh` does not.
+    """
 
 
 @pulumi.type_token("docker-agent:index:RestartPolicy")

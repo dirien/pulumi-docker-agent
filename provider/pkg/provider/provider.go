@@ -8,11 +8,14 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/property"
 
+	"github.com/dirien/pulumi-docker-agent/provider/pkg/agentrun"
 	"github.com/dirien/pulumi-docker-agent/provider/pkg/validate"
 )
 
@@ -41,8 +44,88 @@ func Provider() p.Provider {
 	if err != nil {
 		panic(fmt.Errorf("unable to build provider: %w", err))
 	}
-	prov = withImportedProviderConfig(withAgentConfigRead(withUserSettingsSecrets(prov)))
-	return withUnknownInputs(withLocalFilePreview(withPreviewOutputs(withConfigVersionDiff(prov))))
+	prov = withImportedProviderConfig(withAgentConfigRead(withUserSettingsSecrets(withFrameworkKeysDiffConfig(prov))))
+	prov = withUnknownInputs(withLocalFilePreview(withPreviewOutputs(withConfigVersionDiff(prov))))
+	return withConfigUpdatesInPlace(withShutdownWatch(withCommandScopedState(prov)))
+}
+
+// withFrameworkKeysDiffConfig makes the inferred DiffConfig compare the same keys on both
+// sides. CheckConfig stores `__pulumi-go-provider-infer` and `__pulumi-go-provider-version`
+// in the provider's inputs, and the engine adds `version`; the inferred DiffConfig drops
+// them from the new inputs only (pulumi-go-provider v1.7.0, infer/resource.go) and diffs
+// `version` from the old state itself. So every DiffConfig saw them deleted from the old
+// inputs and reported a replacement: on a provider version upgrade of an SDK program (its
+// default provider is default_<version>) and on a move to another provider instance, which
+// replaced every resource of the provider.
+//
+// It wraps the inferred DiffConfig directly: withImportedProviderConfig needs the `__`
+// marker to tell a checked configuration from the raw one of `pulumi import`.
+func withFrameworkKeysDiffConfig(prov p.Provider) p.Provider {
+	inner := prov.DiffConfig
+	prov.DiffConfig = func(ctx context.Context, req p.DiffRequest) (p.DiffResponse, error) {
+		req.OldInputs = withoutFrameworkKeys(req.OldInputs).Delete("version")
+		req.State = withoutFrameworkKeys(req.State)
+		return inner(ctx, req)
+	}
+	return prov
+}
+
+// withConfigUpdatesInPlace reports every change of the provider configuration as an update
+// of the provider, never as a replacement. pulumi-go-provider replaces a provider on any
+// configuration change (pulumi-go-provider#409), and the engine then replaces every resource
+// of the provider: every AgentRun ran again, and the old resource's deletePrompt ran after
+// the new run, in another provider process. No setting of this provider identifies a
+// resource (`registryAuth`, `skipValidation` and `forceHttps` only change how the provider
+// works), so the engine can configure the provider again in place: a rotated registry
+// password, a toggled setting and DOCKER_AGENT_SKIP_VALIDATION or DOCKER_AGENT_FORCE_HTTPS in
+// the environment of one command keep every resource.
+func withConfigUpdatesInPlace(prov p.Provider) p.Provider {
+	inner := prov.DiffConfig
+	prov.DiffConfig = func(ctx context.Context, req p.DiffRequest) (p.DiffResponse, error) {
+		resp, err := inner(ctx, req)
+		if err != nil {
+			return resp, err
+		}
+		for k, d := range resp.DetailedDiff {
+			switch d.Kind {
+			case p.AddReplace:
+				d.Kind = p.Add
+			case p.UpdateReplace:
+				d.Kind = p.Update
+			case p.DeleteReplace:
+				d.Kind = p.Delete
+			}
+			resp.DetailedDiff[k] = d
+		}
+		resp.DeleteBeforeReplace = false
+		return resp, nil
+	}
+	return prov
+}
+
+// withShutdownWatch starts agentrun.WatchShutdownSignals when the engine configures the
+// provider: from then on, a SIGINT (Pulumi stops a provider with SIGINT) refuses new Claude
+// Code CLIs and stops the running ones. The engine configures a provider before it creates,
+// updates or deletes resources with it, and the Pulumi SDK installed its own SIGINT handler
+// before it served the first request, so the watcher never takes a SIGINT that would have
+// ended the provider.
+func withShutdownWatch(prov p.Provider) p.Provider {
+	inner := prov.Configure
+	prov.Configure = func(ctx context.Context, req p.ConfigureRequest) error {
+		agentrun.WatchShutdownSignals()
+		return inner(ctx, req)
+	}
+	return prov
+}
+
+// withoutFrameworkKeys returns m without the keys that start with `__`.
+func withoutFrameworkKeys(m property.Map) property.Map {
+	for k := range m.All {
+		if strings.HasPrefix(k, "__") {
+			m = m.Delete(k)
+		}
+	}
+	return m
 }
 
 // withConfigVersionDiff adds the diff of AgentConfig's `version` input. pulumi-go-provider

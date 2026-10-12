@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -121,9 +123,32 @@ func TestAgentRunSchema(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, []string{"prompt"}, res.RequiredInputs)
 	assert.Equal(t, true, res.InputProperties["env"]["secret"])
-	for _, in := range []string{"yaml", "reference", "agent", "prompt", "env", "inheritEnvironment", "workingDir",
-		"toolApproval", "timeoutSeconds", "triggers", "outputSecret", "allowHookApprovals", "logging"} {
+	for _, in := range []string{"yaml", "reference", "agent", "prompt", "updatePrompt", "deletePrompt", "env",
+		"inheritEnvironment", "workingDir", "toolApproval", "timeoutSeconds", "triggers", "rerun", "outputSecret",
+		"allowHookApprovals", "allowHarnessAgents", "logging"} {
 		assert.Contains(t, res.InputProperties, in)
+		assert.NotEmpty(t, res.InputProperties[in]["description"], in)
+	}
+	for _, in := range []string{"updatePrompt", "deletePrompt", "rerun", "allowHarnessAgents"} {
+		assert.Contains(t, res.Properties, in, "the state has every input")
+		assert.NotContains(t, res.RequiredInputs, in)
+		assert.Nil(t, res.InputProperties[in]["secret"], "%s is not forced secret", in)
+	}
+	assert.Contains(t, res.InputProperties["deletePrompt"]["description"], "DOCKER_AGENT_SKIP_DELETE_PROMPTS")
+	assert.Contains(t, res.InputProperties["updatePrompt"]["description"], "When `prompt` changes, the rerun sends")
+	assert.Contains(t, res.InputProperties["allowHarnessAgents"]["description"], "claude-code")
+	assert.Equal(t, "onChange", res.InputProperties["rerun"]["default"])
+	assert.Equal(t, false, res.InputProperties["allowHarnessAgents"]["default"])
+	rerun := schema.Types["docker-agent:index:RerunPolicy"]
+	require.NotNil(t, rerun)
+	values, ok := rerun["enum"].([]any)
+	require.True(t, ok)
+	require.Len(t, values, 2)
+	for i, want := range []string{"onChange", "always"} {
+		v, ok := values[i].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, want, v["value"])
+		assert.NotEmpty(t, v["description"])
 	}
 	for _, out := range []string{"output", "structuredOutput", "agentName", "usage", "toolCalls", "ranAt"} {
 		assert.Contains(t, res.Properties, out)
@@ -161,7 +186,17 @@ func TestAgentRunCheck(t *testing.T) {
 		{"bad timeout", runInputs(srv, "", map[string]any{"timeoutSeconds": 0}), "`timeoutSeconds` must be positive"},
 		{"unknown agent", runInputs(srv, "", map[string]any{"agent": "nope"}), `agent "nope" is not defined`},
 		{"invalid yaml", runInputs(srv, "    tolsets: []\n", nil), "invalid docker-agent configuration"},
-		{"harness", runInputs(srv, "    harness:\n      type: claude-code\n", nil), "coding-harness agents"},
+		{"harness", runInputs(srv, "    harness:\n      type: claude-code\n", nil),
+			"coding-harness agents (agents.root.harness: claude-code) run only with allowHarnessAgents: true"},
+		{"harness opt-out", runInputs(srv, "    harness:\n      type: claude-code\n", map[string]any{"allowHarnessAgents": false}),
+			"run only with allowHarnessAgents: true"},
+		{"unsupported harness", runInputs(srv, "    harness:\n      type: codex\n", map[string]any{"allowHarnessAgents": true}),
+			"codex harness agents (agents.root.harness) are not supported by AgentRun yet"},
+		{"blank updatePrompt", runInputs(srv, "", map[string]any{"updatePrompt": " "}),
+			"updatePrompt: `updatePrompt` must not be empty; omit it to rerun with `prompt`"},
+		{"blank deletePrompt", runInputs(srv, "", map[string]any{"deletePrompt": ""}), "deletePrompt: `deletePrompt` must not be empty"},
+		{"bad rerun", runInputs(srv, "", map[string]any{"rerun": "sometimes"}),
+			`rerun: invalid value "sometimes": must be "onChange" or "always"`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -174,6 +209,14 @@ func TestAgentRunCheck(t *testing.T) {
 	unknown := runInputs(srv, "", nil).Set("yaml", property.New(property.Computed))
 	resp := runCheck(t, s, unknown)
 	assert.Empty(t, resp.Failures, runFailures(resp.Failures))
+
+	// The new inputs get their defaults, and an unknown opt-in fails nothing in a preview.
+	assert.Equal(t, "onChange", ok.Inputs.Get("rerun").AsString())
+	assert.False(t, ok.Inputs.Get("allowHarnessAgents").AsBool())
+	harness := runInputs(srv, "    harness:\n      type: claude-code\n", nil).Set("allowHarnessAgents", property.New(property.Computed))
+	resp = runCheck(t, s, harness)
+	assert.Empty(t, resp.Failures, runFailures(resp.Failures))
+	assert.True(t, resp.Inputs.Get("allowHarnessAgents").IsComputed())
 }
 
 func TestAgentRunLifecycle(t *testing.T) {
@@ -507,11 +550,13 @@ func TestAgentRunStateOnlyChanges(t *testing.T) {
 	require.NoError(t, err)
 	ranAt := created.Properties.Get("ranAt").AsString()
 
-	for _, change := range []map[string]any{{"outputSecret": true}, {"timeoutSeconds": 30}, {"logging": "full"}} {
+	for _, change := range []map[string]any{{"outputSecret": true}, {"timeoutSeconds": 30}, {"logging": "full"},
+		{"updatePrompt": "Look again."}, {"deletePrompt": "Clean up."}, {"allowHarnessAgents": true}} {
 		next := runCheck(t, s, runInputs(srv, "", change))
 		diff, err := s.Diff(p.DiffRequest{ID: created.ID, Urn: u, State: created.Properties, Inputs: next.Inputs, OldInputs: first.Inputs})
 		require.NoError(t, err)
 		assert.True(t, diff.HasChanges, "%v", change)
+		assert.Equal(t, slices.Sorted(maps.Keys(change)), slices.Sorted(maps.Keys(diff.DetailedDiff)), "%v", change)
 
 		preview, err := s.Update(p.UpdateRequest{ID: created.ID, Urn: u, State: created.Properties, Inputs: next.Inputs,
 			OldInputs: first.Inputs, DryRun: true})

@@ -23,8 +23,10 @@ const (
 	LoggingNone Logging = "none"
 	// LoggingStatus reports status updates while the run is in progress (an agent started,
 	// a task was transferred or the conversation handed off to another agent, a tool call
-	// was made and approved or rejected, a model failed over to its fallback) and a summary
-	// when it succeeds (duration, tool calls, tokens and estimated cost).
+	// was made and approved or rejected, or run by a coding harness, a model failed over to
+	// its fallback), the Claude Code version, model and credential source of a coding
+	// harness, and a summary when the run succeeds (duration, tool calls, tokens and
+	// estimated cost).
 	LoggingStatus Logging = "status"
 	// LoggingTools also reports each tool call, with its arguments, as a persistent message.
 	LoggingTools Logging = "tools"
@@ -160,12 +162,19 @@ func (p *progress) toolResponse(e *runtime.ToolCallResponseEvent) {
 	delete(p.calls, e.ToolCallID)
 	agent, toolName := p.name(e.AgentName, "an agent"), p.name(tool, "a tool")
 
-	outcome := "approved"
+	// A coding harness runs its tools itself: docker-agent's approval flow never saw them.
+	harnessTool := e.ToolDefinition.Category == harnessToolCategory
+	failed := e.Result != nil && e.Result.IsError
+	outcome, ran := "approved", true
 	switch {
-	case e.Result != nil && e.Result.IsError && isRejection(e.Response):
-		outcome = "rejected (" + rejectionReason(e.Response) + ")"
-	case e.Result != nil && e.Result.IsError:
-		outcome = "approved, failed"
+	case harnessTool && failed:
+		outcome, ran = "run by the harness, failed", false
+	case harnessTool:
+		outcome = "run by the harness"
+	case failed && isRejection(e.Response):
+		outcome, ran = "rejected ("+rejectionReason(e.Response)+")", false
+	case failed:
+		outcome, ran = "approved, failed", false
 	}
 	if tool == "handoff" && outcome == "approved" {
 		p.status("%s -> %s: conversation handed off", agent, p.name(argument(args, "agent"), "another agent"))
@@ -181,7 +190,7 @@ func (p *progress) toolResponse(e *runtime.ToolCallResponseEvent) {
 		msg += " " + p.quote(args, maxArgs)
 	}
 	msg += ": " + outcome
-	if p.at(LoggingFull) && outcome == "approved" && !p.hideNames {
+	if p.at(LoggingFull) && ran && !p.hideNames {
 		if result := strings.TrimSpace(e.Response); result != "" {
 			msg += ": " + p.quote(result, maxResult)
 		}

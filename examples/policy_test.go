@@ -43,8 +43,9 @@ var (
 // TestPolicyPack previews programs with the policy pack in policy/ (`pulumi preview
 // --policy-pack <repo>/policy`): the fixture testdata/policy-violations must fail and name every
 // mandatory policy, the allowlist policies must report it once they are enabled, the remediation
-// must fix toolApproval, and examples/yaml must pass. Previews need no registry and no model API
-// key. The test installs the pack's dependencies (policy/node_modules) with npm.
+// must fix toolApproval, allowHookApprovals and allowHarnessAgents, and examples/yaml must pass.
+// Previews need no registry and no model API key. The test installs the pack's dependencies
+// (policy/node_modules) with npm.
 func TestPolicyPack(t *testing.T) {
 	root := repoRoot(t)
 	pack := policyPackDir(t, root)
@@ -64,6 +65,7 @@ func TestPolicyPack(t *testing.T) {
 		assert.Equal(t, want, reportedPolicies(out), "reported policies:\n%s", out)
 		assert.Contains(t, out, `AgentRun "unattended-run" sets toolApproval "allow"`)
 		assert.Contains(t, out, `AgentRun "hooked-run" sets allowHookApprovals`)
+		assert.Contains(t, out, `AgentRun "harness-run" sets allowHarnessAgents`)
 		assert.Contains(t, out, `uses the "autonomous" safety mode (agent "root")`)
 		assert.Contains(t, out, "agents[0].toolsets[1].env.GITHUB_PERSONAL_ACCESS_TOKEN")
 		assert.NotContains(t, out, "literal-token-value-0123456789", "the output repeats the credential")
@@ -86,14 +88,14 @@ func TestPolicyPack(t *testing.T) {
 			"agentartifact-allowed-registries": map[string]any{
 				"enforcementLevel": "mandatory", "allowedRegistries": []string{"ghcr.io/example"},
 			},
-			// Fix toolApproval and allowHookApprovals instead of failing on them.
+			// Fix toolApproval, allowHookApprovals and allowHarnessAgents instead of failing on them.
 			"agentrun-tool-approval-deny": "remediate",
 		})
 		out, err := previewWithPolicies(t, root, "testdata/policy-violations", pack, config)
 		require.Error(t, err, "the preview must fail on the allowlist violations:\n%s", out)
 		want := map[string]string{
-			// The remediation set toolApproval to "deny" and allowHookApprovals to false, so the
-			// validation passes.
+			// The remediation set toolApproval to "deny", and allowHookApprovals and
+			// allowHarnessAgents to false, so the validation passes.
 			"agentrun-tool-approval-deny": "remediate",
 		}
 		for _, name := range append([]string{"agentconfig-no-autonomous-safety", "agentconfig-no-literal-credentials",
@@ -110,9 +112,11 @@ func TestPolicyPack(t *testing.T) {
 		assert.NotContains(t, out, "unsafe-agent:v1", "the message names the registry only")
 		// The tagged run pulls from ghcr.io/example, which is allowed.
 		assert.NotContains(t, out, `AgentRun "tagged-run" uses`)
-		// The remediation set toolApproval to "deny" and allowHookApprovals to false.
+		// The remediation set toolApproval to "deny", and allowHookApprovals and allowHarnessAgents
+		// to false.
 		assert.NotContains(t, out, `sets toolApproval "allow"`)
 		assert.NotContains(t, out, `sets allowHookApprovals`)
+		assert.NotContains(t, out, `sets allowHarnessAgents`)
 	})
 
 	t.Run("yaml example passes", func(t *testing.T) {

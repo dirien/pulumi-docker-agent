@@ -197,6 +197,19 @@ export const RagStrategyType = {
 
 export type RagStrategyType = (typeof RagStrategyType)[keyof typeof RagStrategyType];
 
+export const RerunPolicy = {
+    /**
+     * Run the agent again only when an input that affects the run changes, including `triggers` (default).
+     */
+    OnChange: "onChange",
+    /**
+     * Run the agent again on every `pulumi up` that includes this resource. Previews show it as an update and its run outputs as unknown; `pulumi refresh` does not.
+     */
+    Always: "always",
+} as const;
+
+export type RerunPolicy = (typeof RerunPolicy)[keyof typeof RerunPolicy];
+
 export const RestartPolicy = {
     Never: "never",
     OnFailure: "on_failure",

@@ -32,6 +32,10 @@ import (
 	"github.com/pulumi/providertest/pulumitest/assertrefresh"
 	"github.com/pulumi/providertest/pulumitest/opttest"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/events"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -261,7 +265,9 @@ func TestExampleUserSettings(t *testing.T) {
 // `pulumi up`. The agent's custom provider points at a fake OpenAI-compatible server started
 // by the test, so no API key is needed. The test checks the structured answer, that the key is
 // sent to the model API but stored encrypted, that preview and refresh do not run the agent
-// again, that a new trigger does, and that destroy runs nothing. It needs no registry.
+// again, that a new trigger does, that `rerun: always` runs it on every `pulumi up` but never
+// shows as drift on refresh (also not in the refresh of `pulumi up --refresh`), and that destroy
+// runs nothing. It needs no registry.
 func TestExampleAgentRun(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)
@@ -319,10 +325,53 @@ func TestExampleAgentRun(t *testing.T) {
 	assert.Len(t, llm.received(), 2)
 	assert.Equal(t, "low", stringOutput(t, up.Outputs, "risk"))
 
+	// rerun: always runs the agent on every `pulumi up` that includes it.
+	step = time.Now()
+	pt.SetConfig(t, "rerun", "always")
+	preview := pt.Preview(t)
+	assert.Equal(t, 1, preview.ChangeSummary[apitype.OpUpdate], "the AgentRun previews as an update:\n%s", preview.StdOut)
+	assert.Contains(t, preview.StdOut, "rerun")
+	assert.Len(t, llm.received(), 2, "a preview never runs the agent")
+	up = pt.Up(t)
+	assert.Equal(t, 1, (*up.Summary.ResourceChanges)["update"], "only the AgentRun is updated:\n%s", up.StdOut)
+	assert.Len(t, llm.received(), 3)
+
+	// A refresh reports no drift for it, and runs nothing.
+	assertrefresh.HasNoChanges(t, pt.Refresh(t))
+	pt.Refresh(t, optrefresh.ExpectNoChanges())
+	assert.Len(t, llm.received(), 3, "refresh never runs the agent")
+
+	// `pulumi up --refresh` refreshes without drift and then runs the agent once.
+	engineEvents := make(chan events.EngineEvent)
+	var refreshDiffs []string
+	eventsDone := make(chan struct{})
+	go func() {
+		defer close(eventsDone)
+		for e := range engineEvents {
+			if e.ResourcePreEvent == nil {
+				continue
+			}
+			if m := e.ResourcePreEvent.Metadata; m.Op == apitype.OpRefresh && m.Type == "docker-agent:index:AgentRun" &&
+				(len(m.Diffs) > 0 || len(m.DetailedDiff) > 0) {
+				refreshDiffs = append(refreshDiffs, fmt.Sprintf("%s: %v %v", m.URN, m.Diffs, m.DetailedDiff))
+			}
+		}
+	}()
+	up = pt.Up(t, optup.Refresh(), optup.EventStreams(engineEvents))
+	<-eventsDone
+	assert.Empty(t, refreshDiffs, "the refresh of `pulumi up --refresh` reports drift for the AgentRun")
+	assert.Equal(t, 1, (*up.Summary.ResourceChanges)["update"], "only the AgentRun is updated:\n%s", up.StdOut)
+	assert.Len(t, llm.received(), 4, "up --refresh runs the agent exactly once")
+
+	up = pt.Up(t)
+	assert.Len(t, llm.received(), 5, "every up runs the agent again")
+	assert.Equal(t, "low", stringOutput(t, up.Outputs, "risk"))
+	t.Logf("[%s] rerun always: %s", lang, time.Since(step).Round(time.Millisecond))
+
 	step = time.Now()
 	pt.Destroy(t)
 	t.Logf("[%s] destroy: %s", lang, time.Since(step).Round(time.Millisecond))
-	assert.Len(t, llm.received(), 2, "destroy runs nothing")
+	assert.Len(t, llm.received(), 5, "destroy runs nothing")
 	t.Logf("[%s] total: %s", lang, time.Since(start).Round(time.Millisecond))
 }
 
@@ -447,6 +496,68 @@ func checkAgentRunSecrets(t *testing.T, deployment json.RawMessage) {
 	t.Fatal("no AgentRun in the state")
 }
 
+// stateResource is a resource of an exported Pulumi state.
+type stateResource struct {
+	Type    string                     `json:"type"`
+	URN     string                     `json:"urn"`
+	ID      string                     `json:"id"`
+	Delete  bool                       `json:"delete"`
+	Inputs  map[string]json.RawMessage `json:"inputs"`
+	Outputs map[string]json.RawMessage `json:"outputs"`
+}
+
+// agentRunsInState returns the AgentRuns of an exported state that are not pending deletion, by
+// resource name.
+func agentRunsInState(t *testing.T, deployment json.RawMessage) map[string]stateResource {
+	t.Helper()
+	var state struct {
+		Resources []stateResource `json:"resources"`
+	}
+	require.NoError(t, json.Unmarshal(deployment, &state))
+	runs := map[string]stateResource{}
+	for _, r := range state.Resources {
+		if r.Type == "docker-agent:index:AgentRun" && !r.Delete {
+			runs[r.URN[strings.LastIndex(r.URN, "::")+2:]] = r
+		}
+	}
+	return runs
+}
+
+// isSecretJSON reports whether a value of an exported state is a secret.
+func isSecretJSON(raw json.RawMessage) bool {
+	var v map[string]any
+	return json.Unmarshal(raw, &v) == nil && v[secretSig] != nil
+}
+
+// stateWithoutSecrets returns an exported state with every secret value replaced by "[secret]":
+// what the state stores in plaintext. pulumitest exports with --show-secrets, so the export itself
+// contains the decrypted secrets.
+func stateWithoutSecrets(t *testing.T, deployment json.RawMessage) string {
+	t.Helper()
+	var v any
+	require.NoError(t, json.Unmarshal(deployment, &v))
+	var strip func(any) any
+	strip = func(v any) any {
+		switch v := v.(type) {
+		case map[string]any:
+			if v[secretSig] != nil {
+				return "[secret]"
+			}
+			for k, e := range v {
+				v[k] = strip(e)
+			}
+		case []any:
+			for i, e := range v {
+				v[i] = strip(e)
+			}
+		}
+		return v
+	}
+	out, err := json.Marshal(strip(v))
+	require.NoError(t, err)
+	return string(out)
+}
+
 // checkDockerAgentUserConfig lists the aliases with the real docker-agent CLI when it is on
 // PATH: the CLI must load the written configuration.
 func checkDockerAgentUserConfig(t *testing.T, configDir string) {
@@ -498,7 +609,7 @@ func httpGet(t *testing.T, url string) string {
 func useLocalSDK(t *testing.T, lang, dir, root string) {
 	t.Helper()
 	switch lang {
-	case "nodejs", "docker-serve-ts":
+	case "nodejs", "docker-serve-ts", "agent-run-claude-code-ts":
 		sdk := filepath.Join(root, "sdk", "nodejs", "bin")
 		requireFile(t, filepath.Join(sdk, "package.json"), "make build_nodejs")
 		replaceInFile(t, filepath.Join(dir, "package.json"), "file:../../sdk/nodejs/bin", "file:"+filepath.ToSlash(sdk))

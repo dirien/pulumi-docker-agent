@@ -539,6 +539,40 @@ namespace ediri.DockerAgent
     }
 
     [EnumType]
+    public readonly struct RerunPolicy : IEquatable<RerunPolicy>
+    {
+        private readonly string _value;
+
+        private RerunPolicy(string value)
+        {
+            _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// Run the agent again only when an input that affects the run changes, including `triggers` (default).
+        /// </summary>
+        public static RerunPolicy OnChange { get; } = new RerunPolicy("onChange");
+        /// <summary>
+        /// Run the agent again on every `pulumi up` that includes this resource. Previews show it as an update and its run outputs as unknown; `pulumi refresh` does not.
+        /// </summary>
+        public static RerunPolicy Always { get; } = new RerunPolicy("always");
+
+        public static bool operator ==(RerunPolicy left, RerunPolicy right) => left.Equals(right);
+        public static bool operator !=(RerunPolicy left, RerunPolicy right) => !left.Equals(right);
+
+        public static explicit operator string(RerunPolicy value) => value._value;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override bool Equals(object? obj) => obj is RerunPolicy other && Equals(other);
+        public bool Equals(RerunPolicy other) => string.Equals(_value, other._value, StringComparison.Ordinal);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override int GetHashCode() => _value?.GetHashCode() ?? 0;
+
+        public override string ToString() => _value;
+    }
+
+    [EnumType]
     public readonly struct RestartPolicy : IEquatable<RestartPolicy>
     {
         private readonly string _value;

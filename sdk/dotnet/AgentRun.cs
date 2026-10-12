@@ -17,13 +17,35 @@ namespace ediri.DockerAgent
     /// 
     /// The agent runs inside the provider process with the docker-agent Go SDK (the same runtime as
     /// `docker agent run --exec`), headless and unattended. It never runs during `pulumi preview`: the
-    /// outputs are unknown until the update. A change of `yaml`, `reference`, `agent`,
-    /// `prompt`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval`,
-    /// `allowHookApprovals` or `triggers` (including a value that is unknown during the preview) runs the
-    /// agent again; a change of `timeoutSeconds`, `outputSecret` or `logging` alone only updates
-    /// the state.
-    /// `pulumi up` without changes and `pulumi refresh` reuse the stored answer, deleting the resource
-    /// does nothing, and importing is not supported.
+    /// outputs are unknown until the update.
+    /// 
+    /// **When the agent runs.** Creating the resource sends `prompt`. A change of `yaml`,
+    /// `reference`, `agent`, `prompt`, `env`, `inheritEnvironment`,
+    /// `workingDir`, `toolApproval`, `allowHookApprovals` or `triggers` (including a value
+    /// that is unknown during the preview) runs the agent again: with `prompt` when `prompt` changed,
+    /// otherwise with `updatePrompt` (which defaults to `prompt`). With `rerun: always` every
+    /// `pulumi up` that includes the resource runs it again; the preview then shows it as an update, and the
+    /// resources that consume its outputs change too. A change of `updatePrompt`, `deletePrompt`,
+    /// `allowHarnessAgents`, `timeoutSeconds`, `outputSecret`, `logging` or `rerun`
+    /// alone only updates the state (unless `rerun` becomes `always`). Without changes, `pulumi up` reuses
+    /// the stored answer (unless `rerun: always`), and `pulumi refresh` always does; importing is not supported.
+    /// A retry through the `hooks.onError` resource option runs the whole agent again.
+    /// 
+    /// **Deleting the resource** (`pulumi destroy`, removing it from the program, or the old resource of a
+    /// replacement) runs `deletePrompt` when one is set, with the inputs stored in the state and the environment of
+    /// the deleting command; its answer is not kept. When it fails, the delete fails and the resource stays in the state, and
+    /// for a removed or replaced resource every later `pulumi up` tries the delete again. To delete without running
+    /// it, set `DOCKER_AGENT_SKIP_DELETE_PROMPTS=true` for that command. It is skipped with a warning when
+    /// `workingDir` no longer exists or is no longer a directory, and when another AgentRun of the same provider ran
+    /// in the same `workingDir` during the same command (also while the delete prompt waited for it): a replacement
+    /// that bypasses the provider's diff (`replacementTrigger`, `--replace`, `replaceWith`,
+    /// `deletedWith`) and a rename without `aliases` create the new run before they delete the old one. A
+    /// change of the provider replaces no resource: a changed setting (also only through `DOCKER_AGENT_SKIP_VALIDATION`
+    /// or `DOCKER_AGENT_FORCE_HTTPS` in the environment of one command), a new provider version and a move to another
+    /// provider instance update the provider in place. Use the `deleteBeforeReplace` resource option (AgentRun asks
+    /// for it when a `deletePrompt` is stored, which covers `replaceOnChanges`), `aliases`, and one
+    /// `workingDir` per AgentRun. With `retainOnDelete`, or when the `deletedWith` resource is
+    /// deleted in the same operation, Delete is not called and nothing runs.
     /// 
     /// **Tools run on the machine executing `pulumi up`.** With the default `toolApproval: deny`, a tool
     /// call only runs when docker-agent would run it without asking: tools annotated read-only (for example
@@ -40,16 +62,33 @@ namespace ediri.DockerAgent
     /// In both modes, these run without approval because they are part of the configuration: command hooks, MCP and LSP
     /// servers started with `command`, `docker:` MCP servers (through the Docker MCP Gateway), and
     /// filesystem `post_edit` commands after an approved write. Read-only tools can read any file the provider can
-    /// read unless the toolset restricts them (`allow_list`). Coding-harness agents are rejected. Review
-    /// configurations pulled by `reference` before running them.
+    /// read unless the toolset restricts them (`allow_list`). Review configurations pulled by `reference`
+    /// before running them.
+    /// 
+    /// **Coding-harness agents** (`harness: {type: claude-code}`) run only with `allowHarnessAgents: true`,
+    /// on Linux and macOS; codex, pi and opencode harnesses are not supported yet. Such an agent starts the Claude Code CLI
+    /// (`claude`, found on the `PATH` of its environment) on the machine that runs `pulumi up`, which
+    /// runs its own tools without approval: `toolApproval`, `allowHookApprovals` and the configuration's
+    /// `permissions` do not apply to it. The CLI runs in `workingDir` (or a temporary directory) with the
+    /// prompt on stdin, the environment described for `inheritEnvironment` plus `env`, and its user's
+    /// Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` (from
+    /// `claude setup-token`) in `env`. An `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` in its
+    /// environment bills API usage instead of the subscription; when `env` sets `CLAUDE_CODE_OAUTH_TOKEN`,
+    /// inherited ones are not passed to the CLI. `output` is Claude Code's final result (when that is empty, the
+    /// text it wrote during the run, with a warning), the agent's `instruction` is not sent to it, and
+    /// `structured_output` is decoded from the result but not enforced: an answer that is not JSON fails the run.
+    /// When the run times out or is cancelled,
+    /// AgentRun sends SIGTERM to the CLI's process group and SIGKILL after 10 seconds; when Pulumi stops the provider, no new
+    /// CLI starts and the running ones get SIGTERM and SIGKILL after 2 seconds. Claude Code runs each shell command in a
+    /// session of its own, so processes it does not stop itself can keep running.
     /// 
     /// Credentials and `${env.NAME}` references resolve from `env` and, unless
     /// `inheritEnvironment` is false, the environment of the Pulumi CLI. With
     /// `inheritEnvironment: false`, command hooks, `shell`, `script` and
-    /// `background_jobs` tools and MCP and LSP servers started with `command` also lose that environment:
-    /// they see the system variables (`PATH`, `HOME`, `USER`, `SHELL`,
-    /// `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get
-    /// `env`). `docker:` MCP servers, filesystem `post_edit` commands, the
+    /// `background_jobs` tools, MCP and LSP servers started with `command` and the Claude Code CLI also lose
+    /// that environment: they see the system variables (`PATH`, `HOME`, `USER`, `SHELL`,
+    /// `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also
+    /// get `env`). `docker:` MCP servers, filesystem `post_edit` commands, the
     /// `open_url` launcher and docker-agent's on-demand tool installation always inherit it.
     /// Errors, warnings and logs are redacted: the values of
     /// `env`, secret inputs, credential-named variables of the environment (`*_API_KEY`,
@@ -69,17 +108,17 @@ namespace ediri.DockerAgent
     /// the next one) and ends with one summary line: duration, tool calls, input and output tokens and the estimated cost.
     /// `tools` also logs every tool call with its arguments, and `full` also logs the agents' messages and
     /// the tools' results. `none` shows nothing. Messages are redacted like errors. When the answer is secret
-    /// (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no
-    /// arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or
-    /// models.
+    /// (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`), `tools` and
+    /// `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages
+    /// name no agents, tools or models.
     /// 
     /// An AgentRun has two time limits. `timeoutSeconds` (default 300) limits the agent run itself: when it runs
     /// out, the run is cancelled and the create or update fails with "the agent did not finish within ... (timeoutSeconds)".
-    /// The `customTimeouts` resource option (`create`, `update`) limits the whole provider operation,
-    /// including pulling a `reference` and waiting for another AgentRun of the same provider process to finish; when
-    /// it runs out, Pulumi cancels the operation and the run fails as cancelled. The shorter limit wins. Use
-    /// `customTimeouts` to bound the deployment step as a whole and keep `timeoutSeconds` as the per-run safety
-    /// limit.
+    /// The `customTimeouts` resource option (`create`, `update`, `delete`) limits the whole
+    /// provider operation, including pulling a `reference` and waiting for another AgentRun of the same provider
+    /// process to finish; when it runs out, Pulumi cancels the operation and the run fails with "the operation's time limit
+    /// (customTimeouts) ran out before the agent finished". The shorter limit wins. Use `customTimeouts` to bound the
+    /// deployment step as a whole and keep `timeoutSeconds` as the per-run safety limit.
     /// 
     /// ## Example Usage
     /// ### Structured output from an agent
@@ -198,6 +237,131 @@ namespace ediri.DockerAgent
     ///     };
     /// });
     /// ```
+    /// ### Claude Code on a Claude subscription
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     var config = new Config();
+    /// 
+    ///     // A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+    ///     // `pulumi config set --secret claudeCodeOauthToken &lt;token&gt;`.
+    ///     var claudeCodeOauthToken = config.RequireSecret("claudeCodeOauthToken");
+    /// 
+    ///     // The agent: Claude Code as a coding harness. It needs no model and no API key.
+    ///     var coder = new DockerAgent.AgentConfig("coder", new()
+    ///     {
+    ///         Agents = new[]
+    ///         {
+    ///             new DockerAgent.Inputs.AgentArgs
+    ///             {
+    ///                 Name = "root",
+    ///                 Description = "Maintains the notes of a repository with Claude Code",
+    ///                 Harness = new DockerAgent.Inputs.HarnessArgs
+    ///                 {
+    ///                     Type = DockerAgent.HarnessType.ClaudeCode,
+    ///                     Model = "sonnet",
+    ///                     Effort = DockerAgent.HarnessEffort.High,
+    ///                 },
+    ///             },
+    ///         },
+    ///     });
+    /// 
+    ///     // Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+    ///     // runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+    ///     // `claude` login of the machine that runs `pulumi up`.
+    ///     var notes = new DockerAgent.AgentRun("notes", new()
+    ///     {
+    ///         Yaml = coder.Yaml,
+    ///         AllowHarnessAgents = true,
+    ///         WorkingDir = "./workspace",
+    ///         Prompt = "Write NOTES.md with three bullet points about the files in this directory.",
+    ///         UpdatePrompt = "NOTES.md exists. Bring it up to date and keep its format.",
+    ///         DeletePrompt = "Delete NOTES.md if it exists, then answer: done.",
+    ///         InheritEnvironment = false,
+    ///         Env =
+    ///         {
+    ///             { "CLAUDE_CODE_OAUTH_TOKEN", claudeCodeOauthToken },
+    ///         },
+    ///         TimeoutSeconds = 900,
+    ///     }, new CustomResourceOptions
+    ///     {
+    ///         DeleteBeforeReplace = true,
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["summary"] = notes.Output,
+    ///         ["usage"] = notes.Usage,
+    ///     };
+    /// });
+    /// ```
+    /// ### One agent, several runs
+    /// ```csharp
+    /// using System.Collections.Generic;
+    /// using System.Linq;
+    /// using Pulumi;
+    /// using DockerAgent = ediri.DockerAgent;
+    /// 
+    /// return await Deployment.RunAsync(() =&gt;
+    /// {
+    ///     var config = new Config();
+    /// 
+    ///     // Set it with `pulumi config set --secret openaiApiKey &lt;key&gt;`.
+    ///     var openaiApiKey = config.RequireSecret("openaiApiKey");
+    /// 
+    ///     // The agent, authored once.
+    ///     var writer = new DockerAgent.AgentConfig("writer", new()
+    ///     {
+    ///         Agents = new[]
+    ///         {
+    ///             new DockerAgent.Inputs.AgentArgs
+    ///             {
+    ///                 Name = "root",
+    ///                 Model = "openai/gpt-5-mini",
+    ///                 Instruction = "You write short, precise texts about infrastructure changes.",
+    ///             },
+    ///         },
+    ///     });
+    /// 
+    ///     // Run 1.
+    ///     var summary = new DockerAgent.AgentRun("summary", new()
+    ///     {
+    ///         Yaml = writer.Yaml,
+    ///         Prompt = "Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17.",
+    ///         Env =
+    ///         {
+    ///             { "OPENAI_API_KEY", openaiApiKey },
+    ///         },
+    ///     });
+    /// 
+    ///     // Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+    ///     // run 1 ran, also when that answer did not change.
+    ///     var translation = new DockerAgent.AgentRun("translation", new()
+    ///     {
+    ///         Yaml = writer.Yaml,
+    ///         Prompt = summary.Output.Apply(output =&gt; $"Translate this text into German: {output}"),
+    ///         Triggers = new[]
+    ///         {
+    ///             summary.RanAt,
+    ///         },
+    ///         Env =
+    ///         {
+    ///             { "OPENAI_API_KEY", openaiApiKey },
+    ///         },
+    ///     });
+    /// 
+    ///     return new Dictionary&lt;string, object?&gt;
+    ///     {
+    ///         ["summaryText"] = summary.Output,
+    ///         ["translationText"] = translation.Output,
+    ///     };
+    /// });
+    /// ```
     /// 
     /// ## Import
     /// 
@@ -220,43 +384,55 @@ namespace ediri.DockerAgent
         public Output<string> AgentName { get; private set; } = null!;
 
         /// <summary>
+        /// Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration's `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user's Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider's docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+        /// </summary>
+        [Output("allowHarnessAgents")]
+        public Output<bool> AllowHarnessAgents { get; private set; } = null!;
+
+        /// <summary>
         /// Let the configuration's hooks approve tool calls under `toolApproval: deny`. docker-agent runs a tool call that a `pre_tool_use` hook (`permission_decision: allow`) or a `permission_request` hook approves; by default AgentRun ignores such approvals and rejects the call, so `deny` only runs what docker-agent approves by its rules. Hook denials always apply. It has no effect with `toolApproval: allow`.
         /// </summary>
         [Output("allowHookApprovals")]
         public Output<bool> AllowHookApprovals { get; private set; } = null!;
 
         /// <summary>
-        /// Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks. Other processes get them only through their toolset's own `env` (`${env.NAME}`).
+        /// A user message the agent runs when the resource is deleted: by `pulumi destroy`, by removing it from the program, or by a replacement. It runs with the configuration and inputs stored in the state, and the environment of the deleting command, for example to clean up what earlier runs created in `workingDir`. Its answer is not kept. When it fails, the delete fails and the resource stays in the state. For a resource that was removed or replaced, that fails every later `pulumi up` as well. To delete without running it, set `DOCKER_AGENT_SKIP_DELETE_PROMPTS=true` for that command. It is skipped with a warning when `workingDir` no longer exists or is no longer a directory, and when an AgentRun of the same provider already ran in that `workingDir` during the same `pulumi` command. That happens when a replacement or a rename creates the new run first; use the `deleteBeforeReplace` resource option or `aliases`. It does not run with the `retainOnDelete` resource option, or when the `deletedWith` resource is deleted in the same operation. Changing it updates the state without running the agent.
+        /// </summary>
+        [Output("deletePrompt")]
+        public Output<string?> DeletePrompt { get; private set; } = null!;
+
+        /// <summary>
+        /// Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset's own `env` (`${env.NAME}`).
         /// </summary>
         [Output("env")]
         public Output<ImmutableDictionary<string, string>?> Env { get; private set; } = null!;
 
         /// <summary>
-        /// Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+        /// Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
         /// </summary>
         [Output("inheritEnvironment")]
         public Output<bool> InheritEnvironment { get; private set; } = null!;
 
         /// <summary>
-        /// What `pulumi up` shows while the agent runs. `status` (default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+        /// What `pulumi up` shows while the agent runs. `status` (default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`; for a delete run also a secret `deletePrompt`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
         /// </summary>
         [Output("logging")]
         public Output<ediri.DockerAgent.Logging> Logging { get; private set; } = null!;
 
         /// <summary>
-        /// The agent's final answer.
+        /// The agent's final answer. For a coding-harness agent, Claude Code's final result, or, when that is empty, the text Claude Code wrote during the run.
         /// </summary>
         [Output("output")]
         public Output<string> Output { get; private set; } = null!;
 
         /// <summary>
-        /// Mark `output` and `structuredOutput` as secret. They are also secret when `prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
+        /// Mark `output` and `structuredOutput` as secret. They are also secret when `prompt`, `updatePrompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
         /// </summary>
         [Output("outputSecret")]
         public Output<bool> OutputSecret { get; private set; } = null!;
 
         /// <summary>
-        /// The user message sent to the agent.
+        /// The user message sent when the resource is created, and on reruns caused by a change of `prompt`.
         /// </summary>
         [Output("prompt")]
         public Output<string> Prompt { get; private set; } = null!;
@@ -274,13 +450,19 @@ namespace ediri.DockerAgent
         public Output<string?> Reference { get; private set; } = null!;
 
         /// <summary>
+        /// When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless the new value is `always`.
+        /// </summary>
+        [Output("rerun")]
+        public Output<ediri.DockerAgent.RerunPolicy> Rerun { get; private set; } = null!;
+
+        /// <summary>
         /// The final answer decoded as JSON, when the answering agent declares `structured_output`.
         /// </summary>
         [Output("structuredOutput")]
         public Output<object?> StructuredOutput { get; private set; } = null!;
 
         /// <summary>
-        /// How long the run may take, in seconds, before it fails. Changing it updates the state without running the agent again.
+        /// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
         /// </summary>
         [Output("timeoutSeconds")]
         public Output<int> TimeoutSeconds { get; private set; } = null!;
@@ -292,7 +474,7 @@ namespace ediri.DockerAgent
         public Output<ediri.DockerAgent.ToolApproval> ToolApproval { get; private set; } = null!;
 
         /// <summary>
-        /// The names of the tools that ran, in order, including those of sub-agents the agent transferred tasks to. Rejected tool calls are reported as warnings instead.
+        /// The names of the tools that ran, in order, including those of sub-agents the agent transferred tasks to and the tools Claude Code reports it ran. Rejected tool calls are reported as warnings instead.
         /// </summary>
         [Output("toolCalls")]
         public Output<ImmutableArray<string>> ToolCalls { get; private set; } = null!;
@@ -304,13 +486,19 @@ namespace ediri.DockerAgent
         public Output<ImmutableArray<object>> Triggers { get; private set; } = null!;
 
         /// <summary>
+        /// The user message sent when the agent runs again while `prompt` is unchanged: after a change of `triggers`, `yaml`, `reference`, `agent`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval` or `allowHookApprovals`, or on every `pulumi up` with `rerun: always`. When `prompt` changes, the rerun sends `prompt`. Defaults to `prompt`. Use it to tell the agent that its earlier work exists, for example files in `workingDir`. Changing it updates the state without running the agent; the next rerun uses it.
+        /// </summary>
+        [Output("updatePrompt")]
+        public Output<string?> UpdatePrompt { get; private set; } = null!;
+
+        /// <summary>
         /// Token usage and estimated cost of the run.
         /// </summary>
         [Output("usage")]
         public Output<Outputs.AgentRunUsage> Usage { get; private set; } = null!;
 
         /// <summary>
-        /// The agent's working directory, used by the shell, filesystem and other local tools. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+        /// The agent's working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
         /// </summary>
         [Output("workingDir")]
         public Output<string?> WorkingDir { get; private set; } = null!;
@@ -378,16 +566,28 @@ namespace ediri.DockerAgent
         public Input<string>? Agent { get; set; }
 
         /// <summary>
+        /// Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration's `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user's Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider's docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+        /// </summary>
+        [Input("allowHarnessAgents")]
+        public Input<bool>? AllowHarnessAgents { get; set; }
+
+        /// <summary>
         /// Let the configuration's hooks approve tool calls under `toolApproval: deny`. docker-agent runs a tool call that a `pre_tool_use` hook (`permission_decision: allow`) or a `permission_request` hook approves; by default AgentRun ignores such approvals and rejects the call, so `deny` only runs what docker-agent approves by its rules. Hook denials always apply. It has no effect with `toolApproval: allow`.
         /// </summary>
         [Input("allowHookApprovals")]
         public Input<bool>? AllowHookApprovals { get; set; }
 
+        /// <summary>
+        /// A user message the agent runs when the resource is deleted: by `pulumi destroy`, by removing it from the program, or by a replacement. It runs with the configuration and inputs stored in the state, and the environment of the deleting command, for example to clean up what earlier runs created in `workingDir`. Its answer is not kept. When it fails, the delete fails and the resource stays in the state. For a resource that was removed or replaced, that fails every later `pulumi up` as well. To delete without running it, set `DOCKER_AGENT_SKIP_DELETE_PROMPTS=true` for that command. It is skipped with a warning when `workingDir` no longer exists or is no longer a directory, and when an AgentRun of the same provider already ran in that `workingDir` during the same `pulumi` command. That happens when a replacement or a rename creates the new run first; use the `deleteBeforeReplace` resource option or `aliases`. It does not run with the `retainOnDelete` resource option, or when the `deletedWith` resource is deleted in the same operation. Changing it updates the state without running the agent.
+        /// </summary>
+        [Input("deletePrompt")]
+        public Input<string>? DeletePrompt { get; set; }
+
         [Input("env")]
         private InputMap<string>? _env;
 
         /// <summary>
-        /// Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks. Other processes get them only through their toolset's own `env` (`${env.NAME}`).
+        /// Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset's own `env` (`${env.NAME}`).
         /// </summary>
         public InputMap<string> Env
         {
@@ -400,25 +600,25 @@ namespace ediri.DockerAgent
         }
 
         /// <summary>
-        /// Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+        /// Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. docker-agent's other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
         /// </summary>
         [Input("inheritEnvironment")]
         public Input<bool>? InheritEnvironment { get; set; }
 
         /// <summary>
-        /// What `pulumi up` shows while the agent runs. `status` (default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
+        /// What `pulumi up` shows while the agent runs. `status` (default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to the next one) and logs one summary (duration, tool calls, input and output tokens, estimated cost). `tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`; for a delete run also a secret `deletePrompt`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without running the agent again.
         /// </summary>
         [Input("logging")]
         public Input<ediri.DockerAgent.Logging>? Logging { get; set; }
 
         /// <summary>
-        /// Mark `output` and `structuredOutput` as secret. They are also secret when `prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
+        /// Mark `output` and `structuredOutput` as secret. They are also secret when `prompt`, `updatePrompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). A secret `env` alone does not make them secret. Changing it updates the state without running the agent again.
         /// </summary>
         [Input("outputSecret")]
         public Input<bool>? OutputSecret { get; set; }
 
         /// <summary>
-        /// The user message sent to the agent.
+        /// The user message sent when the resource is created, and on reruns caused by a change of `prompt`.
         /// </summary>
         [Input("prompt", required: true)]
         public Input<string> Prompt { get; set; } = null!;
@@ -430,7 +630,13 @@ namespace ediri.DockerAgent
         public Input<string>? Reference { get; set; }
 
         /// <summary>
-        /// How long the run may take, in seconds, before it fails. Changing it updates the state without running the agent again.
+        /// When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless the new value is `always`.
+        /// </summary>
+        [Input("rerun")]
+        public Input<ediri.DockerAgent.RerunPolicy>? Rerun { get; set; }
+
+        /// <summary>
+        /// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
         /// </summary>
         [Input("timeoutSeconds")]
         public Input<int>? TimeoutSeconds { get; set; }
@@ -454,7 +660,13 @@ namespace ediri.DockerAgent
         }
 
         /// <summary>
-        /// The agent's working directory, used by the shell, filesystem and other local tools. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+        /// The user message sent when the agent runs again while `prompt` is unchanged: after a change of `triggers`, `yaml`, `reference`, `agent`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval` or `allowHookApprovals`, or on every `pulumi up` with `rerun: always`. When `prompt` changes, the rerun sends `prompt`. Defaults to `prompt`. Use it to tell the agent that its earlier work exists, for example files in `workingDir`. Changing it updates the state without running the agent; the next rerun uses it.
+        /// </summary>
+        [Input("updatePrompt")]
+        public Input<string>? UpdatePrompt { get; set; }
+
+        /// <summary>
+        /// The agent's working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
         /// </summary>
         [Input("workingDir")]
         public Input<string>? WorkingDir { get; set; }
@@ -467,10 +679,12 @@ namespace ediri.DockerAgent
 
         public AgentRunArgs()
         {
+            AllowHarnessAgents = false;
             AllowHookApprovals = false;
             InheritEnvironment = true;
             Logging = ediri.DockerAgent.Logging.Status;
             OutputSecret = false;
+            Rerun = ediri.DockerAgent.RerunPolicy.OnChange;
             TimeoutSeconds = 300;
             ToolApproval = ediri.DockerAgent.ToolApproval.Deny;
         }

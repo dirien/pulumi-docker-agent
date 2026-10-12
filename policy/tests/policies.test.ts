@@ -147,6 +147,41 @@ describe("agentrun-tool-approval-deny", () => {
         assert.equal(await remediate(policy, AgentRun, { prompt: "hi", allowHookApprovals: true },
             { allowedResources: ["res"] }), undefined);
     });
+
+    test("rejects coding-harness agents", async () => {
+        const v = await validate(policy, AgentRun, { prompt: "hi", allowHarnessAgents: true }, {}, "notes");
+        assert.equal(v.length, 1);
+        assert.match(v[0], /AgentRun "notes" sets allowHarnessAgents: a coding-harness agent runs every tool call of its CLI/);
+        assert.deepEqual(await validate(policy, AgentRun, { prompt: "hi", allowHarnessAgents: false }), []);
+        assert.deepEqual(await validate(policy, AgentRun, { prompt: "hi", allowHarnessAgents: unknownString }), []);
+        assert.deepEqual(await validate(policy, AgentRun, { prompt: "hi", allowHarnessAgents: true },
+            { allowedResources: ["notes"] }, "notes"), []);
+        assert.deepEqual(await validate(policy, AgentRun, { prompt: "hi", allowHarnessAgents: true },
+            { allowedResources: ["urn:pulumi:dev::policy-tests::docker-agent:index:AgentRun::notes"] }, "notes"), []);
+    });
+
+    test("reports coding-harness agents next to toolApproval and hook approvals", async () => {
+        // toolApproval does not apply to the CLI of a harness agent, so both are reported.
+        const withAllow = await validate(policy, AgentRun, { prompt: "hi", toolApproval: "allow", allowHarnessAgents: true });
+        assert.equal(withAllow.length, 2);
+        assert.match(withAllow[0], /sets toolApproval "allow"/);
+        assert.match(withAllow[1], /sets allowHarnessAgents/);
+        const withHooks = await validate(policy, AgentRun, { prompt: "hi", allowHookApprovals: true, allowHarnessAgents: true });
+        assert.equal(withHooks.length, 2);
+        assert.match(withHooks[0], /sets allowHookApprovals/);
+        assert.match(withHooks[1], /sets allowHarnessAgents/);
+    });
+
+    test("remediates coding-harness agents", async () => {
+        assert.deepEqual(await remediate(policy, AgentRun, { prompt: "hi", allowHarnessAgents: true }),
+            { prompt: "hi", allowHarnessAgents: false });
+        assert.deepEqual(await remediate(policy, AgentRun,
+            { prompt: "hi", toolApproval: "allow", allowHookApprovals: true, allowHarnessAgents: true }),
+            { prompt: "hi", toolApproval: "deny", allowHookApprovals: false, allowHarnessAgents: false });
+        assert.equal(await remediate(policy, AgentRun, { prompt: "hi", allowHarnessAgents: false }), undefined);
+        assert.equal(await remediate(policy, AgentRun, { prompt: "hi", allowHarnessAgents: true },
+            { allowedResources: ["res"] }), undefined);
+    });
 });
 
 describe("agentrun-reference-pinned", () => {

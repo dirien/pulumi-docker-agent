@@ -678,4 +678,741 @@ output "toolCalls" {
 }
 ```
 {{% /example %}}
+{{% example %}}
+### Claude Code on a Claude subscription
+
+```typescript
+import * as pulumi from "@pulumi/pulumi";
+import * as docker_agent from "@ediri/pulumi-docker-agent";
+
+const config = new pulumi.Config();
+
+// A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+// `pulumi config set --secret claudeCodeOauthToken <token>`.
+const claudeCodeOauthToken = config.requireSecret("claudeCodeOauthToken");
+
+// The agent: Claude Code as a coding harness. It needs no model and no API key.
+const coder = new docker_agent.AgentConfig("coder", {agents: [{
+    name: "root",
+    description: "Maintains the notes of a repository with Claude Code",
+    harness: {
+        type: docker_agent.HarnessType.ClaudeCode,
+        model: "sonnet",
+        effort: docker_agent.HarnessEffort.High,
+    },
+}]});
+
+// Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+// runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+// `claude` login of the machine that runs `pulumi up`.
+const notes = new docker_agent.AgentRun("notes", {
+    yaml: coder.yaml,
+    allowHarnessAgents: true,
+    workingDir: "./workspace",
+    prompt: "Write NOTES.md with three bullet points about the files in this directory.",
+    updatePrompt: "NOTES.md exists. Bring it up to date and keep its format.",
+    deletePrompt: "Delete NOTES.md if it exists, then answer: done.",
+    inheritEnvironment: false,
+    env: {
+        CLAUDE_CODE_OAUTH_TOKEN: claudeCodeOauthToken,
+    },
+    timeoutSeconds: 900,
+}, {
+    deleteBeforeReplace: true,
+});
+export const summary = notes.output;
+export const usage = notes.usage;
+```
+```python
+import pulumi
+import ediri_docker_agent as docker_agent
+
+config = pulumi.Config()
+
+# A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+# `pulumi config set --secret claudeCodeOauthToken <token>`.
+claude_code_oauth_token = config.require_secret("claudeCodeOauthToken")
+
+# The agent: Claude Code as a coding harness. It needs no model and no API key.
+coder = docker_agent.AgentConfig("coder", agents=[{
+    "name": "root",
+    "description": "Maintains the notes of a repository with Claude Code",
+    "harness": {
+        "type": docker_agent.HarnessType.CLAUDE_CODE,
+        "model": "sonnet",
+        "effort": docker_agent.HarnessEffort.HIGH,
+    },
+}])
+
+# Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+# runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+# `claude` login of the machine that runs `pulumi up`.
+notes = docker_agent.AgentRun("notes",
+    yaml=coder.yaml,
+    allow_harness_agents=True,
+    working_dir="./workspace",
+    prompt="Write NOTES.md with three bullet points about the files in this directory.",
+    update_prompt="NOTES.md exists. Bring it up to date and keep its format.",
+    delete_prompt="Delete NOTES.md if it exists, then answer: done.",
+    inherit_environment=False,
+    env={
+        "CLAUDE_CODE_OAUTH_TOKEN": claude_code_oauth_token,
+    },
+    timeout_seconds=900,
+    opts = pulumi.ResourceOptions(delete_before_replace=True))
+pulumi.export("summary", notes.output)
+pulumi.export("usage", notes.usage)
+```
+```go
+package main
+
+import (
+	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
+)
+
+func main() {
+	pulumi.Run(func(ctx *pulumi.Context) error {
+		cfg := config.New(ctx, "")
+
+		// A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+		// `pulumi config set --secret claudeCodeOauthToken <token>`.
+		claudeCodeOauthToken := cfg.RequireSecret("claudeCodeOauthToken")
+
+		// The agent: Claude Code as a coding harness. It needs no model and no API key.
+		coder, err := dockeragent.NewAgentConfig(ctx, "coder", &dockeragent.AgentConfigArgs{
+			Agents: dockeragent.AgentArray{
+				&dockeragent.AgentArgs{
+					Name:        pulumi.String("root"),
+					Description: pulumi.String("Maintains the notes of a repository with Claude Code"),
+					Harness: &dockeragent.HarnessArgs{
+						Type:   dockeragent.HarnessTypeClaudeCode,
+						Model:  pulumi.String("sonnet"),
+						Effort: dockeragent.HarnessEffortHigh,
+					},
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		// Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+		// runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+		// `claude` login of the machine that runs `pulumi up`.
+		notes, err := dockeragent.NewAgentRun(ctx, "notes", &dockeragent.AgentRunArgs{
+			Yaml:               coder.Yaml,
+			AllowHarnessAgents: pulumi.Bool(true),
+			WorkingDir:         pulumi.String("./workspace"),
+			Prompt:             pulumi.String("Write NOTES.md with three bullet points about the files in this directory."),
+			UpdatePrompt:       pulumi.String("NOTES.md exists. Bring it up to date and keep its format."),
+			DeletePrompt:       pulumi.String("Delete NOTES.md if it exists, then answer: done."),
+			InheritEnvironment: pulumi.Bool(false),
+			Env: pulumi.StringMap{
+				"CLAUDE_CODE_OAUTH_TOKEN": claudeCodeOauthToken,
+			},
+			TimeoutSeconds: pulumi.Int(900),
+		}, pulumi.DeleteBeforeReplace(true))
+		if err != nil {
+			return err
+		}
+		ctx.Export("summary", notes.Output)
+		ctx.Export("usage", notes.Usage)
+		return nil
+	})
+}
+```
+```csharp
+using System.Collections.Generic;
+using System.Linq;
+using Pulumi;
+using DockerAgent = ediri.DockerAgent;
+
+return await Deployment.RunAsync(() =>
+{
+    var config = new Config();
+
+    // A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+    // `pulumi config set --secret claudeCodeOauthToken <token>`.
+    var claudeCodeOauthToken = config.RequireSecret("claudeCodeOauthToken");
+
+    // The agent: Claude Code as a coding harness. It needs no model and no API key.
+    var coder = new DockerAgent.AgentConfig("coder", new()
+    {
+        Agents = new[]
+        {
+            new DockerAgent.Inputs.AgentArgs
+            {
+                Name = "root",
+                Description = "Maintains the notes of a repository with Claude Code",
+                Harness = new DockerAgent.Inputs.HarnessArgs
+                {
+                    Type = DockerAgent.HarnessType.ClaudeCode,
+                    Model = "sonnet",
+                    Effort = DockerAgent.HarnessEffort.High,
+                },
+            },
+        },
+    });
+
+    // Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+    // runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+    // `claude` login of the machine that runs `pulumi up`.
+    var notes = new DockerAgent.AgentRun("notes", new()
+    {
+        Yaml = coder.Yaml,
+        AllowHarnessAgents = true,
+        WorkingDir = "./workspace",
+        Prompt = "Write NOTES.md with three bullet points about the files in this directory.",
+        UpdatePrompt = "NOTES.md exists. Bring it up to date and keep its format.",
+        DeletePrompt = "Delete NOTES.md if it exists, then answer: done.",
+        InheritEnvironment = false,
+        Env =
+        {
+            { "CLAUDE_CODE_OAUTH_TOKEN", claudeCodeOauthToken },
+        },
+        TimeoutSeconds = 900,
+    }, new CustomResourceOptions
+    {
+        DeleteBeforeReplace = true,
+    });
+
+    return new Dictionary<string, object?>
+    {
+        ["summary"] = notes.Output,
+        ["usage"] = notes.Usage,
+    };
+});
+```
+```java
+package generated_program;
+
+import com.pulumi.Context;
+import com.pulumi.Pulumi;
+import com.pulumi.core.Output;
+import io.github.dirien.dockeragent.AgentConfig;
+import io.github.dirien.dockeragent.AgentConfigArgs;
+import io.github.dirien.dockeragent.inputs.AgentArgs;
+import io.github.dirien.dockeragent.inputs.HarnessArgs;
+import io.github.dirien.dockeragent.AgentRun;
+import io.github.dirien.dockeragent.AgentRunArgs;
+import io.github.dirien.dockeragent.enums.HarnessEffort;
+import io.github.dirien.dockeragent.enums.HarnessType;
+import com.pulumi.resources.CustomResourceOptions;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+public class App {
+    public static void main(String[] args) {
+        Pulumi.run(App::stack);
+    }
+
+    public static void stack(Context ctx) {
+        final var config = ctx.config();
+
+        // A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+        // `pulumi config set --secret claudeCodeOauthToken <token>`.
+        final var claudeCodeOauthToken = config.requireSecret("claudeCodeOauthToken");
+
+        // The agent: Claude Code as a coding harness. It needs no model and no API key.
+        var coder = new AgentConfig("coder", AgentConfigArgs.builder()
+            .agents(AgentArgs.builder()
+                .name("root")
+                .description("Maintains the notes of a repository with Claude Code")
+                .harness(HarnessArgs.builder()
+                    .type(HarnessType.ClaudeCode)
+                    .model("sonnet")
+                    .effort(HarnessEffort.High)
+                    .build())
+                .build())
+            .build());
+
+        // Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+        // runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+        // `claude` login of the machine that runs `pulumi up`.
+        var notes = new AgentRun("notes", AgentRunArgs.builder()
+            .yaml(coder.yaml())
+            .allowHarnessAgents(true)
+            .workingDir("./workspace")
+            .prompt("Write NOTES.md with three bullet points about the files in this directory.")
+            .updatePrompt("NOTES.md exists. Bring it up to date and keep its format.")
+            .deletePrompt("Delete NOTES.md if it exists, then answer: done.")
+            .inheritEnvironment(false)
+            .env(claudeCodeOauthToken.applyValue(_claudeCodeOauthToken -> Map.of("CLAUDE_CODE_OAUTH_TOKEN", _claudeCodeOauthToken)))
+            .timeoutSeconds(900)
+            .build(), CustomResourceOptions.builder()
+                .deleteBeforeReplace(true)
+                .build());
+
+        ctx.export("summary", notes.output());
+        ctx.export("usage", notes.usage());
+    }
+}
+```
+```yaml
+name: claude-code
+runtime: yaml
+config:
+  # A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+  # `pulumi config set --secret claudeCodeOauthToken <token>`.
+  claudeCodeOauthToken:
+    type: string
+    secret: true
+resources:
+  # The agent: Claude Code as a coding harness. It needs no model and no API key.
+  coder:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          description: Maintains the notes of a repository with Claude Code
+          harness:
+            type: claude-code
+            model: sonnet
+            effort: high
+  # Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+  # runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+  # `claude` login of the machine that runs `pulumi up`.
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${coder.yaml}
+      allowHarnessAgents: true
+      workingDir: ./workspace
+      prompt: Write NOTES.md with three bullet points about the files in this directory.
+      # Sent on reruns while `prompt` is unchanged, for example after a change of `triggers`.
+      updatePrompt: NOTES.md exists. Bring it up to date and keep its format.
+      # Runs when the resource is deleted, for example by `pulumi destroy`. Like every run, it
+      # needs a final answer.
+      deletePrompt: "Delete NOTES.md if it exists, then answer: done."
+      # The CLI gets the system variables and `env`, so an ANTHROPIC_API_KEY of the environment
+      # cannot switch it to API billing.
+      inheritEnvironment: false
+      env:
+        CLAUDE_CODE_OAUTH_TOKEN: ${claudeCodeOauthToken}
+      timeoutSeconds: 900
+    options:
+      # A replacement deletes the old resource first, so that its deletePrompt does not undo
+      # the new run.
+      deleteBeforeReplace: true
+outputs:
+  # Claude Code's final result.
+  summary: ${notes.output}
+  usage: ${notes.usage}
+```
+```hcl
+terraform {
+  required_providers {
+    docker-agent = {
+      source = "pulumi/dirien/docker-agent"
+    }
+  }
+}
+
+# The agent: Claude Code as a coding harness. It needs no model and no API key.
+resource "docker-agent_agent_config" "coder" {
+  agents {
+    name        = "root"
+    description = "Maintains the notes of a repository with Claude Code"
+    harness = {
+      type   = "claude-code"
+      model  = "sonnet"
+      effort = "high"
+    }
+  }
+}
+
+# Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+# runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+# `claude` login of the machine that runs `pulumi up`.
+resource "docker-agent_agent_run" "notes" {
+  yaml                 = docker-agent_agent_config.coder.yaml
+  allow_harness_agents = true
+  working_dir          = "./workspace"
+  prompt               = "Write NOTES.md with three bullet points about the files in this directory."
+  update_prompt        = "NOTES.md exists. Bring it up to date and keep its format."
+  delete_prompt        = "Delete NOTES.md if it exists, then answer: done."
+  inherit_environment  = false
+  env = {
+    "CLAUDE_CODE_OAUTH_TOKEN" = var.claudeCodeOauthToken
+  }
+  timeout_seconds = 900
+}
+
+# A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+# `pulumi config set --secret claudeCodeOauthToken <token>`.
+variable "claudeCodeOauthToken" {
+  type = string
+}
+
+output "summary" {
+  value = docker-agent_agent_run.notes.output
+}
+
+output "usage" {
+  value = docker-agent_agent_run.notes.usage
+}
+```
+{{% /example %}}
+{{% example %}}
+### One agent, several runs
+
+```typescript
+import * as pulumi from "@pulumi/pulumi";
+import * as docker_agent from "@ediri/pulumi-docker-agent";
+
+const config = new pulumi.Config();
+
+// Set it with `pulumi config set --secret openaiApiKey <key>`.
+const openaiApiKey = config.requireSecret("openaiApiKey");
+
+// The agent, authored once.
+const writer = new docker_agent.AgentConfig("writer", {agents: [{
+    name: "root",
+    model: "openai/gpt-5-mini",
+    instruction: "You write short, precise texts about infrastructure changes.",
+}]});
+
+// Run 1.
+const summary = new docker_agent.AgentRun("summary", {
+    yaml: writer.yaml,
+    prompt: "Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17.",
+    env: {
+        OPENAI_API_KEY: openaiApiKey,
+    },
+});
+
+// Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+// run 1 ran, also when that answer did not change.
+const translation = new docker_agent.AgentRun("translation", {
+    yaml: writer.yaml,
+    prompt: pulumi.interpolate`Translate this text into German: ${summary.output}`,
+    triggers: [summary.ranAt],
+    env: {
+        OPENAI_API_KEY: openaiApiKey,
+    },
+});
+export const summaryText = summary.output;
+export const translationText = translation.output;
+```
+```python
+import pulumi
+import ediri_docker_agent as docker_agent
+
+config = pulumi.Config()
+
+# Set it with `pulumi config set --secret openaiApiKey <key>`.
+openai_api_key = config.require_secret("openaiApiKey")
+
+# The agent, authored once.
+writer = docker_agent.AgentConfig("writer", agents=[{
+    "name": "root",
+    "model": "openai/gpt-5-mini",
+    "instruction": "You write short, precise texts about infrastructure changes.",
+}])
+
+# Run 1.
+summary = docker_agent.AgentRun("summary",
+    yaml=writer.yaml,
+    prompt="Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17.",
+    env={
+        "OPENAI_API_KEY": openai_api_key,
+    })
+
+# Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+# run 1 ran, also when that answer did not change.
+translation = docker_agent.AgentRun("translation",
+    yaml=writer.yaml,
+    prompt=summary.output.apply(lambda output: f"Translate this text into German: {output}"),
+    triggers=[summary.ran_at],
+    env={
+        "OPENAI_API_KEY": openai_api_key,
+    })
+pulumi.export("summaryText", summary.output)
+pulumi.export("translationText", translation.output)
+```
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
+)
+
+func main() {
+	pulumi.Run(func(ctx *pulumi.Context) error {
+		cfg := config.New(ctx, "")
+
+		// Set it with `pulumi config set --secret openaiApiKey <key>`.
+		openaiApiKey := cfg.RequireSecret("openaiApiKey")
+
+		// The agent, authored once.
+		writer, err := dockeragent.NewAgentConfig(ctx, "writer", &dockeragent.AgentConfigArgs{
+			Agents: dockeragent.AgentArray{
+				&dockeragent.AgentArgs{
+					Name:        pulumi.String("root"),
+					Model:       pulumi.String("openai/gpt-5-mini"),
+					Instruction: pulumi.String("You write short, precise texts about infrastructure changes."),
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		// Run 1.
+		summary, err := dockeragent.NewAgentRun(ctx, "summary", &dockeragent.AgentRunArgs{
+			Yaml:   writer.Yaml,
+			Prompt: pulumi.String("Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17."),
+			Env: pulumi.StringMap{
+				"OPENAI_API_KEY": openaiApiKey,
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		// Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+		// run 1 ran, also when that answer did not change.
+		translation, err := dockeragent.NewAgentRun(ctx, "translation", &dockeragent.AgentRunArgs{
+			Yaml: writer.Yaml,
+			Prompt: summary.Output.ApplyT(func(output string) (string, error) {
+				return fmt.Sprintf("Translate this text into German: %v", output), nil
+			}).(pulumi.StringOutput),
+			Triggers: pulumi.Array{
+				summary.RanAt,
+			},
+			Env: pulumi.StringMap{
+				"OPENAI_API_KEY": openaiApiKey,
+			},
+		})
+		if err != nil {
+			return err
+		}
+		ctx.Export("summaryText", summary.Output)
+		ctx.Export("translationText", translation.Output)
+		return nil
+	})
+}
+```
+```csharp
+using System.Collections.Generic;
+using System.Linq;
+using Pulumi;
+using DockerAgent = ediri.DockerAgent;
+
+return await Deployment.RunAsync(() =>
+{
+    var config = new Config();
+
+    // Set it with `pulumi config set --secret openaiApiKey <key>`.
+    var openaiApiKey = config.RequireSecret("openaiApiKey");
+
+    // The agent, authored once.
+    var writer = new DockerAgent.AgentConfig("writer", new()
+    {
+        Agents = new[]
+        {
+            new DockerAgent.Inputs.AgentArgs
+            {
+                Name = "root",
+                Model = "openai/gpt-5-mini",
+                Instruction = "You write short, precise texts about infrastructure changes.",
+            },
+        },
+    });
+
+    // Run 1.
+    var summary = new DockerAgent.AgentRun("summary", new()
+    {
+        Yaml = writer.Yaml,
+        Prompt = "Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17.",
+        Env =
+        {
+            { "OPENAI_API_KEY", openaiApiKey },
+        },
+    });
+
+    // Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+    // run 1 ran, also when that answer did not change.
+    var translation = new DockerAgent.AgentRun("translation", new()
+    {
+        Yaml = writer.Yaml,
+        Prompt = summary.Output.Apply(output => $"Translate this text into German: {output}"),
+        Triggers = new[]
+        {
+            summary.RanAt,
+        },
+        Env =
+        {
+            { "OPENAI_API_KEY", openaiApiKey },
+        },
+    });
+
+    return new Dictionary<string, object?>
+    {
+        ["summaryText"] = summary.Output,
+        ["translationText"] = translation.Output,
+    };
+});
+```
+```java
+package generated_program;
+
+import com.pulumi.Context;
+import com.pulumi.Pulumi;
+import com.pulumi.core.Output;
+import io.github.dirien.dockeragent.AgentConfig;
+import io.github.dirien.dockeragent.AgentConfigArgs;
+import io.github.dirien.dockeragent.inputs.AgentArgs;
+import io.github.dirien.dockeragent.AgentRun;
+import io.github.dirien.dockeragent.AgentRunArgs;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+public class App {
+    public static void main(String[] args) {
+        Pulumi.run(App::stack);
+    }
+
+    public static void stack(Context ctx) {
+        final var config = ctx.config();
+
+        // Set it with `pulumi config set --secret openaiApiKey <key>`.
+        final var openaiApiKey = config.requireSecret("openaiApiKey");
+
+        // The agent, authored once.
+        var writer = new AgentConfig("writer", AgentConfigArgs.builder()
+            .agents(AgentArgs.builder()
+                .name("root")
+                .model("openai/gpt-5-mini")
+                .instruction("You write short, precise texts about infrastructure changes.")
+                .build())
+            .build());
+
+        // Run 1.
+        var summary = new AgentRun("summary", AgentRunArgs.builder()
+            .yaml(writer.yaml())
+            .prompt("Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17.")
+            .env(openaiApiKey.applyValue(_openaiApiKey -> Map.of("OPENAI_API_KEY", _openaiApiKey)))
+            .build());
+
+        // Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+        // run 1 ran, also when that answer did not change.
+        var translation = new AgentRun("translation", AgentRunArgs.builder()
+            .yaml(writer.yaml())
+            .prompt(summary.output().applyValue(_output -> String.format("Translate this text into German: %s", _output)))
+            .triggers(summary.ranAt())
+            .env(openaiApiKey.applyValue(_openaiApiKey -> Map.of("OPENAI_API_KEY", _openaiApiKey)))
+            .build());
+
+        ctx.export("summaryText", summary.output());
+        ctx.export("translationText", translation.output());
+    }
+}
+```
+```yaml
+name: several-runs
+runtime: yaml
+config:
+  # Set it with `pulumi config set --secret openaiApiKey <key>`.
+  openaiApiKey:
+    type: string
+    secret: true
+resources:
+  # The agent, authored once.
+  writer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          model: openai/gpt-5-mini
+          instruction: You write short, precise texts about infrastructure changes.
+  # Run 1.
+  summary:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${writer.yaml}
+      prompt: Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17.
+      env:
+        OPENAI_API_KEY: ${openaiApiKey}
+  # Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+  # run 1 ran, also when that answer did not change.
+  translation:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${writer.yaml}
+      prompt: "Translate this text into German: ${summary.output}"
+      triggers:
+        - ${summary.ranAt}
+      env:
+        OPENAI_API_KEY: ${openaiApiKey}
+outputs:
+  summaryText: ${summary.output}
+  translationText: ${translation.output}
+```
+```hcl
+terraform {
+  required_providers {
+    docker-agent = {
+      source = "pulumi/dirien/docker-agent"
+    }
+  }
+}
+
+# The agent, authored once.
+resource "docker-agent_agent_config" "writer" {
+  agents {
+    name        = "root"
+    model       = "openai/gpt-5-mini"
+    instruction = "You write short, precise texts about infrastructure changes."
+  }
+}
+
+# Run 1.
+resource "docker-agent_agent_run" "summary" {
+  yaml   = docker-agent_agent_config.writer.yaml
+  prompt = "Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17."
+  env = {
+    "OPENAI_API_KEY" = var.openaiApiKey
+  }
+}
+
+# Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+# run 1 ran, also when that answer did not change.
+resource "docker-agent_agent_run" "translation" {
+  yaml     = docker-agent_agent_config.writer.yaml
+  prompt   = "Translate this text into German: ${docker-agent_agent_run.summary.output}"
+  triggers = [docker-agent_agent_run.summary.ran_at]
+  env = {
+    "OPENAI_API_KEY" = var.openaiApiKey
+  }
+}
+
+# Set it with `pulumi config set --secret openaiApiKey <key>`.
+variable "openaiApiKey" {
+  type = string
+}
+
+output "summaryText" {
+  value = docker-agent_agent_run.summary.output
+}
+
+output "translationText" {
+  value = docker-agent_agent_run.translation.output
+}
+```
+{{% /example %}}
 {{% /examples %}}

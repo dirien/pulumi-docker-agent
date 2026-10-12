@@ -1,0 +1,42 @@
+{
+  "description": "The state of an AgentRun created by the released docker-agent provider v0.1.1 (pulumi stack export --show-secrets of a local-backend stack, `pulumi up` against a fake model server). TestAgentRunUpgradeFromV011 checks that v0.1.2 neither diffs nor reruns it.",
+  "urn": "urn:pulumi:dev::agentrun-v011::docker-agent:index:AgentRun::run",
+  "id": "run",
+  "inputs": {
+    "allowHookApprovals": false,
+    "env": {
+      "4dabf18193072939515e22adb298388d": "1b47061264138c4ac30d75fd1eb44270",
+      "plaintext": "{\"FAKE_API_KEY\":\"sk-fake-v011-recording-key\"}"
+    },
+    "inheritEnvironment": true,
+    "logging": "status",
+    "outputSecret": false,
+    "prompt": "Summarize the release.",
+    "timeoutSeconds": 300,
+    "toolApproval": "deny",
+    "yaml": "providers:\n  fake:\n    api_type: openai_chatcompletions\n    base_url: http://127.0.0.1:18731/v1\n    token_key: FAKE_API_KEY\nmodels:\n  m:\n    provider: fake\n    model: fake-model\nagents:\n  root:\n    model: m\n    description: Test agent\n    instruction: You are a test agent.\n"
+  },
+  "outputs": {
+    "agentName": "root",
+    "allowHookApprovals": false,
+    "env": {
+      "4dabf18193072939515e22adb298388d": "1b47061264138c4ac30d75fd1eb44270",
+      "plaintext": "{\"FAKE_API_KEY\":\"sk-fake-v011-recording-key\"}"
+    },
+    "inheritEnvironment": true,
+    "logging": "status",
+    "output": "You said: Summarize the release.",
+    "outputSecret": false,
+    "prompt": "Summarize the release.",
+    "ranAt": "2026-10-12T12:11:16Z",
+    "timeoutSeconds": 300,
+    "toolApproval": "deny",
+    "toolCalls": [],
+    "usage": {
+      "cost": 0,
+      "inputTokens": 10,
+      "outputTokens": 5
+    },
+    "yaml": "providers:\n  fake:\n    api_type: openai_chatcompletions\n    base_url: http://127.0.0.1:18731/v1\n    token_key: FAKE_API_KEY\nmodels:\n  m:\n    provider: fake\n    model: fake-model\nagents:\n  root:\n    model: m\n    description: Test agent\n    instruction: You are a test agent.\n"
+  }
+}

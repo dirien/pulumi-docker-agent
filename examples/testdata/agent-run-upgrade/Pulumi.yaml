@@ -1,0 +1,75 @@
+name: docker-agent-agent-run-upgrade
+runtime: yaml
+description: >-
+  A test fixture for examples/upgrade_test.go: examples/agent-run-yaml as of v0.1.1, without `rerun`
+  and without `plugins.providers`. Each resource pins its provider version (options.version), as the
+  generated SDKs do, so the upgrade changes the default provider (default_0_1_1 first). The test
+  replaces the version with the one of the provider in bin/.
+
+config:
+  baseUrl:
+    type: string
+    default: https://api.openai.com/v1
+  model:
+    type: string
+    default: gpt-5-mini
+  apiKey:
+    type: string
+    secret: true
+  revision:
+    type: string
+    default: "1"
+
+resources:
+  reviewer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      providers:
+        llm:
+          apiType: openai_chatcompletions
+          baseUrl: ${baseUrl}
+          tokenKey: CHANGE_REVIEW_API_KEY
+      models:
+        reviewer:
+          provider: llm
+          model: ${model}
+      agents:
+        - name: root
+          model: reviewer
+          description: Rates the risk of infrastructure changes
+          instruction: >-
+            You review infrastructure change requests. Rate the risk of the change and explain
+            it in one sentence.
+          structuredOutput:
+            name: change_review
+            strict: true
+            schema:
+              type: object
+              properties:
+                risk:
+                  type: string
+                  enum: [low, medium, high]
+                summary:
+                  type: string
+              required: [risk, summary]
+              additionalProperties: false
+    options:
+      version: "0.1.1"
+
+  review:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${reviewer.yaml}
+      prompt: Upgrade the production PostgreSQL cluster from version 15 to 17 during the Sunday maintenance window.
+      env:
+        CHANGE_REVIEW_API_KEY: ${apiKey}
+      inheritEnvironment: false
+      timeoutSeconds: 120
+      triggers:
+        - ${revision}
+    options:
+      version: "0.1.1"
+
+outputs:
+  risk: ${review.structuredOutput.risk}
+  answer: ${review.output}

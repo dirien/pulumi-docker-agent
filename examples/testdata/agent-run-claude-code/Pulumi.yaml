@@ -1,0 +1,60 @@
+name: docker-agent-agent-run-claude-code
+runtime: yaml
+description: >-
+  A test fixture for examples/harness_test.go: an AgentRun of a Claude Code agent with a delete
+  prompt, run against the fake claude of provider/pkg/agentrun/testdata/fake-claude. The stack
+  settings select the fake's behaviour (`mode`), `logging` and `timeoutSeconds`.
+plugins:
+  # Use the provider binary built by `make provider` in this repository.
+  providers:
+    - name: docker-agent
+      path: ../../../bin
+
+config:
+  # The CLAUDE_CODE_OAUTH_TOKEN the fake claude gets; the tests check that it is never shown.
+  token:
+    type: string
+    secret: true
+  # FAKE_CLAUDE_MODE of the fake claude: ok, token, error, term-trap, ...
+  mode:
+    type: string
+    default: ok
+  logging:
+    type: string
+    default: status
+  timeout:
+    type: integer
+    default: 300
+
+resources:
+  coder:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          description: Writes NOTES.md with Claude Code
+          harness:
+            type: claude-code
+            model: sonnet
+
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${coder.yaml}
+      allowHarnessAgents: true
+      # Relative to the project directory; work/.gitkeep keeps it in the repository.
+      workingDir: work
+      prompt: Write NOTES.md about this directory.
+      # The fake claude treats prompts that start with "Delete" as delete prompts: it removes
+      # NOTES.md, or fails when work/.fail-delete exists.
+      deletePrompt: Delete NOTES.md
+      logging: ${logging}
+      timeoutSeconds: ${timeout}
+      inheritEnvironment: false
+      env:
+        CLAUDE_CODE_OAUTH_TOKEN: ${token}
+        FAKE_CLAUDE_MODE: ${mode}
+
+outputs:
+  output: ${notes.output}
+  toolCalls: ${notes.toolCalls}

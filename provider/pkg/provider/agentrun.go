@@ -7,16 +7,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"maps"
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/property"
 
 	"github.com/dirien/pulumi-docker-agent/provider/pkg/agentrun"
@@ -34,13 +39,35 @@ structured decision that other resources consume.
 
 The agent runs inside the provider process with the docker-agent Go SDK (the same runtime as
 ` + "`docker agent run --exec`" + `), headless and unattended. It never runs during ` + "`pulumi preview`" + `: the
-outputs are unknown until the update. A change of ` + "`yaml`" + `, ` + "`reference`" + `, ` + "`agent`" + `,
-` + "`prompt`" + `, ` + "`env`" + `, ` + "`inheritEnvironment`" + `, ` + "`workingDir`" + `, ` + "`toolApproval`" + `,
-` + "`allowHookApprovals`" + ` or ` + "`triggers`" + ` (including a value that is unknown during the preview) runs the
-agent again; a change of ` + "`timeoutSeconds`" + `, ` + "`outputSecret`" + ` or ` + "`logging`" + ` alone only updates
-the state.
-` + "`pulumi up`" + ` without changes and ` + "`pulumi refresh`" + ` reuse the stored answer, deleting the resource
-does nothing, and importing is not supported.
+outputs are unknown until the update.
+
+**When the agent runs.** Creating the resource sends ` + "`prompt`" + `. A change of ` + "`yaml`" + `,
+` + "`reference`" + `, ` + "`agent`" + `, ` + "`prompt`" + `, ` + "`env`" + `, ` + "`inheritEnvironment`" + `,
+` + "`workingDir`" + `, ` + "`toolApproval`" + `, ` + "`allowHookApprovals`" + ` or ` + "`triggers`" + ` (including a value
+that is unknown during the preview) runs the agent again: with ` + "`prompt`" + ` when ` + "`prompt`" + ` changed,
+otherwise with ` + "`updatePrompt`" + ` (which defaults to ` + "`prompt`" + `). With ` + "`rerun: always`" + ` every
+` + "`pulumi up`" + ` that includes the resource runs it again; the preview then shows it as an update, and the
+resources that consume its outputs change too. A change of ` + "`updatePrompt`" + `, ` + "`deletePrompt`" + `,
+` + "`allowHarnessAgents`" + `, ` + "`timeoutSeconds`" + `, ` + "`outputSecret`" + `, ` + "`logging`" + ` or ` + "`rerun`" + `
+alone only updates the state (unless ` + "`rerun`" + ` becomes ` + "`always`" + `). Without changes, ` + "`pulumi up`" + ` reuses
+the stored answer (unless ` + "`rerun: always`" + `), and ` + "`pulumi refresh`" + ` always does; importing is not supported.
+A retry through the ` + "`hooks.onError`" + ` resource option runs the whole agent again.
+
+**Deleting the resource** (` + "`pulumi destroy`" + `, removing it from the program, or the old resource of a
+replacement) runs ` + "`deletePrompt`" + ` when one is set, with the inputs stored in the state and the environment of
+the deleting command; its answer is not kept. When it fails, the delete fails and the resource stays in the state, and
+for a removed or replaced resource every later ` + "`pulumi up`" + ` tries the delete again. To delete without running
+it, set ` + "`DOCKER_AGENT_SKIP_DELETE_PROMPTS=true`" + ` for that command. It is skipped with a warning when
+` + "`workingDir`" + ` no longer exists or is no longer a directory, and when another AgentRun of the same provider ran
+in the same ` + "`workingDir`" + ` during the same command (also while the delete prompt waited for it): a replacement
+that bypasses the provider's diff (` + "`replacementTrigger`" + `, ` + "`--replace`" + `, ` + "`replaceWith`" + `,
+` + "`deletedWith`" + `) and a rename without ` + "`aliases`" + ` create the new run before they delete the old one. A
+change of the provider replaces no resource: a changed setting (also only through ` + "`DOCKER_AGENT_SKIP_VALIDATION`" + `
+or ` + "`DOCKER_AGENT_FORCE_HTTPS`" + ` in the environment of one command), a new provider version and a move to another
+provider instance update the provider in place. Use the ` + "`deleteBeforeReplace`" + ` resource option (AgentRun asks
+for it when a ` + "`deletePrompt`" + ` is stored, which covers ` + "`replaceOnChanges`" + `), ` + "`aliases`" + `, and one
+` + "`workingDir`" + ` per AgentRun. With ` + "`retainOnDelete`" + `, or when the ` + "`deletedWith`" + ` resource is
+deleted in the same operation, Delete is not called and nothing runs.
 
 **Tools run on the machine executing ` + "`pulumi up`" + `.** With the default ` + "`toolApproval: deny`" + `, a tool
 call only runs when docker-agent would run it without asking: tools annotated read-only (for example
@@ -57,16 +84,33 @@ rejected, and the model is told why. ` + "`toolApproval: allow`" + ` runs every 
 In both modes, these run without approval because they are part of the configuration: command hooks, MCP and LSP
 servers started with ` + "`command`" + `, ` + "`docker:`" + ` MCP servers (through the Docker MCP Gateway), and
 filesystem ` + "`post_edit`" + ` commands after an approved write. Read-only tools can read any file the provider can
-read unless the toolset restricts them (` + "`allow_list`" + `). Coding-harness agents are rejected. Review
-configurations pulled by ` + "`reference`" + ` before running them.
+read unless the toolset restricts them (` + "`allow_list`" + `). Review configurations pulled by ` + "`reference`" + `
+before running them.
+
+**Coding-harness agents** (` + "`harness: {type: claude-code}`" + `) run only with ` + "`allowHarnessAgents: true`" + `,
+on Linux and macOS; codex, pi and opencode harnesses are not supported yet. Such an agent starts the Claude Code CLI
+(` + "`claude`" + `, found on the ` + "`PATH`" + ` of its environment) on the machine that runs ` + "`pulumi up`" + `, which
+runs its own tools without approval: ` + "`toolApproval`" + `, ` + "`allowHookApprovals`" + ` and the configuration's
+` + "`permissions`" + ` do not apply to it. The CLI runs in ` + "`workingDir`" + ` (or a temporary directory) with the
+prompt on stdin, the environment described for ` + "`inheritEnvironment`" + ` plus ` + "`env`" + `, and its user's
+Claude login and settings: the login of ` + "`claude`" + ` on this machine, or ` + "`CLAUDE_CODE_OAUTH_TOKEN`" + ` (from
+` + "`claude setup-token`" + `) in ` + "`env`" + `. An ` + "`ANTHROPIC_API_KEY`" + ` or ` + "`ANTHROPIC_AUTH_TOKEN`" + ` in its
+environment bills API usage instead of the subscription; when ` + "`env`" + ` sets ` + "`CLAUDE_CODE_OAUTH_TOKEN`" + `,
+inherited ones are not passed to the CLI. ` + "`output`" + ` is Claude Code's final result (when that is empty, the
+text it wrote during the run, with a warning), the agent's ` + "`instruction`" + ` is not sent to it, and
+` + "`structured_output`" + ` is decoded from the result but not enforced: an answer that is not JSON fails the run.
+When the run times out or is cancelled,
+AgentRun sends SIGTERM to the CLI's process group and SIGKILL after 10 seconds; when Pulumi stops the provider, no new
+CLI starts and the running ones get SIGTERM and SIGKILL after 2 seconds. Claude Code runs each shell command in a
+session of its own, so processes it does not stop itself can keep running.
 
 Credentials and ` + "`${env.NAME}`" + ` references resolve from ` + "`env`" + ` and, unless
 ` + "`inheritEnvironment`" + ` is false, the environment of the Pulumi CLI. With
 ` + "`inheritEnvironment: false`" + `, command hooks, ` + "`shell`" + `, ` + "`script`" + ` and
-` + "`background_jobs`" + ` tools and MCP and LSP servers started with ` + "`command`" + ` also lose that environment:
-they see the system variables (` + "`PATH`" + `, ` + "`HOME`" + `, ` + "`USER`" + `, ` + "`SHELL`" + `,
-` + "`LANG`" + `, ` + "`TMPDIR`" + `, ` + "`TZ`" + `, ...) plus their own ` + "`env`" + ` (hooks also get
-` + "`env`" + `). ` + "`docker:`" + ` MCP servers, filesystem ` + "`post_edit`" + ` commands, the
+` + "`background_jobs`" + ` tools, MCP and LSP servers started with ` + "`command`" + ` and the Claude Code CLI also lose
+that environment: they see the system variables (` + "`PATH`" + `, ` + "`HOME`" + `, ` + "`USER`" + `, ` + "`SHELL`" + `,
+` + "`LANG`" + `, ` + "`TMPDIR`" + `, ` + "`TZ`" + `, ...) plus their own ` + "`env`" + ` (hooks and the Claude Code CLI also
+get ` + "`env`" + `). ` + "`docker:`" + ` MCP servers, filesystem ` + "`post_edit`" + ` commands, the
 ` + "`open_url`" + ` launcher and docker-agent's on-demand tool installation always inherit it.
 Errors, warnings and logs are redacted: the values of
 ` + "`env`" + `, secret inputs, credential-named variables of the environment (` + "`*_API_KEY`" + `,
@@ -86,17 +130,17 @@ conversation handed off, each tool call and whether it was approved or rejected,
 the next one) and ends with one summary line: duration, tool calls, input and output tokens and the estimated cost.
 ` + "`tools`" + ` also logs every tool call with its arguments, and ` + "`full`" + ` also logs the agents' messages and
 the tools' results. ` + "`none`" + ` shows nothing. Messages are redacted like errors. When the answer is secret
-(` + "`outputSecret`" + `, or a secret ` + "`prompt`" + ` or ` + "`yaml`" + `), ` + "`tools`" + ` and ` + "`full`" + ` log no
-arguments, messages or results, and with a secret ` + "`yaml`" + ` or ` + "`agent`" + ` the messages name no agents, tools or
-models.
+(` + "`outputSecret`" + `, or a secret ` + "`prompt`" + `, ` + "`updatePrompt`" + ` or ` + "`yaml`" + `), ` + "`tools`" + ` and
+` + "`full`" + ` log no arguments, messages or results, and with a secret ` + "`yaml`" + ` or ` + "`agent`" + ` the messages
+name no agents, tools or models.
 
 An AgentRun has two time limits. ` + "`timeoutSeconds`" + ` (default 300) limits the agent run itself: when it runs
 out, the run is cancelled and the create or update fails with "the agent did not finish within ... (timeoutSeconds)".
-The ` + "`customTimeouts`" + ` resource option (` + "`create`" + `, ` + "`update`" + `) limits the whole provider operation,
-including pulling a ` + "`reference`" + ` and waiting for another AgentRun of the same provider process to finish; when
-it runs out, Pulumi cancels the operation and the run fails as cancelled. The shorter limit wins. Use
-` + "`customTimeouts`" + ` to bound the deployment step as a whole and keep ` + "`timeoutSeconds`" + ` as the per-run safety
-limit.`
+The ` + "`customTimeouts`" + ` resource option (` + "`create`" + `, ` + "`update`" + `, ` + "`delete`" + `) limits the whole
+provider operation, including pulling a ` + "`reference`" + ` and waiting for another AgentRun of the same provider
+process to finish; when it runs out, Pulumi cancels the operation and the run fails with "the operation's time limit
+(customTimeouts) ran out before the agent finished". The shorter limit wins. Use ` + "`customTimeouts`" + ` to bound the
+deployment step as a whole and keep ` + "`timeoutSeconds`" + ` as the per-run safety limit.`
 
 const agentRunImportDoc = `An AgentRun cannot be imported: a run has nothing to read back. Declare the resource instead; the
 next ` + "`pulumi up`" + ` runs the agent.`
@@ -156,20 +200,44 @@ func (Logging) Values() []infer.EnumValue[Logging] {
 	}
 }
 
+// RerunPolicy decides when `pulumi up` runs the agent again after it first ran.
+type RerunPolicy string
+
+const (
+	// RerunOnChange runs the agent again when an input that affects the run changes.
+	RerunOnChange RerunPolicy = "onChange"
+	// RerunAlways runs the agent again on every `pulumi up` that includes the resource.
+	RerunAlways RerunPolicy = "always"
+)
+
+// Values lists the enum values.
+func (RerunPolicy) Values() []infer.EnumValue[RerunPolicy] {
+	return []infer.EnumValue[RerunPolicy]{
+		{Name: "OnChange", Value: RerunOnChange, Description: "Run the agent again only when an input that affects the " +
+			"run changes, including `triggers` (default)."},
+		{Name: "Always", Value: RerunAlways, Description: "Run the agent again on every `pulumi up` that includes this " +
+			"resource. Previews show it as an update and its run outputs as unknown; `pulumi refresh` does not."},
+	}
+}
+
 // AgentRunArgs are the inputs of AgentRun.
 type AgentRunArgs struct {
 	YAML               *string           `pulumi:"yaml,optional"`
 	Reference          *string           `pulumi:"reference,optional"`
 	Agent              *string           `pulumi:"agent,optional"`
 	Prompt             string            `pulumi:"prompt"`
+	UpdatePrompt       *string           `pulumi:"updatePrompt,optional"`
+	DeletePrompt       *string           `pulumi:"deletePrompt,optional"`
 	Env                map[string]string `pulumi:"env,optional" provider:"secret"`
 	InheritEnvironment *bool             `pulumi:"inheritEnvironment,optional"`
 	WorkingDir         *string           `pulumi:"workingDir,optional"`
 	ToolApproval       *ToolApproval     `pulumi:"toolApproval,optional"`
 	TimeoutSeconds     *int              `pulumi:"timeoutSeconds,optional"`
 	Triggers           []any             `pulumi:"triggers,optional"`
+	Rerun              *RerunPolicy      `pulumi:"rerun,optional"`
 	OutputSecret       *bool             `pulumi:"outputSecret,optional"`
 	AllowHookApprovals *bool             `pulumi:"allowHookApprovals,optional"`
+	AllowHarnessAgents *bool             `pulumi:"allowHarnessAgents,optional"`
 	Logging            *Logging          `pulumi:"logging,optional"`
 }
 
@@ -181,34 +249,65 @@ func (a *AgentRunArgs) Annotate(an infer.Annotator) {
 		"`@sha256:...`), pulled like `getAgent` with the provider's `registryAuth`. Pin it by digest, or use "+
 		"`triggers`, to control when a moved tag reruns the agent: only input changes do.")
 	an.Describe(&a.Agent, "The agent to run. Defaults to `root`, or else the first agent of the configuration.")
-	an.Describe(&a.Prompt, "The user message sent to the agent.")
+	an.Describe(&a.Prompt, "The user message sent when the resource is created, and on reruns caused by a change of "+
+		"`prompt`.")
+	an.Describe(&a.UpdatePrompt, "The user message sent when the agent runs again while `prompt` is unchanged: after "+
+		"a change of `triggers`, `yaml`, `reference`, `agent`, `env`, `inheritEnvironment`, `workingDir`, `toolApproval` "+
+		"or `allowHookApprovals`, or on every `pulumi up` with `rerun: always`. When `prompt` changes, the rerun sends "+
+		"`prompt`. Defaults to `prompt`. Use it to tell the agent that its earlier work exists, for example files in "+
+		"`workingDir`. Changing it updates the state without running the agent; the next rerun uses it.")
+	an.Describe(&a.DeletePrompt, "A user message the agent runs when the resource is deleted: by `pulumi destroy`, by "+
+		"removing it from the program, or by a replacement. It runs with the configuration and inputs stored in the "+
+		"state, and the environment of the deleting command, for example to clean up what earlier runs created in "+
+		"`workingDir`. Its answer is not kept. When it fails, the delete fails and the resource stays in the state. For a "+
+		"resource that was removed or replaced, that fails every later `pulumi up` as well. To delete without running "+
+		"it, set `DOCKER_AGENT_SKIP_DELETE_PROMPTS=true` for that command. It is skipped with a warning when "+
+		"`workingDir` no longer exists or is no longer a directory, and when an AgentRun of the same provider already "+
+		"ran in that `workingDir` during the same `pulumi` command. That happens when a replacement or a rename "+
+		"creates the new run first; use the `deleteBeforeReplace` resource option or `aliases`. It does not run with "+
+		"the `retainOnDelete` resource option, or when the `deletedWith` resource is deleted in the same operation. "+
+		"Changing it updates the state without running the agent.")
 	an.Describe(&a.Env, "Environment variables for model credentials (for example `OPENAI_API_KEY` or the "+
 		"`tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence "+
 		"over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach "+
-		"command hooks. Other processes get them only through their toolset's own `env` (`${env.NAME}`).")
+		"command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). "+
+		"When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not "+
+		"passed to the CLI. Other processes get them only through their toolset's own `env` (`${env.NAME}`).")
 	an.Describe(&a.InheritEnvironment, "Also resolve credentials and `${env.NAME}` references from the "+
 		"environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. "+
-		"With `false`, command hooks, `shell`, `script` and `background_jobs` tools, and MCP and LSP servers "+
-		"started with `command` only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, "+
-		"`TZ`, ...) plus their own `env` (hooks also get `env`); `docker:` MCP servers, filesystem `post_edit` "+
-		"commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit everything. "+
+		"With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers "+
+		"started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables "+
+		"(`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code "+
+		"CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, "+
+		"`CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem "+
+		"`post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation still inherit "+
+		"everything. "+
 		"docker-agent's other credential sources "+
 		"(its `.env` file, credential helper, Docker Desktop) are never used.")
 	an.SetDefault(&a.InheritEnvironment, true)
 	an.Describe(&a.WorkingDir, "The agent's working directory, used by the shell, filesystem and other "+
-		"local tools. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are "+
-		"resolved against the directory of the Pulumi program.")
+		"local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that "+
+		"is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.")
 	an.Describe(&a.ToolApproval, "What happens to tool calls that docker-agent would ask a user to confirm. "+
 		"`deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine "+
 		"executing `pulumi up`.")
 	an.SetDefault(&a.ToolApproval, ToolApprovalDeny)
-	an.Describe(&a.TimeoutSeconds, "How long the run may take, in seconds, before it fails. Changing it updates the "+
-		"state without running the agent again.")
+	an.Describe(&a.TimeoutSeconds, "How long the run may take, in seconds, before it fails. When it runs out, "+
+		"AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it "+
+		"updates "+
+		"the state without running the agent again.")
 	an.SetDefault(&a.TimeoutSeconds, int(agentrun.DefaultTimeout/time.Second))
 	an.Describe(&a.Triggers, "Arbitrary values; any change runs the agent again, like a change of any other "+
 		"input.")
+	an.Describe(&a.Rerun, "When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it "+
+		"when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that "+
+		"includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown "+
+		"outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its "+
+		"outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless "+
+		"the new value is `always`.")
+	an.SetDefault(&a.Rerun, RerunOnChange)
 	an.Describe(&a.OutputSecret, "Mark `output` and `structuredOutput` as secret. They are also secret when "+
-		"`prompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret "+
+		"`prompt`, `updatePrompt` or `yaml` is secret, and when the answer contains the value of a secret (an `env` value, a secret "+
 		"input, or a credential of the environment such as an API key the agent was given through `${env.NAME}`). "+
 		"A secret `env` alone does not make them secret. Changing it updates the state without running the agent "+
 		"again.")
@@ -219,6 +318,16 @@ func (a *AgentRunArgs) Annotate(an infer.Annotator) {
 		"`deny` only runs what docker-agent approves by its rules. Hook denials always apply. It has no effect with "+
 		"`toolApproval: allow`.")
 	an.SetDefault(&a.AllowHookApprovals, false)
+	an.Describe(&a.AllowHarnessAgents, "Run coding-harness agents: agents with `harness`. AgentRun supports "+
+		"`harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the "+
+		"machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without "+
+		"approval: `toolApproval`, `allowHookApprovals` and the configuration's `permissions` do not apply to it. The "+
+		"CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its "+
+		"user's Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in "+
+		"`env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider's "+
+		"docker-agent version can load) already fails the preview. Changing it updates "+
+		"the state without running the agent again.")
+	an.SetDefault(&a.AllowHarnessAgents, false)
 	an.Describe(&a.Logging, "What `pulumi up` shows while the agent runs. `status` (default) shows the run's "+
 		"progress as status messages that the next one replaces (an agent started, a task was transferred or the "+
 		"conversation handed off, each tool call and whether it was approved or rejected, a model that fell back to "+
@@ -226,7 +335,8 @@ func (a *AgentRunArgs) Annotate(an infer.Annotator) {
 		"`tools` also logs every tool call with its arguments, `full` also the agents' messages and the tools' "+
 		"results; `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, "+
 		"credentials of the environment and `tokenKey` variables). When the answer is secret (`outputSecret`, or a "+
-		"secret `prompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret "+
+		"secret `prompt`, `updatePrompt` or `yaml`; for a delete run also a secret `deletePrompt`), `tools` and `full` "+
+		"log no arguments, messages or results, and with a secret "+
 		"`yaml` or `agent` the messages name no agents, tools or models. Changing it updates the state without "+
 		"running the agent again.")
 	an.SetDefault(&a.Logging, LoggingStatus)
@@ -245,7 +355,9 @@ func (u *AgentRunUsage) Annotate(a infer.Annotator) {
 	a.Describe(&u.InputTokens, "Prompt tokens, including cached input tokens.")
 	a.Describe(&u.OutputTokens, "Completion tokens.")
 	a.Describe(&u.Cost, "Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled "+
-		"with docker-agent "+DockerAgentVersion+". 0 for models without known pricing, such as custom providers.")
+		"with docker-agent "+DockerAgentVersion+". 0 for models without known pricing, such as custom providers. For a "+
+		"coding-harness agent, the cost Claude Code reports (`total_cost_usd`), an API-price estimate also under a "+
+		"subscription.")
 }
 
 // AgentRunState is the state of AgentRun.
@@ -261,14 +373,16 @@ type AgentRunState struct {
 
 // Annotate describes the outputs.
 func (s *AgentRunState) Annotate(an infer.Annotator) {
-	an.Describe(&s.Output, "The agent's final answer.")
+	an.Describe(&s.Output, "The agent's final answer. For a coding-harness agent, Claude Code's final result, or, "+
+		"when that is empty, the text Claude Code wrote during the run.")
 	an.Describe(&s.StructuredOutput, "The final answer decoded as JSON, when the answering agent declares "+
 		"`structured_output`.")
 	an.Describe(&s.AgentName, "The agent that gave the final answer: the selected agent, or the agent it "+
 		"handed the conversation off to.")
 	an.Describe(&s.Usage, "Token usage and estimated cost of the run.")
 	an.Describe(&s.ToolCalls, "The names of the tools that ran, in order, including those of sub-agents the "+
-		"agent transferred tasks to. Rejected tool calls are reported as warnings instead.")
+		"agent transferred tasks to and the tools Claude Code reports it ran. Rejected tool calls are reported as "+
+		"warnings instead.")
 	an.Describe(&s.RanAt, "When the run finished (RFC 3339).")
 }
 
@@ -292,6 +406,17 @@ func (*AgentRun) Check(ctx context.Context, req infer.CheckRequest) (infer.Check
 	if v := in.Get("prompt"); v.IsString() && strings.TrimSpace(v.AsString()) == "" {
 		failures = append(failures, p.CheckFailure{Property: "prompt", Reason: "`prompt` must not be empty"})
 	}
+	if v := in.Get("updatePrompt"); v.IsString() && strings.TrimSpace(v.AsString()) == "" {
+		failures = append(failures, p.CheckFailure{Property: "updatePrompt",
+			Reason: "`updatePrompt` must not be empty; omit it to rerun with `prompt`"})
+	}
+	if v := in.Get("deletePrompt"); v.IsString() && strings.TrimSpace(v.AsString()) == "" {
+		failures = append(failures, p.CheckFailure{Property: "deletePrompt", Reason: "`deletePrompt` must not be empty"})
+	}
+	if args.Rerun != nil && *args.Rerun != RerunOnChange && *args.Rerun != RerunAlways {
+		failures = append(failures, p.CheckFailure{Property: "rerun",
+			Reason: fmt.Sprintf("invalid value %q: must be %q or %q", *args.Rerun, RerunOnChange, RerunAlways)})
+	}
 	if args.ToolApproval != nil && *args.ToolApproval != ToolApprovalDeny && *args.ToolApproval != ToolApprovalAllow {
 		failures = append(failures, p.CheckFailure{Property: "toolApproval",
 			Reason: fmt.Sprintf("invalid value %q: must be %q or %q", *args.ToolApproval, ToolApprovalDeny, ToolApprovalAllow)})
@@ -303,16 +428,25 @@ func (*AgentRun) Check(ctx context.Context, req infer.CheckRequest) (infer.Check
 	if y := in.Get("yaml"); hasYAML && !hasRef && y.IsString() {
 		secrets := secretStrings(in)
 		doc := []byte(y.AsString())
+		valid := true
 		if !skipValidation(ctx, nil) {
 			res := validate.Validate(ctx, req.Name+".yaml", doc)
 			for _, e := range res.Errors {
 				failures = append(failures, p.CheckFailure{Property: "yaml",
 					Reason: "invalid docker-agent configuration: " + validate.Redact(e, secrets)})
 			}
-			if res.Valid {
-				for _, e := range agentrun.CheckConfig(ctx, req.Name+".yaml", doc) {
-					failures = append(failures, p.CheckFailure{Property: "yaml", Reason: validate.Redact(e, secrets)})
-				}
+			valid = res.Valid
+		}
+		// AgentRun's own rules for coding-harness agents are not docker-agent's validation:
+		// with skipValidation they still apply when the pinned docker-agent loads the
+		// configuration (CheckConfig reports nothing for one it cannot load).
+		if valid {
+			problems, warnings := agentrun.CheckConfig(ctx, req.Name+".yaml", doc, checkOptions(in, args))
+			for _, e := range problems {
+				failures = append(failures, p.CheckFailure{Property: "yaml", Reason: validate.Redact(e, secrets)})
+			}
+			for _, w := range warnings {
+				userLog(ctx).Warning(validate.Redact(w, secrets))
 			}
 		}
 		if a := in.Get("agent"); a.IsString() && a.AsString() != "" {
@@ -326,6 +460,29 @@ func (*AgentRun) Check(ctx context.Context, req infer.CheckRequest) (infer.Check
 	return infer.CheckResponse[AgentRunArgs]{Inputs: args, Failures: failures}, nil
 }
 
+// checkOptions are the inputs agentrun.CheckConfig needs, from the raw and the checked inputs.
+func checkOptions(in property.Map, args AgentRunArgs) agentrun.CheckOptions {
+	opts := agentrun.CheckOptions{
+		// An opt-in that is unknown during a preview (an output of another resource) fails
+		// nothing yet; the run enforces it.
+		AllowHarnessAgents: in.Get("allowHarnessAgents").IsComputed() || runBool(args.AllowHarnessAgents),
+		InheritEnvironment: inheritEnvironment(args),
+		DeletePrompt:       isSet(in.Get("deletePrompt")),
+		ToolApprovalDeny:   toolApproval(args) == ToolApprovalDeny,
+		HideNames:          in.Get("yaml").Secret() || in.Get("agent").Secret(),
+	}
+	if env := in.Get("env"); env.IsMap() {
+		opts.EnvKeys, opts.EnvValues = map[string]bool{}, map[string]string{}
+		for k, v := range env.AsMap().All {
+			opts.EnvKeys[k] = v.IsComputed() || v.IsString() && v.AsString() != ""
+			if v.IsString() {
+				opts.EnvValues[k] = v.AsString()
+			}
+		}
+	}
+	return opts
+}
+
 // isSet reports whether a raw input is present: a non-empty string or an unknown value.
 func isSet(v property.Value) bool {
 	if v.IsComputed() {
@@ -334,19 +491,26 @@ func isSet(v property.Value) bool {
 	return v.IsString() && v.AsString() != ""
 }
 
-// Create runs the agent. Previews never run it.
+// Create runs the agent with `prompt`. Previews never run it. The ID is the resource name
+// with a random suffix, so that a resource and its replacement (or a pending delete) have
+// different IDs; resources created by v0.1.1 keep their name as ID.
 func (*AgentRun) Create(ctx context.Context, req infer.CreateRequest[AgentRunArgs]) (infer.CreateResponse[AgentRunState], error) {
 	if req.DryRun {
 		return infer.CreateResponse[AgentRunState]{ID: req.Name, Output: AgentRunState{AgentRunArgs: req.Inputs}}, nil
 	}
-	state, err := runAgent(ctx, req.Name, req.Inputs)
+	state, err := runAgent(ctx, req.Name, req.Inputs, req.Inputs.Prompt, false)
 	if err != nil {
 		return infer.CreateResponse[AgentRunState]{}, err
 	}
-	return infer.CreateResponse[AgentRunState]{ID: req.Name, Output: state}, nil
+	id, err := resource.NewUniqueHex(req.Name+"-", 8, 0)
+	if err != nil {
+		return infer.CreateResponse[AgentRunState]{}, err
+	}
+	return infer.CreateResponse[AgentRunState]{ID: id, Output: state}, nil
 }
 
-// Update runs the agent again when an input that affects the run changed. Changes of
+// Update runs the agent again when an input that affects the run changed, or with `rerun:
+// always`. Changes of `updatePrompt`, `deletePrompt`, `allowHarnessAgents`, `rerun`,
 // `outputSecret`, `timeoutSeconds` or `logging` alone only update the state.
 func (*AgentRun) Update(
 	ctx context.Context, req infer.UpdateRequest[AgentRunArgs, AgentRunState],
@@ -355,6 +519,11 @@ func (*AgentRun) Update(
 	if !rerunNeeded(req.State.AgentRunArgs, req.Inputs) {
 		state := req.State
 		state.AgentRunArgs = req.Inputs
+		if state.ToolCalls == nil {
+			// The decoded empty list is nil, which would be dropped from the state (see
+			// withToolCalls).
+			state.ToolCalls = []string{}
+		}
 		if rc != nil && state.Output != "" {
 			rc.answerSecret = agentrun.AnswerContainsSecret(state.Output, agentrun.Request{
 				YAML: []byte(runString(req.Inputs.YAML)), Env: req.Inputs.Env,
@@ -369,17 +538,29 @@ func (*AgentRun) Update(
 	if req.DryRun {
 		return infer.UpdateResponse[AgentRunState]{Output: AgentRunState{AgentRunArgs: req.Inputs}}, nil
 	}
-	state, err := runAgent(ctx, req.ID, req.Inputs)
+	state, err := runAgent(ctx, req.ID, req.Inputs, rerunPrompt(req.State.AgentRunArgs, req.Inputs), false)
 	if err != nil {
 		return infer.UpdateResponse[AgentRunState]{}, err
 	}
 	return infer.UpdateResponse[AgentRunState]{Output: state}, nil
 }
 
-// rerunNeeded reports whether an input that affects the run changed: everything except
-// `outputSecret`, `timeoutSeconds` and `logging`.
+// rerunNeeded reports whether an update runs the agent again: an input that affects the run
+// changed (everything except the state-only inputs), or `rerun` is `always`. Update is only
+// called after Diff reported a change, and Diff reports `rerun: always` only after a Check
+// of the same `pulumi up` (see agentRunResource), so the `always` term never reruns the
+// agent in a refresh.
 func rerunNeeded(olds, news AgentRunArgs) bool {
-	return len(runInputChanges(olds, news)) > 0
+	return len(runInputChanges(olds, news)) > 0 || rerunOf(news) == RerunAlways
+}
+
+// rerunPrompt is the user message of a rerun: `prompt` when it changed, otherwise
+// `updatePrompt`, which defaults to `prompt`.
+func rerunPrompt(olds, news AgentRunArgs) string {
+	if olds.Prompt != news.Prompt || runString(news.UpdatePrompt) == "" {
+		return news.Prompt
+	}
+	return *news.UpdatePrompt
 }
 
 // runInputChanges lists the changed inputs that affect the run.
@@ -408,7 +589,10 @@ func runInputChanges(olds, news AgentRunArgs) []string {
 }
 
 // Diff reports every input change as an update. Inputs that affect the run make the
-// update run the agent again (see Update); unknown inputs are handled by agentRunResource.
+// update run the agent again (see Update); unknown inputs and `rerun: always` are handled by
+// agentRunResource. Absent values of a v0.1.1 state equal their defaults. A replacement asks
+// to delete first when a delete prompt is stored, so that the old resource's cleanup cannot
+// undo the new run.
 func (*AgentRun) Diff(
 	_ context.Context, req infer.DiffRequest[AgentRunArgs, AgentRunState],
 ) (infer.DiffResponse, error) {
@@ -426,7 +610,22 @@ func (*AgentRun) Diff(
 	if loggingOf(olds) != loggingOf(news) {
 		diff["logging"] = p.PropertyDiff{Kind: p.Update, InputDiff: true}
 	}
-	return infer.DiffResponse{HasChanges: len(diff) > 0, DetailedDiff: diff}, nil
+	stateOnly := map[string]bool{
+		"updatePrompt":       runString(olds.UpdatePrompt) != runString(news.UpdatePrompt),
+		"deletePrompt":       runString(olds.DeletePrompt) != runString(news.DeletePrompt),
+		"allowHarnessAgents": runBool(olds.AllowHarnessAgents) != runBool(news.AllowHarnessAgents),
+		"rerun":              rerunOf(olds) != rerunOf(news),
+	}
+	for name, changed := range stateOnly {
+		if changed {
+			diff[name] = p.PropertyDiff{Kind: p.Update, InputDiff: true}
+		}
+	}
+	return infer.DiffResponse{
+		HasChanges:          len(diff) > 0,
+		DetailedDiff:        diff,
+		DeleteBeforeReplace: runString(olds.DeletePrompt) != "",
+	}, nil
 }
 
 // Read keeps the stored answer: a run cannot be observed after the fact. There is nothing
@@ -443,25 +642,150 @@ func (*AgentRun) Read(
 var errAgentRunImport = errors.New("importing an AgentRun is not supported: a run has nothing to import; " +
 	"declare the resource in your program and `pulumi up` runs the agent")
 
-// Delete does nothing: a run leaves nothing behind.
-func (*AgentRun) Delete(context.Context, infer.DeleteRequest[AgentRunState]) (infer.DeleteResponse, error) {
+// skipDeletePromptsEnv names the environment variable that skips every delete prompt of a
+// `pulumi` command. Delete reads it from the provider process, which gets the environment
+// of the command: a provider configuration value would come from the stored state in
+// `pulumi destroy`.
+const skipDeletePromptsEnv = "DOCKER_AGENT_SKIP_DELETE_PROMPTS"
+
+// Delete runs `deletePrompt`, when one is stored, with the stored inputs. A failure fails the
+// delete, unless one of deletePromptSkip's reasons applies. They are checked before the run
+// and again when it holds the run slot: another AgentRun of the provider process can run in
+// the same workingDir while this one waits for it.
+func (*AgentRun) Delete(ctx context.Context, req infer.DeleteRequest[AgentRunState]) (infer.DeleteResponse, error) {
+	prompt := runString(req.State.DeletePrompt)
+	if strings.TrimSpace(prompt) == "" {
+		return infer.DeleteResponse{}, nil
+	}
+	// The reason can name a secret workingDir.
+	var secrets []string
+	if rc := runContextFrom(ctx); rc != nil {
+		secrets = rc.secrets
+	}
+	skipped := func(why string) (infer.DeleteResponse, error) {
+		userLog(ctx).Warning("deletePrompt not run: " + validate.Redact(why, secrets))
+		return infer.DeleteResponse{}, nil
+	}
+	if why := deletePromptSkip(req.State.AgentRunArgs); why != "" {
+		return skipped(why)
+	}
+	if _, err := runAgent(ctx, req.ID, req.State.AgentRunArgs, prompt, true); err != nil {
+		if skip := (deleteSkipped{}); errors.As(err, &skip) {
+			return skipped(skip.why)
+		}
+		return infer.DeleteResponse{}, fmt.Errorf("deletePrompt failed: %w; to delete without running it, set "+
+			"%s=true for this command (for example `%s=true pulumi destroy`)", err, skipDeletePromptsEnv,
+			skipDeletePromptsEnv)
+	}
 	return infer.DeleteResponse{}, nil
 }
 
+// deleteSkipped ends a delete prompt's run before it starts, for deletePromptSkip's reason.
+type deleteSkipped struct{ why string }
+
+func (d deleteSkipped) Error() string { return "deletePrompt not run: " + d.why }
+
+// deletePromptSkip returns why a delete prompt is not run, or "":
+//
+//   - DOCKER_AGENT_SKIP_DELETE_PROMPTS is true in the environment of the `pulumi` command;
+//   - the stored workingDir no longer exists, or is no longer a directory: there is nothing
+//     left to clean up there. Another error (a directory that cannot be read) does not skip
+//     the prompt: its run fails and says why;
+//   - an AgentRun of this provider process started in the same workingDir: a replacement
+//     or a rename without aliases created the new run before deleting the old one, whose
+//     cleanup would undo the new run's work.
+func deletePromptSkip(args AgentRunArgs) string {
+	if skip, err := strconv.ParseBool(os.Getenv(skipDeletePromptsEnv)); err == nil && skip {
+		return skipDeletePromptsEnv + " is set"
+	}
+	wd := runString(args.WorkingDir)
+	if wd == "" {
+		return ""
+	}
+	switch fi, err := os.Stat(wd); {
+	case errors.Is(err, fs.ErrNotExist):
+		return fmt.Sprintf("workingDir %q no longer exists", wd)
+	case err == nil && !fi.IsDir():
+		return fmt.Sprintf("workingDir %q is no longer a directory", wd)
+	}
+	if dir, ok := resolvedDir(wd); ok {
+		if _, used := usedDirs.Load(dir); used {
+			return fmt.Sprintf("an AgentRun already ran in workingDir %q during this pulumi command (a replacement, or "+
+				"a rename without aliases, creates the new run before it deletes the old one), so this delete prompt "+
+				"would undo its work; use the deleteBeforeReplace resource option or aliases", wd)
+		}
+	}
+	return ""
+}
+
+// Process-local state of AgentRun. The engine starts a provider process for each Pulumi
+// operation (a preview, an update, a refresh or a destroy), so in production these sets
+// live for one operation. A provider process that the engine attaches to
+// (PULUMI_DEBUG_PROVIDERS) serves several commands: withCommandScopedState forgets the
+// sets when another engine connects.
+var (
+	// alwaysChecked holds the URNs of the AgentRuns with `rerun: always` that Check saw (see
+	// agentRunResource).
+	alwaysChecked sync.Map
+	// usedDirs holds the resolved working directories in which a Create or an Update started
+	// the agent (see deletePromptSkip).
+	usedDirs sync.Map
+)
+
+// engineAddress is the address of the engine whose command the process-local state belongs to.
+var engineAddress struct {
+	sync.Mutex
+	addr string
+}
+
+// withCommandScopedState forgets the process-local AgentRun state when a provider process
+// is handshaken by another engine than before, which is another Pulumi command. Every
+// provider instance of one command handshakes with the same engine address.
+func withCommandScopedState(prov p.Provider) p.Provider {
+	inner := prov.Handshake
+	prov.Handshake = func(ctx context.Context, req p.HandshakeRequest) (p.HandshakeResponse, error) {
+		engineAddress.Lock()
+		if req.EngineAddress != "" && req.EngineAddress != engineAddress.addr {
+			if engineAddress.addr != "" {
+				alwaysChecked.Clear()
+				usedDirs.Clear()
+			}
+			engineAddress.addr = req.EngineAddress
+		}
+		engineAddress.Unlock()
+		if inner == nil {
+			return p.HandshakeResponse{}, nil
+		}
+		return inner(ctx, req)
+	}
+	return prov
+}
+
+// resolvedDir resolves a workingDir like agentrun.Run does, and its symbolic links.
+func resolvedDir(wd string) (string, bool) {
+	abs, err := filepath.Abs(wd)
+	if err != nil {
+		return "", false
+	}
+	dir, err := filepath.EvalSymlinks(abs)
+	return dir, err == nil
+}
+
 // WireDependencies declares secretness. `env` never makes an output secret. `output` and
-// `structuredOutput` are secret with `outputSecret`, or when `prompt` or `yaml` is secret,
-// since the answer can repeat them (agentRunResource also marks them secret when the
+// `structuredOutput` are secret with `outputSecret`, or when `prompt`, `updatePrompt` or
+// `yaml` is secret, since the answer can repeat them (agentRunResource also marks them secret when the
 // answer contains a secret value). The run's outputs are only unknown when the agent runs
 // again, which agentRunResource decides, so they are declared always known here; the
 // inputs stored in the state keep their own secretness and computedness.
 func (*AgentRun) WireDependencies(f infer.FieldSelector, args *AgentRunArgs, state *AgentRunState) {
 	prompt, yaml, agent := f.InputField(&args.Prompt).Secret(), f.InputField(&args.YAML).Secret(), f.InputField(&args.Agent).Secret()
+	updatePrompt := f.InputField(&args.UpdatePrompt).Secret()
 	for _, out := range []any{&state.Output, &state.StructuredOutput} {
 		f.OutputField(out).AlwaysKnown()
 		if args.OutputSecret != nil && *args.OutputSecret {
 			f.OutputField(out).AlwaysSecret()
 		} else {
-			f.OutputField(out).DependsOn(prompt, yaml)
+			f.OutputField(out).DependsOn(prompt, updatePrompt, yaml)
 		}
 	}
 	f.OutputField(&state.AgentName).AlwaysKnown()
@@ -477,6 +801,8 @@ func (*AgentRun) WireDependencies(f infer.FieldSelector, args *AgentRunArgs, sta
 	f.OutputField(&state.Reference).DependsOn(f.InputField(&args.Reference))
 	f.OutputField(&state.Agent).DependsOn(f.InputField(&args.Agent))
 	f.OutputField(&state.Prompt).DependsOn(f.InputField(&args.Prompt))
+	f.OutputField(&state.UpdatePrompt).DependsOn(f.InputField(&args.UpdatePrompt))
+	f.OutputField(&state.DeletePrompt).DependsOn(f.InputField(&args.DeletePrompt))
 	f.OutputField(&state.Env).AlwaysSecret()
 	f.OutputField(&state.Env).DependsOn(f.InputField(&args.Env).Computed())
 	f.OutputField(&state.InheritEnvironment).DependsOn(f.InputField(&args.InheritEnvironment))
@@ -484,12 +810,17 @@ func (*AgentRun) WireDependencies(f infer.FieldSelector, args *AgentRunArgs, sta
 	f.OutputField(&state.ToolApproval).DependsOn(f.InputField(&args.ToolApproval))
 	f.OutputField(&state.TimeoutSeconds).DependsOn(f.InputField(&args.TimeoutSeconds))
 	f.OutputField(&state.Triggers).DependsOn(f.InputField(&args.Triggers))
+	f.OutputField(&state.Rerun).DependsOn(f.InputField(&args.Rerun))
 	f.OutputField(&state.OutputSecret).DependsOn(f.InputField(&args.OutputSecret))
 	f.OutputField(&state.AllowHookApprovals).DependsOn(f.InputField(&args.AllowHookApprovals))
+	f.OutputField(&state.AllowHarnessAgents).DependsOn(f.InputField(&args.AllowHarnessAgents))
 	f.OutputField(&state.Logging).DependsOn(f.InputField(&args.Logging))
 }
 
-func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunState, error) {
+// runAgent runs the agent with a prompt. A delete run (deleting) announces the
+// coding-harness warnings that no Check of the operation reported, and its answer is
+// discarded by the caller.
+func runAgent(ctx context.Context, name string, args AgentRunArgs, prompt string, deleting bool) (AgentRunState, error) {
 	state := AgentRunState{AgentRunArgs: args}
 	doc, err := agentDocument(ctx, args)
 	if err != nil {
@@ -501,6 +832,9 @@ func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunStat
 	var secrets []string
 	if rc != nil {
 		secrets = rc.secrets
+		if rc.name != "" {
+			name = rc.name
+		}
 	}
 	// docker-agent's own log records: ERROR records of a successful run (a model that
 	// fell back, a toolset that failed to start) become warnings, everything else is
@@ -524,7 +858,7 @@ func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunStat
 		Name:               name,
 		YAML:               doc,
 		Agent:              runString(args.Agent),
-		Prompt:             args.Prompt,
+		Prompt:             prompt,
 		Env:                args.Env,
 		InheritEnvironment: inheritEnvironment(args),
 		WorkingDir:         runString(args.WorkingDir),
@@ -537,9 +871,14 @@ func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunStat
 			defer logsMu.Unlock()
 			logs = append(logs, runLogRecord{level, msg})
 		},
-		Progress:  progress,
-		Logging:   runLogging(args, rc),
-		HideNames: rc != nil && rc.namesSecret,
+		Progress:           progress,
+		Logging:            runLogging(args, rc),
+		HideNames:          rc != nil && rc.namesSecret,
+		AllowHarnessAgents: runBool(args.AllowHarnessAgents),
+		// Check validated only a `yaml` configuration, and no Check runs in a destroy.
+		AnnounceHarness: deleting || runString(args.YAML) == "",
+		Warn:            logger.Warning,
+		Start:           runStart(args, deleting),
 	})
 	logsMu.Lock()
 	defer logsMu.Unlock()
@@ -575,6 +914,26 @@ func runAgent(ctx context.Context, name string, args AgentRunArgs) (AgentRunStat
 	state.ToolCalls = res.ToolCalls
 	state.RanAt = time.Now().UTC().Format(time.RFC3339)
 	return state, nil
+}
+
+// runStart is called when a run holds the run slot. A Create or an Update marks its
+// workingDir as used, before the agent can change it, so that a delete prompt that waited
+// for the slot sees it. A delete prompt checks deletePromptSkip again.
+func runStart(args AgentRunArgs, deleting bool) func() error {
+	return func() error {
+		if deleting {
+			if why := deletePromptSkip(args); why != "" {
+				return deleteSkipped{why}
+			}
+			return nil
+		}
+		if wd := runString(args.WorkingDir); wd != "" {
+			if dir, ok := resolvedDir(wd); ok {
+				usedDirs.Store(dir, true)
+			}
+		}
+		return nil
+	}
 }
 
 // agentDocument returns the configuration to run: `yaml`, or the artifact `reference`
@@ -619,6 +978,13 @@ func toolApproval(a AgentRunArgs) ToolApproval {
 	return *a.ToolApproval
 }
 
+func rerunOf(a AgentRunArgs) RerunPolicy {
+	if a.Rerun == nil || *a.Rerun == "" {
+		return RerunOnChange
+	}
+	return *a.Rerun
+}
+
 func loggingOf(a AgentRunArgs) Logging {
 	if a.Logging == nil || *a.Logging == "" {
 		return LoggingStatus
@@ -644,9 +1010,19 @@ func timeoutOf(a AgentRunArgs) int {
 }
 
 // NewAgentRunResource returns the AgentRun resource for the provider builder. It wraps
-// the inferred resource so that previews report every output of a (re)run as unknown:
-// pulumi-go-provider only marks an output unknown when an input it depends on changed,
-// and misses inputs that were absent before (for example newly added `triggers`).
+// the inferred resource:
+//
+//   - previews report every output of a (re)run as unknown: pulumi-go-provider only marks
+//     an output unknown when an input it depends on changed, and misses inputs that were
+//     absent before (for example newly added `triggers`);
+//   - `rerun: always` is a change only in a Diff that follows a Check of the same resource
+//     in this provider process. The engine calls Check only while the program registers a
+//     resource of the operation, never in `pulumi refresh`, and in `pulumi up --refresh`
+//     the refresh (Read, then Diff) of a resource comes before its Check. Read clears the
+//     mark, so the refresh Diff, which compares the stored inputs with themselves, reports
+//     no drift;
+//   - the requests carry the resource name (the IDs of new resources have a suffix) and,
+//     for Delete, the secrets of the stored state.
 func NewAgentRunResource() infer.InferredResource {
 	return agentRunResource{infer.Resource(&AgentRun{})}
 }
@@ -659,6 +1035,8 @@ type agentRunResource struct {
 // resource: the secret input strings (redacted from errors and logs) in, whether the
 // answer contains a secret and whether the agent runs out.
 type runContext struct {
+	// name is the resource name, which labels the configuration in docker-agent messages.
+	name         string
 	secrets      []string
 	answerSecret bool
 	rerun        bool
@@ -668,13 +1046,14 @@ type runContext struct {
 	contentSecret, namesSecret bool
 }
 
-func newRunContext(inputs property.Map) *runContext {
+func newRunContext(urn resource.URN, inputs property.Map) *runContext {
 	outputSecret := inputs.Get("outputSecret")
 	yaml := inputs.Get("yaml").Secret()
 	return &runContext{
+		name:    urn.Name(),
 		secrets: secretStrings(inputs),
 		contentSecret: (outputSecret.IsBool() && outputSecret.AsBool()) || outputSecret.Secret() || yaml ||
-			inputs.Get("prompt").Secret(),
+			inputs.Get("prompt").Secret() || inputs.Get("updatePrompt").Secret(),
 		namesSecret: yaml || inputs.Get("agent").Secret(),
 	}
 }
@@ -686,8 +1065,51 @@ func runContextFrom(ctx context.Context) *runContext {
 	return rc
 }
 
+// withToolCalls returns a stored state with `toolCalls`. v0.1.1 dropped an empty list from
+// the state of an update that did not run the agent, and a state without the required
+// output fails to decode, which failed every later Diff, Update and Delete.
+func withToolCalls(state property.Map) property.Map {
+	if _, ran := state.GetOk("ranAt"); !ran {
+		return state
+	}
+	if v, ok := state.GetOk("toolCalls"); !ok || v.IsNull() {
+		return state.Set("toolCalls", property.New([]property.Value{}))
+	}
+	return state
+}
+
+// Check marks a resource with a known `rerun: always` for the Diff that follows.
+func (r agentRunResource) Check(ctx context.Context, req p.CheckRequest) (p.CheckResponse, error) {
+	resp, err := r.InferredResource.Check(ctx, req)
+	if err != nil {
+		return resp, err
+	}
+	if v := resp.Inputs.Get("rerun"); !req.Inputs.Get("rerun").IsComputed() && v.IsString() &&
+		v.AsString() == string(RerunAlways) {
+		alwaysChecked.Store(req.Urn, true)
+	} else {
+		alwaysChecked.Delete(req.Urn)
+	}
+	return resp, nil
+}
+
+// Read clears the mark of Check: the Diff of a refresh follows it.
+func (r agentRunResource) Read(ctx context.Context, req p.ReadRequest) (p.ReadResponse, error) {
+	alwaysChecked.Delete(req.Urn)
+	req.Properties = withToolCalls(req.Properties)
+	return r.InferredResource.Read(ctx, req)
+}
+
+// Delete passes the secrets of the stored state to the delete prompt's run.
+func (r agentRunResource) Delete(ctx context.Context, req p.DeleteRequest) error {
+	req.Properties = withToolCalls(req.Properties)
+	rc := newRunContext(req.Urn, req.Properties)
+	rc.contentSecret = rc.contentSecret || req.Properties.Get("deletePrompt").Secret()
+	return r.InferredResource.Delete(context.WithValue(ctx, runContextKey{}, rc), req)
+}
+
 func (r agentRunResource) Create(ctx context.Context, req p.CreateRequest) (p.CreateResponse, error) {
-	rc := newRunContext(req.Properties)
+	rc := newRunContext(req.Urn, req.Properties)
 	resp, err := r.InferredResource.Create(context.WithValue(ctx, runContextKey{}, rc), req)
 	if err != nil {
 		return resp, err
@@ -701,7 +1123,8 @@ func (r agentRunResource) Create(ctx context.Context, req p.CreateRequest) (p.Cr
 }
 
 func (r agentRunResource) Update(ctx context.Context, req p.UpdateRequest) (p.UpdateResponse, error) {
-	rc := newRunContext(req.Inputs)
+	req.State = withToolCalls(req.State)
+	rc := newRunContext(req.Urn, req.Inputs)
 	resp, err := r.InferredResource.Update(context.WithValue(ctx, runContextKey{}, rc), req)
 	if err != nil {
 		return resp, err
@@ -715,22 +1138,31 @@ func (r agentRunResource) Update(ctx context.Context, req p.UpdateRequest) (p.Up
 	return resp, nil
 }
 
-// Diff reports an update for every input that is unknown during a preview: the typed
-// Diff sees unknown values as zero values, which equal an absent old value.
+// Diff reports an update for every input that is unknown during a preview (the typed Diff
+// sees unknown values as zero values, which equal an absent old value), and for `rerun:
+// always` after a Check of this resource.
 func (r agentRunResource) Diff(ctx context.Context, req p.DiffRequest) (p.DiffResponse, error) {
+	req.State = withToolCalls(req.State)
 	resp, err := r.InferredResource.Diff(ctx, req)
 	if err != nil {
 		return resp, err
 	}
-	for k, v := range req.Inputs.All {
-		if !v.HasComputed() {
-			continue
-		}
+	change := func(k string) {
 		if resp.DetailedDiff == nil {
 			resp.DetailedDiff = map[string]p.PropertyDiff{}
 		}
 		resp.DetailedDiff[k] = p.PropertyDiff{Kind: p.Update, InputDiff: true}
 		resp.HasChanges = true
+	}
+	for k, v := range req.Inputs.All {
+		if v.HasComputed() {
+			change(k)
+		}
+	}
+	if v := req.Inputs.Get("rerun"); v.IsString() && v.AsString() == string(RerunAlways) {
+		if _, checked := alwaysChecked.Load(req.Urn); checked {
+			change("rerun")
+		}
 	}
 	return resp, nil
 }
@@ -740,7 +1172,7 @@ func (r agentRunResource) Diff(ctx context.Context, req p.DiffRequest) (p.DiffRe
 func agentRunPreview(inputs, out property.Map) property.Map {
 	outputSecret := inputs.Get("outputSecret")
 	answerSecret := (outputSecret.IsBool() && outputSecret.AsBool()) || outputSecret.Secret() ||
-		inputs.Get("prompt").Secret() || inputs.Get("yaml").Secret()
+		inputs.Get("prompt").Secret() || inputs.Get("updatePrompt").Secret() || inputs.Get("yaml").Secret()
 	for _, k := range agentRunOutputs {
 		secret := false
 		switch k {

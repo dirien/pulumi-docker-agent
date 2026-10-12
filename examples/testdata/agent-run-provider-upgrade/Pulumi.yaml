@@ -1,0 +1,47 @@
+name: docker-agent-agent-run-provider-upgrade
+runtime: yaml
+description: >-
+  A test fixture for examples/upgrade_test.go: an AgentRun with a deletePrompt in a workingDir. Each
+  resource pins its provider version (options.version), as the generated SDKs do; the test replaces
+  "PROVIDER_VERSION" with the version it upgrades from, and then with the one it upgrades to.
+
+config:
+  baseUrl:
+    type: string
+  apiKey:
+    type: string
+    secret: true
+  workDir:
+    type: string
+
+resources:
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: |
+        providers:
+          llm:
+            api_type: openai_chatcompletions
+            base_url: ${baseUrl}
+            token_key: NOTES_API_KEY
+        models:
+          m:
+            provider: llm
+            model: fake-model
+        agents:
+          root:
+            model: m
+            description: Writes release notes
+            instruction: You write release notes.
+      prompt: Write the release notes into the working directory.
+      deletePrompt: Delete the release notes from the working directory.
+      workingDir: ${workDir}
+      env:
+        NOTES_API_KEY: ${apiKey}
+      inheritEnvironment: false
+      timeoutSeconds: 120
+    options:
+      version: PROVIDER_VERSION
+
+outputs:
+  answer: ${notes.output}

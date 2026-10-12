@@ -771,7 +771,7 @@ class AgentRunUsage(dict):
         """
         Token usage and cost of an agent run, including sub-agents.
 
-        :param _builtins.float cost: Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers.
+        :param _builtins.float cost: Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers. For a coding-harness agent, the cost Claude Code reports (`total_cost_usd`), an API-price estimate also under a subscription.
         :param _builtins.int input_tokens: Prompt tokens, including cached input tokens.
         :param _builtins.int output_tokens: Completion tokens.
         """
@@ -783,7 +783,7 @@ class AgentRunUsage(dict):
     @pulumi.getter
     def cost(self) -> _builtins.float:
         """
-        Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers.
+        Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers. For a coding-harness agent, the cost Claude Code reports (`total_cost_usd`), an API-price estimate also under a subscription.
         """
         return pulumi.get(self, "cost")
 

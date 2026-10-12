@@ -1,0 +1,187 @@
+#!/bin/sh
+# A fake Claude Code CLI for AgentRun's tests: it never calls a model. It logs how it was
+# started, does what a real run would do to the working directory, and prints a recorded
+# stream-json session. See README.md for the modes and the log format.
+set -u
+
+here=$(cd "$(dirname "$0")" && pwd -P)
+prompt=$(cat)
+# With FAKE_CLAUDE_IGNORE_TERM, the fake and every process it starts ignore SIGTERM.
+if [ -n "${FAKE_CLAUDE_IGNORE_TERM:-}" ]; then
+	trap '' TERM
+fi
+log=${FAKE_CLAUDE_LOG:-./.fake-claude.log}
+pidfile=${FAKE_CLAUDE_PIDFILE:-./.fake-claude.pid}
+mode=${FAKE_CLAUDE_MODE:-ok}
+
+# flag prints whether a variable is set to a non-empty value, never the value.
+flag() {
+	eval "v=\${$1:-}"
+	if [ -n "$v" ]; then echo set; else echo unset; fi
+}
+
+# The PWD the CLI was started with: a shell resets PWD when it does not name the working
+# directory, so read the original environment where the system has it.
+pwd_env=${PWD:-}
+if [ -r "/proc/$$/environ" ]; then
+	pwd_env=$(tr '\0' '\n' <"/proc/$$/environ" | sed -n 's/^PWD=//p' | head -n 1)
+fi
+
+case "$prompt" in
+Delete*)
+	if [ -f .fail-delete ]; then
+		mode=error
+	else
+		rm -f NOTES.md
+		mode=ok
+	fi
+	;;
+*)
+	printf '%s\n' "$prompt" >NOTES.md
+	;;
+esac
+
+{
+	echo "--- invocation"
+	echo "argc=$#"
+	for a in "$@"; do echo "arg=$a"; done
+	echo "cwd=$(pwd)"
+	echo "realcwd=$(pwd -P)"
+	echo "pwd_env=$pwd_env"
+	echo "home=${HOME:-}"
+	echo "pid=$$"
+	echo "mode=$mode"
+	echo "oauth_token=$(flag CLAUDE_CODE_OAUTH_TOKEN)"
+	echo "api_key=$(flag ANTHROPIC_API_KEY)"
+	echo "claudecode=$(flag CLAUDECODE)"
+	echo "is_sandbox=${IS_SANDBOX:-}"
+	echo "config_dir=${CLAUDE_CONFIG_DIR:-}"
+	echo "marker=${FAKE_MARKER:-}"
+	echo "stdin=$prompt"
+} >>"$log"
+
+if [ -n "${FAKE_CLAUDE_STDERR:-}" ]; then
+	printf '%s\n' "$FAKE_CLAUDE_STDERR" >&2
+fi
+
+# emit prints a fixture, with the init line's apiKeySource replaced by FAKE_CLAUDE_KEY_SOURCE
+# when that is set.
+emit() {
+	if [ -n "${FAKE_CLAUDE_KEY_SOURCE:-}" ]; then
+		sed "s|\"apiKeySource\":\"none\"|\"apiKeySource\":\"$FAKE_CLAUDE_KEY_SOURCE\"|" "$here/$1"
+	else
+		cat "$here/$1"
+	fi
+}
+
+init() { emit session.jsonl | head -n 1; }
+
+# insession runs a command in a session of its own, as Claude Code starts shell commands. It
+# replaces the shell it runs in, so that `insession ... &` sets $! to the command's PID.
+insession() {
+	if command -v setsid >/dev/null 2>&1; then
+		exec setsid "$@"
+	else
+		exec perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$@"
+	fi
+}
+
+# detached starts `sleep 300` in a session of its own and sets child to its PID.
+detached() {
+	insession sleep 300 >/dev/null 2>&1 </dev/null &
+	child=$!
+}
+
+case "$mode" in
+ok)
+	emit session.jsonl
+	;;
+token)
+	token=$(printf '%s' "${CLAUDE_CODE_OAUTH_TOKEN:-}" | sed 's/[\\&|]/\\&/g')
+	emit session-token.jsonl | sed "s|__TOKEN__|$token|g"
+	;;
+json)
+	emit session-json.jsonl
+	;;
+error)
+	emit session-error.jsonl
+	echo "auth failed for ${CLAUDE_CODE_OAUTH_TOKEN:-}" >&2
+	exit 1
+	;;
+error-subtype)
+	emit session-error-subtype.jsonl
+	exit 1
+	;;
+contention)
+	emit session-contention.jsonl
+	exit 1
+	;;
+root)
+	echo "--dangerously-skip-permissions cannot be used with root/sudo privileges for security reasons" >&2
+	exit 1
+	;;
+no-result)
+	emit session-no-result.jsonl
+	;;
+tool-error)
+	emit session-tool-error.jsonl
+	;;
+hang)
+	# Ignores SIGTERM (and so does its child), so only the SIGKILL after the grace period
+	# stops the group.
+	trap '' TERM
+	init
+	sleep 300 &
+	echo $! >"$pidfile"
+	sleep 300
+	;;
+hang-detached)
+	init
+	detached
+	echo "$child" >"$pidfile"
+	sleep 300
+	;;
+term-trap)
+	init
+	detached
+	sleep 300 &
+	sleeper=$!
+	# Stopping takes a moment, as it does for Claude Code: a SIGKILL right after the SIGTERM
+	# leaves the detached child running.
+	trap 'echo term >>"$log"; sleep 0.3; kill "$child" "$sleeper" 2>/dev/null; exit 143' TERM
+	# The pidfile tells the test that the trap is set.
+	echo "$child" >"$pidfile"
+	# A trap runs during wait, not while a foreground command runs.
+	wait "$sleeper"
+	;;
+stderr-open)
+	# The child keeps stdout and stderr open after the CLI exited.
+	sleep 5 &
+	emit session.jsonl
+	;;
+leftover)
+	sleep 300 >/dev/null 2>&1 </dev/null &
+	echo $! >"$pidfile"
+	emit session.jsonl
+	;;
+detached-writer)
+	# A process in a session of its own inherits stdout and keeps writing to it after the
+	# CLI exited; it ends when the pipe is closed. The pidfile gets its PID.
+	emit session.jsonl
+	insession sh -c 'echo $$ >"$1"; while :; do echo tick || exit 0; sleep 0.2; done' sh "$pidfile" 2>/dev/null </dev/null &
+	sleep 0.2
+	;;
+empty-result)
+	emit session-empty-result.jsonl
+	;;
+empty)
+	emit session-empty.jsonl
+	;;
+deferred)
+	emit session-deferred.jsonl
+	;;
+*)
+	echo "fake claude: unknown FAKE_CLAUDE_MODE $mode" >&2
+	exit 2
+	;;
+esac

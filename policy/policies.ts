@@ -165,8 +165,8 @@ function allToolsets(cfg: Obj): { label: string; toolset: Obj }[] {
 
 export interface ToolApprovalConfig {
     /**
-     * AgentRun resources that may set `toolApproval: allow` or `allowHookApprovals: true`, by name or
-     * URN (`*` wildcards).
+     * AgentRun resources that may set `toolApproval: allow`, `allowHookApprovals: true` or
+     * `allowHarnessAgents: true`, by name or URN (`*` wildcards).
      */
     allowedResources: string[];
 }
@@ -175,36 +175,43 @@ function isAllowlisted(args: ResourceValidationArgs, allowed: string[]): boolean
     return matchesAny(args.name, allowed) || matchesAny(args.urn, allowed);
 }
 
-/** What makes an AgentRun approve tool calls that docker-agent would ask a user to confirm. */
-function unattendedApprovals(run: object): { approval?: string; hooks: boolean } {
+/**
+ * What makes an AgentRun run tool calls that docker-agent would ask a user to confirm: toolApproval
+ * "allow", approvals from hooks, and coding-harness agents, whose CLI runs its own tools.
+ */
+function unattendedApprovals(run: object): { approval?: string; hooks: boolean; harness: boolean } {
     const approval = str(known(() => (run as Obj).toolApproval));
     const hooks = known(() => (run as Obj).allowHookApprovals) === true;
-    return { approval: approval !== undefined && approval !== "deny" ? approval : undefined, hooks };
+    const harness = known(() => (run as Obj).allowHarnessAgents) === true;
+    return { approval: approval !== undefined && approval !== "deny" ? approval : undefined, hooks, harness };
 }
 
 export const agentRunToolApprovalDeny: ResourceValidationPolicy = {
     name: "agentrun-tool-approval-deny",
-    description: "AgentRun must keep toolApproval \"deny\" and must not set allowHookApprovals: \"allow\" runs " +
-        "every tool call of the agent (shell commands, file writes, fetches) unattended on the machine that runs " +
-        "`pulumi up`, and allowHookApprovals lets the configuration's hooks approve any tool call under \"deny\".",
+    description: "AgentRun must keep toolApproval \"deny\" and must not set allowHookApprovals or " +
+        "allowHarnessAgents: \"allow\" runs every tool call of the agent (shell commands, file writes, fetches) " +
+        "unattended on the machine that runs `pulumi up`, allowHookApprovals lets the configuration's hooks approve " +
+        "any tool call under \"deny\", and allowHarnessAgents runs coding-harness agents (Claude Code), whose CLI " +
+        "runs its own tool calls without approval.",
     enforcementLevel: "mandatory",
-    remediationSteps: "Remove toolApproval or set it to \"deny\", remove allowHookApprovals, or add the resource " +
-        "to allowedResources of this policy. With the enforcement level \"remediate\", the policy sets " +
-        "toolApproval to \"deny\" and allowHookApprovals to false.",
+    remediationSteps: "Remove toolApproval or set it to \"deny\", remove allowHookApprovals and " +
+        "allowHarnessAgents, or add the resource to allowedResources of this policy. With the enforcement level " +
+        "\"remediate\", the policy sets toolApproval to \"deny\", and allowHookApprovals and allowHarnessAgents " +
+        "to false.",
     configSchema: {
         properties: {
             allowedResources: {
                 type: "array",
                 items: { type: "string" },
                 default: [],
-                description: "AgentRun resources that may set toolApproval \"allow\" or allowHookApprovals, by " +
-                    "resource name or URN. `*` matches any characters.",
+                description: "AgentRun resources that may set toolApproval \"allow\", allowHookApprovals or " +
+                    "allowHarnessAgents, by resource name or URN. `*` matches any characters.",
             },
         },
     },
     validateResource: validateResourceOfType(dockeragent.AgentRun, (run, args, reportViolation) => {
-        const { approval, hooks } = unattendedApprovals(run);
-        if ((approval === undefined && !hooks) ||
+        const { approval, hooks, harness } = unattendedApprovals(run);
+        if ((approval === undefined && !hooks && !harness) ||
             isAllowlisted(args, config<ToolApprovalConfig>(args, { allowedResources: [] }).allowedResources)) {
             return;
         }
@@ -212,16 +219,23 @@ export const agentRunToolApprovalDeny: ResourceValidationPolicy = {
             reportViolation(`AgentRun "${args.name}" sets toolApproval "${approval}": every tool call of the agent ` +
                 "runs without approval on the machine that runs `pulumi up`. Keep the default \"deny\", or add the " +
                 "resource to allowedResources of this policy.");
-            return;
+        } else if (hooks) {
+            // With toolApproval "allow", hook approvals change nothing.
+            reportViolation(`AgentRun "${args.name}" sets allowHookApprovals: a pre_tool_use or permission_request ` +
+                "hook of the configuration can approve any tool call under toolApproval \"deny\", so the hook, not " +
+                "docker-agent's rules, decides what runs on the machine that runs `pulumi up`. Remove " +
+                "allowHookApprovals, or add the resource to allowedResources of this policy.");
         }
-        reportViolation(`AgentRun "${args.name}" sets allowHookApprovals: a pre_tool_use or permission_request ` +
-            "hook of the configuration can approve any tool call under toolApproval \"deny\", so the hook, not " +
-            "docker-agent's rules, decides what runs on the machine that runs `pulumi up`. Remove " +
-            "allowHookApprovals, or add the resource to allowedResources of this policy.");
+        if (harness) {
+            // toolApproval does not apply to a harness agent's CLI, so this is reported on its own.
+            reportViolation(`AgentRun "${args.name}" sets allowHarnessAgents: a coding-harness agent runs every tool ` +
+                "call of its CLI (shell commands, file edits) without approval on the machine that runs `pulumi up`. " +
+                "Remove allowHarnessAgents, or add the resource to allowedResources of this policy.");
+        }
     }),
     remediateResource: remediateResourceOfType(dockeragent.AgentRun, (run, args) => {
-        const { approval, hooks } = unattendedApprovals(run);
-        if ((approval === undefined && !hooks) ||
+        const { approval, hooks, harness } = unattendedApprovals(run);
+        if ((approval === undefined && !hooks && !harness) ||
             isAllowlisted(args, config<ToolApprovalConfig>(args, { allowedResources: [] }).allowedResources)) {
             return undefined;
         }
@@ -230,6 +244,9 @@ export const agentRunToolApprovalDeny: ResourceValidationPolicy = {
         }
         if (hooks) {
             (run as unknown as Obj).allowHookApprovals = false;
+        }
+        if (harness) {
+            (run as unknown as Obj).allowHarnessAgents = false;
         }
         return run;
     }),

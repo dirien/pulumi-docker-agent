@@ -536,10 +536,13 @@ func TestHarnessAgentsAreRejected(t *testing.T) {
     instruction: Code.
 `
 	doc := agentYAML(srv, body)
-	assert.Contains(t, strings.Join(CheckConfig(t.Context(), "test.yaml", []byte(doc)), "\n"), "coding-harness agents (agents.root.harness)")
+	problems, warnings := CheckConfig(t.Context(), "test.yaml", []byte(doc), CheckOptions{})
+	const h1 = "coding-harness agents (agents.root.harness: claude-code) run only with allowHarnessAgents: true"
+	assert.Contains(t, strings.Join(problems, "\n"), h1)
+	assert.Empty(t, warnings)
 	_, err := Run(t.Context(), Request{YAML: []byte(doc), Prompt: "hi"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "coding-harness agents")
+	assert.Contains(t, err.Error(), h1)
 }
 
 func TestModelErrorFailsTheRun(t *testing.T) {

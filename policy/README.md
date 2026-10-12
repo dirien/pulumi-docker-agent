@@ -6,7 +6,7 @@ resources during `pulumi preview` and `pulumi up`, in every Pulumi language.
 
 | Policy | Default | Checks |
 |---|---|---|
-| `agentrun-tool-approval-deny` | mandatory | `AgentRun` keeps `toolApproval: deny` (the default) and does not set `allowHookApprovals`. `allow` runs every tool call of the agent on the machine that runs `pulumi up`; `allowHookApprovals` lets a `pre_tool_use` or `permission_request` hook of the configuration approve any tool call under `deny`. Resources in `allowedResources` are exempt. Implements `remediateResource`. |
+| `agentrun-tool-approval-deny` | mandatory | `AgentRun` keeps `toolApproval: deny` (the default) and sets neither `allowHookApprovals` nor `allowHarnessAgents`. `allow` runs every tool call of the agent on the machine that runs `pulumi up`; `allowHookApprovals` lets a `pre_tool_use` or `permission_request` hook of the configuration approve any tool call under `deny`; `allowHarnessAgents` runs coding-harness agents (Claude Code), whose CLI runs every tool call (shell commands, file edits) without approval, whatever `toolApproval` says. Resources in `allowedResources` are exempt. Implements `remediateResource`. |
 | `agentrun-reference-pinned` | advisory | `AgentRun.reference` is pinned by digest (`registry/repository@sha256:...`). |
 | `agentconfig-no-autonomous-safety` | mandatory | Neither `runtime.safety` nor an agent's `safety` is `autonomous`. |
 | `permissions-no-wildcard-allow` | mandatory | `permissions.allow` of an `AgentConfig` and the global `settings.permissions.allow` of `UserSettings` do not approve every tool (`*`, `?*`, also with argument conditions) or every call of a tool in `dangerousTools` (default `shell`, `run_background_job`, `write_file`, `edit_file`, `create_directory`, `remove_directory`, `run_background_agent`): a pattern such as `shell`, `sh*`, `shell:cmd=*` or `*_file`. docker-agent runs such calls without asking, also under `AgentRun`'s `toolApproval: deny`. Rules with argument conditions (`shell:cmd=git status*`) and other tools (`read_*`) pass. Patterns in `allowedPatterns` and resources in `allowedResources` are exempt. |
@@ -26,7 +26,8 @@ its `yaml` output and every artifact pushed from it. Pass credentials as `${env.
 the agent runs, for example in `AgentRun`'s secret `env` input or a Pulumi ESC environment.
 
 `runtime.sandbox` only applies to `docker agent run`. `AgentRun` runs the agent inside the provider process and
-does not use a sandbox, which is what `agentrun-tool-approval-deny` guards.
+does not use a sandbox, which is what `agentrun-tool-approval-deny` guards. Add an `AgentRun` that runs Claude Code
+on purpose, for example on a disposable CI runner, to `allowedResources`.
 
 Violation messages name where a problem is (a resource, an agent, a toolset, a list index) and never repeat a
 value that may hold a credential: a remote MCP URL shows only its scheme and host, an MCP `command` and a
@@ -91,8 +92,10 @@ A policy's value is an enforcement level (`advisory`, `mandatory`, `remediate` o
 pulumi preview --policy-pack ../../policy --policy-pack-config policy-config.json
 ```
 
-With `remediate`, `agentrun-tool-approval-deny` sets `toolApproval` to `deny` and `allowHookApprovals` to `false`
-on every `AgentRun` that is not in `allowedResources` instead of failing, and the preview shows the change.
+With `remediate`, `agentrun-tool-approval-deny` sets `toolApproval` to `deny`, and `allowHookApprovals` and
+`allowHarnessAgents` to `false`, on every `AgentRun` that is not in `allowedResources` instead of failing, and the
+preview shows the change. An `AgentRun` of a coding-harness agent then fails when it runs, because the opt-in is
+missing.
 
 ## Tests
 

@@ -75,3 +75,94 @@ resources:
 outputs:
   releaseNotes: ${notes.output}
   toolCalls: ${notes.toolCalls}
+---
+description: Claude Code on a Claude subscription
+name: claude-code
+runtime: yaml
+config:
+  # A long-lived token from `claude setup-token`, which needs a Claude subscription. Set it with
+  # `pulumi config set --secret claudeCodeOauthToken <token>`.
+  claudeCodeOauthToken:
+    type: string
+    secret: true
+resources:
+  # The agent: Claude Code as a coding harness. It needs no model and no API key.
+  coder:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          description: Maintains the notes of a repository with Claude Code
+          harness:
+            type: claude-code
+            model: sonnet
+            effort: high
+  # Starts the claude CLI during `pulumi up` in the existing directory ./workspace, where Claude Code
+  # runs its own tools (shell commands, file edits) without approval. Without `env`, it uses the
+  # `claude` login of the machine that runs `pulumi up`.
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${coder.yaml}
+      allowHarnessAgents: true
+      workingDir: ./workspace
+      prompt: Write NOTES.md with three bullet points about the files in this directory.
+      # Sent on reruns while `prompt` is unchanged, for example after a change of `triggers`.
+      updatePrompt: NOTES.md exists. Bring it up to date and keep its format.
+      # Runs when the resource is deleted, for example by `pulumi destroy`. Like every run, it
+      # needs a final answer.
+      deletePrompt: "Delete NOTES.md if it exists, then answer: done."
+      # The CLI gets the system variables and `env`, so an ANTHROPIC_API_KEY of the environment
+      # cannot switch it to API billing.
+      inheritEnvironment: false
+      env:
+        CLAUDE_CODE_OAUTH_TOKEN: ${claudeCodeOauthToken}
+      timeoutSeconds: 900
+    options:
+      # A replacement deletes the old resource first, so that its deletePrompt does not undo
+      # the new run.
+      deleteBeforeReplace: true
+outputs:
+  # Claude Code's final result.
+  summary: ${notes.output}
+  usage: ${notes.usage}
+---
+description: One agent, several runs
+name: several-runs
+runtime: yaml
+config:
+  # Set it with `pulumi config set --secret openaiApiKey <key>`.
+  openaiApiKey:
+    type: string
+    secret: true
+resources:
+  # The agent, authored once.
+  writer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          model: openai/gpt-5-mini
+          instruction: You write short, precise texts about infrastructure changes.
+  # Run 1.
+  summary:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${writer.yaml}
+      prompt: Explain in two sentences why a team upgrades PostgreSQL from version 15 to 17.
+      env:
+        OPENAI_API_KEY: ${openaiApiKey}
+  # Run 2: the same agent with another prompt. It uses the answer of run 1 and runs again whenever
+  # run 1 ran, also when that answer did not change.
+  translation:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${writer.yaml}
+      prompt: "Translate this text into German: ${summary.output}"
+      triggers:
+        - ${summary.ranAt}
+      env:
+        OPENAI_API_KEY: ${openaiApiKey}
+outputs:
+  summaryText: ${summary.output}
+  translationText: ${translation.output}

@@ -26,6 +26,10 @@ config:
   revision:
     type: string
     default: "1"
+  # `always` runs the agent again on every `pulumi up`; `onChange` only when an input changes.
+  rerun:
+    type: string
+    default: onChange
 
 resources:
   # The agent: a custom OpenAI-compatible provider, one model and a root agent whose answer
@@ -78,6 +82,7 @@ resources:
       timeoutSeconds: 120
       triggers:
         - ${revision}
+      rerun: ${rerun}
 
 outputs:
   risk: ${review.structuredOutput.risk}

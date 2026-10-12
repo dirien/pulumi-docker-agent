@@ -1,0 +1,63 @@
+name: docker-agent-agent-run-provider-config
+runtime: yaml
+description: >-
+  A test fixture for examples/provider_config_test.go: an AgentArtifact that pushes to `artifact`
+  and an AgentRun with a deletePrompt in a workingDir, on the default provider, whose settings
+  (docker-agent:registryAuth, DOCKER_AGENT_SKIP_VALIDATION) the test changes.
+
+config:
+  baseUrl:
+    type: string
+  apiKey:
+    type: string
+    secret: true
+  workDir:
+    type: string
+  artifact:
+    type: string
+
+resources:
+  writer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          model: openai/gpt-5-mini
+          description: Writes release notes
+          instruction: You write release notes.
+
+  share:
+    type: docker-agent:index:AgentArtifact
+    properties:
+      reference: ${artifact}
+      yaml: ${writer.yaml}
+
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: |
+        providers:
+          llm:
+            api_type: openai_chatcompletions
+            base_url: ${baseUrl}
+            token_key: NOTES_API_KEY
+        models:
+          m:
+            provider: llm
+            model: fake-model
+        agents:
+          root:
+            model: m
+            description: Writes release notes
+            instruction: You write release notes.
+      prompt: Write the release notes into the working directory.
+      deletePrompt: Delete the release notes from the working directory.
+      workingDir: ${workDir}
+      env:
+        NOTES_API_KEY: ${apiKey}
+      inheritEnvironment: false
+      timeoutSeconds: 120
+
+outputs:
+  digest: ${share.digest}
+  answer: ${notes.output}

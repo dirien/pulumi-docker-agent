@@ -9,7 +9,8 @@ Defines a change-review agent with `AgentConfig` and runs it with `AgentRun`:
   `structuredOutput`, and the program exports `risk` and `summary` from it.
 - The agent runs in the provider process during `pulumi up`, never during `pulumi preview`. A
   `pulumi up` without changes keeps the stored answer; changing any input, for example the
-  `revision` setting that feeds `triggers`, runs it again.
+  `revision` setting that feeds `triggers`, runs it again. With the `rerun` setting `always`,
+  every `pulumi up` runs it again, while `pulumi refresh` still reports no changes.
 
 The agent has no tools. With tools, keep in mind that they run on the machine executing
 `pulumi up`, and that the default `toolApproval: deny` only runs the tool calls docker-agent approves
@@ -33,6 +34,7 @@ pulumi stack output risk
 pulumi stack output summary
 
 pulumi config set revision 2 && pulumi up   # ask again
+pulumi config set rerun always && pulumi up  # ask again on every `pulumi up` from now on
 pulumi destroy && pulumi stack rm dev       # nothing to clean up: a run leaves nothing behind
 ```
 

@@ -2756,6 +2756,173 @@ func (in *ragStrategyTypePtr) ToRagStrategyTypePtrOutputWithContext(ctx context.
 	return pulumi.ToOutputWithContext(ctx, in).(RagStrategyTypePtrOutput)
 }
 
+type RerunPolicy string
+
+const (
+	// Run the agent again only when an input that affects the run changes, including `triggers` (default).
+	RerunPolicyOnChange = RerunPolicy("onChange")
+	// Run the agent again on every `pulumi up` that includes this resource. Previews show it as an update and its run outputs as unknown; `pulumi refresh` does not.
+	RerunPolicyAlways = RerunPolicy("always")
+)
+
+func (RerunPolicy) ElementType() reflect.Type {
+	return reflect.TypeOf((*RerunPolicy)(nil)).Elem()
+}
+
+func (e RerunPolicy) ToRerunPolicyOutput() RerunPolicyOutput {
+	return pulumi.ToOutput(e).(RerunPolicyOutput)
+}
+
+func (e RerunPolicy) ToRerunPolicyOutputWithContext(ctx context.Context) RerunPolicyOutput {
+	return pulumi.ToOutputWithContext(ctx, e).(RerunPolicyOutput)
+}
+
+func (e RerunPolicy) ToRerunPolicyPtrOutput() RerunPolicyPtrOutput {
+	return e.ToRerunPolicyPtrOutputWithContext(context.Background())
+}
+
+func (e RerunPolicy) ToRerunPolicyPtrOutputWithContext(ctx context.Context) RerunPolicyPtrOutput {
+	return RerunPolicy(e).ToRerunPolicyOutputWithContext(ctx).ToRerunPolicyPtrOutputWithContext(ctx)
+}
+
+func (e RerunPolicy) ToStringOutput() pulumi.StringOutput {
+	return pulumi.ToOutput(pulumi.String(e)).(pulumi.StringOutput)
+}
+
+func (e RerunPolicy) ToStringOutputWithContext(ctx context.Context) pulumi.StringOutput {
+	return pulumi.ToOutputWithContext(ctx, pulumi.String(e)).(pulumi.StringOutput)
+}
+
+func (e RerunPolicy) ToStringPtrOutput() pulumi.StringPtrOutput {
+	return pulumi.String(e).ToStringPtrOutputWithContext(context.Background())
+}
+
+func (e RerunPolicy) ToStringPtrOutputWithContext(ctx context.Context) pulumi.StringPtrOutput {
+	return pulumi.String(e).ToStringOutputWithContext(ctx).ToStringPtrOutputWithContext(ctx)
+}
+
+type RerunPolicyOutput struct{ *pulumi.OutputState }
+
+func (RerunPolicyOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*RerunPolicy)(nil)).Elem()
+}
+
+func (o RerunPolicyOutput) ToRerunPolicyOutput() RerunPolicyOutput {
+	return o
+}
+
+func (o RerunPolicyOutput) ToRerunPolicyOutputWithContext(ctx context.Context) RerunPolicyOutput {
+	return o
+}
+
+func (o RerunPolicyOutput) ToRerunPolicyPtrOutput() RerunPolicyPtrOutput {
+	return o.ToRerunPolicyPtrOutputWithContext(context.Background())
+}
+
+func (o RerunPolicyOutput) ToRerunPolicyPtrOutputWithContext(ctx context.Context) RerunPolicyPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v RerunPolicy) *RerunPolicy {
+		return &v
+	}).(RerunPolicyPtrOutput)
+}
+
+func (o RerunPolicyOutput) ToStringOutput() pulumi.StringOutput {
+	return o.ToStringOutputWithContext(context.Background())
+}
+
+func (o RerunPolicyOutput) ToStringOutputWithContext(ctx context.Context) pulumi.StringOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, e RerunPolicy) string {
+		return string(e)
+	}).(pulumi.StringOutput)
+}
+
+func (o RerunPolicyOutput) ToStringPtrOutput() pulumi.StringPtrOutput {
+	return o.ToStringPtrOutputWithContext(context.Background())
+}
+
+func (o RerunPolicyOutput) ToStringPtrOutputWithContext(ctx context.Context) pulumi.StringPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, e RerunPolicy) *string {
+		v := string(e)
+		return &v
+	}).(pulumi.StringPtrOutput)
+}
+
+type RerunPolicyPtrOutput struct{ *pulumi.OutputState }
+
+func (RerunPolicyPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**RerunPolicy)(nil)).Elem()
+}
+
+func (o RerunPolicyPtrOutput) ToRerunPolicyPtrOutput() RerunPolicyPtrOutput {
+	return o
+}
+
+func (o RerunPolicyPtrOutput) ToRerunPolicyPtrOutputWithContext(ctx context.Context) RerunPolicyPtrOutput {
+	return o
+}
+
+func (o RerunPolicyPtrOutput) Elem() RerunPolicyOutput {
+	return o.ApplyT(func(v *RerunPolicy) RerunPolicy {
+		if v != nil {
+			return *v
+		}
+		var ret RerunPolicy
+		return ret
+	}).(RerunPolicyOutput)
+}
+
+func (o RerunPolicyPtrOutput) ToStringPtrOutput() pulumi.StringPtrOutput {
+	return o.ToStringPtrOutputWithContext(context.Background())
+}
+
+func (o RerunPolicyPtrOutput) ToStringPtrOutputWithContext(ctx context.Context) pulumi.StringPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, e *RerunPolicy) *string {
+		if e == nil {
+			return nil
+		}
+		v := string(*e)
+		return &v
+	}).(pulumi.StringPtrOutput)
+}
+
+// RerunPolicyInput is an input type that accepts values of the RerunPolicy enum
+// A concrete instance of `RerunPolicyInput` can be one of the following:
+//
+//	RerunPolicyOnChange
+//	RerunPolicyAlways
+type RerunPolicyInput interface {
+	pulumi.Input
+
+	ToRerunPolicyOutput() RerunPolicyOutput
+	ToRerunPolicyOutputWithContext(context.Context) RerunPolicyOutput
+}
+
+var rerunPolicyPtrType = reflect.TypeOf((**RerunPolicy)(nil)).Elem()
+
+type RerunPolicyPtrInput interface {
+	pulumi.Input
+
+	ToRerunPolicyPtrOutput() RerunPolicyPtrOutput
+	ToRerunPolicyPtrOutputWithContext(context.Context) RerunPolicyPtrOutput
+}
+
+type rerunPolicyPtr string
+
+func RerunPolicyPtr(v string) RerunPolicyPtrInput {
+	return (*rerunPolicyPtr)(&v)
+}
+
+func (*rerunPolicyPtr) ElementType() reflect.Type {
+	return rerunPolicyPtrType
+}
+
+func (in *rerunPolicyPtr) ToRerunPolicyPtrOutput() RerunPolicyPtrOutput {
+	return pulumi.ToOutput(in).(RerunPolicyPtrOutput)
+}
+
+func (in *rerunPolicyPtr) ToRerunPolicyPtrOutputWithContext(ctx context.Context) RerunPolicyPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, in).(RerunPolicyPtrOutput)
+}
+
 type RestartPolicy string
 
 const (
@@ -3974,6 +4141,8 @@ func init() {
 	pulumi.RegisterInputType(reflect.TypeOf((*RagFusionStrategyPtrInput)(nil)).Elem(), RagFusionStrategy("rrf"))
 	pulumi.RegisterInputType(reflect.TypeOf((*RagStrategyTypeInput)(nil)).Elem(), RagStrategyType("bm25"))
 	pulumi.RegisterInputType(reflect.TypeOf((*RagStrategyTypePtrInput)(nil)).Elem(), RagStrategyType("bm25"))
+	pulumi.RegisterInputType(reflect.TypeOf((*RerunPolicyInput)(nil)).Elem(), RerunPolicy("onChange"))
+	pulumi.RegisterInputType(reflect.TypeOf((*RerunPolicyPtrInput)(nil)).Elem(), RerunPolicy("onChange"))
 	pulumi.RegisterInputType(reflect.TypeOf((*RestartPolicyInput)(nil)).Elem(), RestartPolicy("never"))
 	pulumi.RegisterInputType(reflect.TypeOf((*RestartPolicyPtrInput)(nil)).Elem(), RestartPolicy("never"))
 	pulumi.RegisterInputType(reflect.TypeOf((*SafetyModeInput)(nil)).Elem(), SafetyMode("strict"))
@@ -4021,6 +4190,8 @@ func init() {
 	pulumi.RegisterOutputType(RagFusionStrategyPtrOutput{})
 	pulumi.RegisterOutputType(RagStrategyTypeOutput{})
 	pulumi.RegisterOutputType(RagStrategyTypePtrOutput{})
+	pulumi.RegisterOutputType(RerunPolicyOutput{})
+	pulumi.RegisterOutputType(RerunPolicyPtrOutput{})
 	pulumi.RegisterOutputType(RestartPolicyOutput{})
 	pulumi.RegisterOutputType(RestartPolicyPtrOutput{})
 	pulumi.RegisterOutputType(SafetyModeOutput{})
