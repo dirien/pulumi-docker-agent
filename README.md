@@ -218,7 +218,7 @@ Tags with a pre-release suffix (`v0.2.0-rc.1`) become GitHub pre-releases and ar
 
 Once, before the first release:
 
-- [ ] Set the repository secret `NPM_TOKEN`, a granular npm token that can publish `@ediri/pulumi-docker-agent`, with a short expiry. npm trusted publishing can only be set up once the package exists, so only the first release uses it. Actions provides `GITHUB_TOKEN`.
+- [ ] Add a trusted publisher in the [package settings](https://www.npmjs.com/package/@ediri/pulumi-docker-agent/access) of `@ediri/pulumi-docker-agent` on npmjs.com: GitHub Actions, owner `dirien`, repository `pulumi-docker-agent`, workflow `release.yml`, no environment. The release needs no npm token. (npm can only set this up for a package that exists; v0.1.1 was published once with a token.)
 - [ ] Add a pending [trusted publisher](https://pypi.org/manage/account/publishing/) on PyPI: project `ediri_docker_agent`, owner `dirien`, repository `pulumi-docker-agent`, workflow `release.yml`, no environment. The release needs no PyPI token.
 - [ ] Add a [Trusted Publishing](https://www.nuget.org/account/trustedpublishing) policy on nuget.org for the `ediri` account: GitHub Actions, repository `dirien/pulumi-docker-agent`, workflow file `release.yml`, no environment, package `ediri.DockerAgent`. The release logs in with `NuGet/login`, so NuGet needs no secret.
 - [ ] Only to publish the Java SDK (off for now): set `PUBLISH_JAVA: "true"` in the release workflow and the Maven Central secrets `PUBLISH_REPO_USERNAME` and `PUBLISH_REPO_PASSWORD` (a Central Portal user token), `SIGNING_KEY` (an ASCII-armored GPG private key) and `SIGNING_PASSWORD`, verify the `io.github.dirien` namespace on the Central Portal and publish the GPG public key to a key server. [Maven Central (Java SDK)](https://github.com/dirien/pulumi-docker-agent/blob/main/CONTRIBUTING.md#maven-central-java-sdk) in CONTRIBUTING.md has the steps.
@@ -249,7 +249,6 @@ For every release:
 
 After the first release:
 
-- [ ] Switch npm to trusted publishing: in the [package settings](https://www.npmjs.com/package/@ediri/pulumi-docker-agent/access) on npmjs.com, add a trusted publisher for GitHub Actions with owner `dirien`, repository `pulumi-docker-agent`, workflow `release.yml` and no environment. Then delete the `NPM_TOKEN` secret and revoke the token.
 - [ ] List the package in the Pulumi Registry (below).
 - [ ] Switch the policy pack from the local SDK build to the published one: in `policy/package.json`, replace `file:../sdk/nodejs/bin` with `^0.1.0` ([details](https://github.com/dirien/pulumi-docker-agent/blob/main/policy/README.md#use-it-locally)).
 
