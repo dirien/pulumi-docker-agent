@@ -134,6 +134,10 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - name: Build SDK
+        env:
+          # setup-node's registry-url writes an .npmrc that reads ${NODE_AUTH_TOKEN}, and yarn 1
+          # fails on an unset variable. Empty here: the build needs no token, only the publish.
+          NODE_AUTH_TOKEN: ""
         run: make build_${{ matrix.language }} PROVIDER_VERSION="${PROVIDER_VERSION}"
       - name: Check worktree clean (committed SDK must match codegen)
         run: |
