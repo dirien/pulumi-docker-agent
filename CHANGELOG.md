@@ -6,9 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-## [0.1.0] - TBD
-
-<!-- Replace TBD with the release date (YYYY-MM-DD) in the commit that is tagged v0.1.0. -->
+## [0.1.0] - 2026-10-12
 
 Initial release of the native Pulumi provider for [Docker Agent](https://docs.docker.com/ai/docker-agent/), built with `pulumi-go-provider` and pinned to `github.com/docker/docker-agent` v1.150.0 (configuration version `"16"`).
 
