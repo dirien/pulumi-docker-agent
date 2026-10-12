@@ -119,8 +119,9 @@ type Request struct {
 	// to the values of Env and the credentials of the provider's environment (see
 	// secrets.go).
 	Secrets []string
-	// Log receives docker-agent's own WARN and ERROR log records of this run, redacted.
-	// Lower levels are dropped. Nil discards them.
+	// Log receives docker-agent's own WARN and ERROR log records of this run, redacted
+	// (lower levels are dropped), and the runner's DEBUG records: problems tracking the
+	// processes of a Claude Code CLI. Nil discards them.
 	Log func(level slog.Level, msg string)
 	// Progress receives the run's progress messages, redacted, as selected by Logging. It is
 	// called from the goroutine that called Run. Nil reports nothing.
@@ -280,7 +281,12 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 	}
 	prog := newProgress(req, secrets, names)
 	info := &harnessInfo{}
-	res, err := run(ctx, req, runSetup{approval, timeout, workingDir, secrets, info, warn}, prog)
+	debug := func(msg string) {
+		if req.Log != nil {
+			req.Log(slog.LevelDebug, redact(names.hide(msg), secrets))
+		}
+	}
+	res, err := run(ctx, req, runSetup{approval, timeout, workingDir, secrets, info, warn, debug}, prog)
 	harnessWarnings := reportHarness(info, prog)
 	if err != nil {
 		for _, w := range harnessWarnings {
@@ -307,7 +313,8 @@ func idleRoot() string {
 
 // reportHarness reports what the Claude Code CLI of a run said about itself, as a progress
 // record, and returns the warnings: that it billed something other than a Claude
-// subscription, and that its answer replaced an empty result.
+// subscription, that its answer replaced an empty result, and that it left processes
+// running, which the runner stopped.
 //
 // apiKeySource none only says that Claude Code used no Anthropic API key. The record then
 // names what the CLI's environment selects instead: a cloud provider (Bedrock, Vertex AI,
@@ -315,10 +322,13 @@ func idleRoot() string {
 // (ANTHROPIC_BASE_URL) got the requests.
 func reportHarness(info *harnessInfo, prog *progress) []string {
 	r := info.get()
-	if !r.seen {
-		return nil
-	}
 	var warnings []string
+	if r.leftRunning > 0 {
+		warnings = append(warnings, leftRunningWarning(r.leftRunning))
+	}
+	if !r.seen {
+		return warnings
+	}
 	source, billed := cmp.Or(r.apiKeySource, "unknown"), ""
 	switch r.apiKeySource {
 	case "", "unknown":
@@ -358,6 +368,17 @@ func reportHarness(info *harnessInfo, prog *progress) []string {
 	return warnings
 }
 
+// leftRunningWarning says that the Claude Code CLIs of a run left n processes running when
+// they exited. It names no command: a command line can contain a secret.
+func leftRunningWarning(n int) string {
+	what, them := "1 process", "it"
+	if n > 1 {
+		what, them = fmt.Sprintf("%d processes", n), "them"
+	}
+	return fmt.Sprintf("%s left %s running when it exited (for example a command it ran in the background); "+
+		"AgentRun stopped %s", codingharness.TypeClaudeCode, what, them)
+}
+
 // runSetup is what Run prepared for run.
 type runSetup struct {
 	approval   ToolApproval
@@ -366,6 +387,8 @@ type runSetup struct {
 	secrets    []string
 	harness    *harnessInfo
 	warn       func(string)
+	// debug receives the runner's own debug messages, redacted.
+	debug func(string)
 }
 
 func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result, error) {
@@ -406,7 +429,8 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	// globally with runtime.RegisterHarness.
 	var harnessFactory harness.Factory
 	if req.AllowHarnessAgents {
-		harnessFactory = newHarnessFactory(harnessRun{dir: workingDir, env: harnessEnv, secrets: rs.secrets, info: rs.harness})
+		harnessFactory = newHarnessFactory(harnessRun{dir: workingDir, env: harnessEnv, secrets: rs.secrets, info: rs.harness,
+			debug: rs.debug})
 	}
 
 	policy := &approvalPolicy{}

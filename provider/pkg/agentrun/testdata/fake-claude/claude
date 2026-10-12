@@ -13,6 +13,11 @@ fi
 log=${FAKE_CLAUDE_LOG:-./.fake-claude.log}
 pidfile=${FAKE_CLAUDE_PIDFILE:-./.fake-claude.pid}
 mode=${FAKE_CLAUDE_MODE:-ok}
+# With FAKE_CLAUDE_TRAP_TERM, the fake logs `term` when it gets SIGTERM and carries on; the
+# processes it starts do not inherit the trap.
+if [ -n "${FAKE_CLAUDE_TRAP_TERM:-}" ]; then
+	trap 'echo term >>"$log"' TERM
+fi
 
 # flag prints whether a variable is set to a non-empty value, never the value.
 flag() {
@@ -57,6 +62,7 @@ esac
 	echo "is_sandbox=${IS_SANDBOX:-}"
 	echo "config_dir=${CLAUDE_CONFIG_DIR:-}"
 	echo "marker=${FAKE_MARKER:-}"
+	echo "cookie=$(flag DOCKER_AGENT_RUN_COOKIE)"
 	echo "stdin=$prompt"
 } >>"$log"
 
@@ -90,6 +96,37 @@ insession() {
 detached() {
 	insession sleep 300 >/dev/null 2>&1 </dev/null &
 	child=$!
+}
+
+# The code of insession, for the shells the fake starts: `sh -c "$insession_sh" sh cmd args`
+# runs cmd in a session of its own.
+insession_sh='if command -v setsid >/dev/null 2>&1; then exec setsid "$@"; else exec perl -MPOSIX -e "POSIX::setsid(); exec @ARGV" "$@"; fi'
+
+# shellcmd starts a shell in a session of its own that runs `sleep 300` as its child and waits
+# for it, as Claude Code runs a shell command: `zsh -c '... eval <command>'` in a new session.
+# The shell appends its PID and then the sleep's to the pidfile. On SIGTERM it appends its PID
+# to <pidfile>.term, takes 0.3 s to stop and then appends its PID to <pidfile>.stopped, so a
+# SIGKILL right after the SIGTERM leaves no line there (and a second SIGTERM meanwhile, a
+# second line in .term, where the shell runs traps within traps, as dash does). With an argument `orphan`, the shell also starts a subshell that starts
+# another `sleep 300` and exits at once, so that this sleep's parent is gone before it can be
+# recorded; its PID is appended last. shellcmd sets shell to the shell's PID.
+shellcmd() {
+	insession sh -c 'trap "echo \$\$ >>\"\$1.term\"; sleep 0.3; echo \$\$ >>\"\$1.stopped\"; exit 143" TERM
+		sleep 300 & s=$!; if [ "$2" = orphan ]; then (sleep 300 & echo "$!" >"$1.orphan") & wait "$!"; fi
+		{ echo "$$"; echo "$s"; if [ -f "$1.orphan" ]; then cat "$1.orphan"; rm -f "$1.orphan"; fi; } >>"$1"
+		wait "$s"' sh "$pidfile" "${1:-}" >/dev/null 2>&1 </dev/null &
+	shell=$!
+}
+
+# lines prints the number of lines of the pidfile.
+lines() {
+	if [ -f "$pidfile" ]; then echo $(($(wc -l <"$pidfile"))); else echo 0; fi
+}
+base=$(lines)
+
+# pids waits until this invocation added $1 lines to the pidfile.
+pids() {
+	while [ "$(lines)" -lt $((base + $1)) ]; do sleep 0.05; done
 }
 
 case "$mode" in
@@ -170,6 +207,89 @@ detached-writer)
 	emit session.jsonl
 	insession sh -c 'echo $$ >"$1"; while :; do echo tick || exit 0; sleep 0.2; done' sh "$pidfile" 2>/dev/null </dev/null &
 	sleep 0.2
+	;;
+background-session)
+	# A command that Claude Code ran in the background and left running when it exited: the
+	# CLI works for 1 s more (the runner reads the process table every 0.2 s), then exits 0.
+	shellcmd
+	pids 2
+	sleep 1
+	emit session.jsonl
+	;;
+session-orphan)
+	# As background-session, and the command's shell also starts a process whose parent exits
+	# at once: it stays in the shell's session and process group.
+	shellcmd orphan
+	pids 3
+	sleep 1
+	emit session.jsonl
+	;;
+double-fork)
+	# A daemon: a shell in a session of its own starts `sleep 300` in another session of its
+	# own and exits after 1 s, so the sleep belongs to init (or a subreaper) when the CLI exits
+	# 0.5 s later. The pidfile gets the sleep's PID.
+	insession sh -c 'sh -c "$2" sh sleep 300 >/dev/null 2>&1 </dev/null & echo "$!" >>"$1"; sleep 1' \
+		sh "$pidfile" "$insession_sh" >/dev/null 2>&1 </dev/null &
+	wait "$!"
+	sleep 0.5
+	emit session.jsonl
+	;;
+oneshot)
+	# Three times, 0.1 s apart: a shell in a session of its own runs `sleep 300 >/dev/null 2>&1 &`
+	# and exits at once, as Claude Code runs `cmd >/dev/null 2>&1 &` in one Bash call: the
+	# sleep's parent is gone before a poll can see it. The pidfile gets the sleeps' PIDs. The
+	# CLI exits 0.5 s later.
+	for i in 1 2 3; do
+		insession sh -c 'sleep 300 >/dev/null 2>&1 </dev/null & echo "$!" >>"$1"' sh "$pidfile" \
+			>/dev/null 2>&1 </dev/null &
+		sleep 0.1
+	done
+	pids 3
+	sleep 0.5
+	emit session.jsonl
+	;;
+oneshot-daemon)
+	# A shell in a session of its own starts `sleep 300` in another session of its own and
+	# exits at once (a double fork). The pidfile gets the sleep's PID. The CLI exits 0.5 s
+	# later.
+	insession sh -c 'sh -c "$2" sh sleep 300 >/dev/null 2>&1 </dev/null & echo "$!" >>"$1"' \
+		sh "$pidfile" "$insession_sh" >/dev/null 2>&1 </dev/null &
+	pids 1
+	sleep 0.5
+	emit session.jsonl
+	;;
+cookie-parent)
+	# A shell in a session of its own starts, in another session of its own, a shell with the
+	# run's cookie and exits at once; that shell starts `sleep 300` without the cookie (env -i)
+	# in a session of its own and waits for it. The pidfile gets the shell's PID, then the
+	# sleep's. The CLI exits 0.5 s later.
+	holder_sh='env -i PATH=/usr/bin:/bin /bin/sh -c "$1" sh sleep 300 >/dev/null 2>&1 </dev/null & s=$!
+		echo "$$" >>"$2"; echo "$s" >>"$2"; wait "$s"'
+	insession sh -c 'sh -c "$1" sh sh -c "$2" sh "$1" "$3" >/dev/null 2>&1 </dev/null &' \
+		sh "$insession_sh" "$holder_sh" "$pidfile" >/dev/null 2>&1 </dev/null &
+	pids 2
+	sleep 0.5
+	emit session.jsonl
+	;;
+env-cleared)
+	# As oneshot-daemon, but the sleep runs with a cleared environment (env -i): the run's
+	# cookie does not reach it.
+	insession sh -c 'env -i PATH=/usr/bin:/bin /bin/sh -c "$2" sh sleep 300 >/dev/null 2>&1 </dev/null &
+		echo "$!" >>"$1"' sh "$pidfile" "$insession_sh" >/dev/null 2>&1 </dev/null &
+	pids 1
+	sleep 0.5
+	emit session.jsonl
+	;;
+session-timeout)
+	# A command in the background, and a command in the foreground that is still running when
+	# the run times out: the CLI waits for it. The pidfile gets 4 PIDs, background first.
+	init
+	shellcmd
+	pids 2
+	shellcmd
+	pids 4
+	# A SIGTERM that FAKE_CLAUDE_TRAP_TERM catches interrupts the wait, which goes on.
+	while ! wait "$shell" && kill -0 "$shell" 2>/dev/null; do :; done
 	;;
 empty-result)
 	emit session-empty-result.jsonl

@@ -78,10 +78,18 @@ import (
 // inherited ones are not passed to the CLI. `output` is Claude Code's final result (when that is empty, the
 // text it wrote during the run, with a warning), the agent's `instruction` is not sent to it, and
 // `structured_output` is decoded from the result but not enforced: an answer that is not JSON fails the run.
-// When the run times out or is cancelled,
-// AgentRun sends SIGTERM to the CLI's process group and SIGKILL after 10 seconds; when Pulumi stops the provider, no new
-// CLI starts and the running ones get SIGTERM and SIGKILL after 2 seconds. Claude Code runs each shell command in a
-// session of its own, so processes it does not stop itself can keep running.
+// While the CLI runs,
+// AgentRun records the processes it starts: Claude Code runs each shell command in a session of its own, outside the
+// CLI's process group, and leaves the commands it ran in the background running when it exits. They also inherit a random
+// value in `DOCKER_AGENT_RUN_COOKIE`, by which AgentRun finds the ones whose parent exited before it saw them.
+// When the run times out or is cancelled, AgentRun sends SIGTERM to the CLI's process group and to those processes, and
+// SIGKILL after 10 seconds, or 1 second after the CLI exited if that comes first; after the CLI exited, what is left gets
+// SIGTERM and SIGKILL after 1 second, with a warning that says how many processes were left running outside the CLI's
+// process group; when Pulumi stops the provider, no new CLI starts and the running ones and their processes get SIGTERM
+// and SIGKILL after 2 seconds. A process that left the CLI's process group and session before AgentRun saw it, and whose
+// environment does not show that value (started with `env -i`, or, on macOS, a program whose environment the
+// system does not show to other processes, as for some signed programs under System Integrity Protection), can keep
+// running, and so can everything when the provider is killed.
 //
 // Credentials and `${env.NAME}` references resolve from `env` and, unless
 // `inheritEnvironment` is false, the environment of the Pulumi CLI. With
@@ -414,7 +422,7 @@ type AgentRun struct {
 	Rerun RerunPolicyOutput `pulumi:"rerun"`
 	// The final answer decoded as JSON, when the answering agent declares `structured_output`.
 	StructuredOutput pulumi.AnyOutput `pulumi:"structuredOutput"`
-	// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
+	// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI and the processes it started: SIGTERM, and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
 	TimeoutSeconds pulumi.IntOutput `pulumi:"timeoutSeconds"`
 	// What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`.
 	ToolApproval ToolApprovalOutput `pulumi:"toolApproval"`
@@ -528,7 +536,7 @@ type agentRunArgs struct {
 	Reference *string `pulumi:"reference"`
 	// When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless the new value is `always`.
 	Rerun *RerunPolicy `pulumi:"rerun"`
-	// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
+	// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI and the processes it started: SIGTERM, and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
 	TimeoutSeconds *int `pulumi:"timeoutSeconds"`
 	// What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`.
 	ToolApproval *ToolApproval `pulumi:"toolApproval"`
@@ -566,7 +574,7 @@ type AgentRunArgs struct {
 	Reference pulumi.StringPtrInput
 	// When `pulumi up` runs the agent again after it first ran. `onChange` (default) runs it when an input that affects the run changes, including `triggers`. `always` runs it on every `pulumi up` that includes this resource. The preview then shows the resource as an update (`[diff: ~rerun]`) with unknown outputs, so a stack with such an AgentRun never previews without changes, and resources that consume its outputs change too. `pulumi refresh` reports no drift for it. Changing `rerun` alone updates the state, unless the new value is `always`.
 	Rerun RerunPolicyPtrInput
-	// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
+	// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI and the processes it started: SIGTERM, and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
 	TimeoutSeconds pulumi.IntPtrInput
 	// What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`.
 	ToolApproval ToolApprovalPtrInput
@@ -742,7 +750,7 @@ func (o AgentRunOutput) StructuredOutput() pulumi.AnyOutput {
 	return o.ApplyT(func(v *AgentRun) pulumi.AnyOutput { return v.StructuredOutput }).(pulumi.AnyOutput)
 }
 
-// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI: SIGTERM to its process group, and SIGKILL to the group after 10 s. Changing it updates the state without running the agent again.
+// How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI and the processes it started: SIGTERM, and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
 func (o AgentRunOutput) TimeoutSeconds() pulumi.IntOutput {
 	return o.ApplyT(func(v *AgentRun) pulumi.IntOutput { return v.TimeoutSeconds }).(pulumi.IntOutput)
 }

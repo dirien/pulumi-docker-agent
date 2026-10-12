@@ -230,8 +230,8 @@ func TestAgentRunClaudeCodeFailure(t *testing.T) {
 }
 
 // TestAgentRunClaudeCodeTimeout runs testdata/agent-run-claude-code with the fake claude in mode
-// term-trap and timeoutSeconds 3: the CLI gets SIGTERM before SIGKILL, kills its detached child
-// like Claude Code stops its shell commands, and `pulumi up` fails with the timeout.
+// term-trap and timeoutSeconds 3: the CLI gets SIGTERM before SIGKILL, its detached child is gone,
+// and `pulumi up` fails with the timeout.
 func TestAgentRunClaudeCodeTimeout(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)
@@ -249,6 +249,53 @@ func TestAgentRunClaudeCodeTimeout(t *testing.T) {
 	for _, pid := range pids {
 		assert.Eventually(t, func() bool { return processGone(pid) }, 5*time.Second, 100*time.Millisecond,
 			"the detached child %d is still running", pid)
+	}
+}
+
+// TestAgentRunClaudeCodeLeavesNoProcesses runs testdata/agent-run-claude-code with the fake claude in
+// modes that start shell commands in sessions of their own, as Claude Code does, out of reach of the
+// CLI's process group: after a normal run that left a command running in the background
+// (background-session), or that ran `cmd >/dev/null 2>&1 &` in shells that exit at once (oneshot,
+// found by the run's cookie), `pulumi up` succeeds and warns how many processes were left running;
+// after a timeout with a command in the foreground and one in the background (session-timeout), it
+// fails. In every case none of the processes runs any more when `pulumi up` returns.
+func TestAgentRunClaudeCodeLeavesNoProcesses(t *testing.T) {
+	t.Parallel()
+	root := repoRoot(t)
+	for _, c := range []struct {
+		name, mode, timeout string
+		pids                int
+	}{
+		{"after a normal run", "background-session", "", 2},
+		{"after commands backgrounded in one call", "oneshot", "", 3},
+		{"after a timeout", "session-timeout", "3", 4},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			fake := newFakeClaude(t, root)
+			config := map[string]string{"mode": c.mode}
+			if c.timeout != "" {
+				config["timeout"] = c.timeout
+			}
+			pt := newClaudeCodeFixture(t, root, fake, config)
+			if c.timeout == "" {
+				up := pt.Up(t)
+				assert.Equal(t, fakeClaudeResult, stringOutput(t, up.Outputs, "output"))
+				assert.Contains(t, up.StdOut+up.StdErr, fmt.Sprintf("claude-code left %d processes running when it exited",
+					c.pids), "the warning about what the agent left running")
+			} else {
+				_, err := pt.UpErr(t)
+				require.Error(t, err, "up must fail")
+				assert.Contains(t, err.Error(), "did not finish within")
+				assert.NotContains(t, err.Error(), "running when it exited", "a stopped run has no such warning")
+			}
+			require.Len(t, fake.calls(t), 1)
+			pids := fake.pids(t)
+			require.Len(t, pids, c.pids, "the PIDs of the fake's commands")
+			for _, pid := range pids {
+				assert.True(t, processGone(pid), "process %d still runs after pulumi up", pid)
+			}
+		})
 	}
 }
 

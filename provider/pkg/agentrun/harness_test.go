@@ -83,7 +83,8 @@ func useFakeClaude(t *testing.T) fakeCLI {
 	t.Setenv("FAKE_CLAUDE_LOG", f.log)
 	t.Setenv("FAKE_CLAUDE_PIDFILE", f.pidfile)
 	// Variables of the developer's environment that change what the fake or the warnings see.
-	for _, k := range []string{"FAKE_CLAUDE_MODE", "FAKE_CLAUDE_STDERR", "FAKE_CLAUDE_KEY_SOURCE", "FAKE_CLAUDE_IGNORE_TERM", "FAKE_MARKER",
+	for _, k := range []string{"FAKE_CLAUDE_MODE", "FAKE_CLAUDE_STDERR", "FAKE_CLAUDE_KEY_SOURCE", "FAKE_CLAUDE_IGNORE_TERM",
+		"FAKE_CLAUDE_TRAP_TERM", "FAKE_MARKER",
 		claudeOAuthTokenVar, "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK",
 		"CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY"} {
 		t.Setenv(k, "")
@@ -144,19 +145,49 @@ func (f fakeCLI) invocations(t *testing.T) []invocation {
 	return inv
 }
 
-// waitPID waits for a pidfile and returns its PID.
+// waitPID waits for a pidfile and returns its first PID.
 func waitPID(t *testing.T, file string) int {
 	t.Helper()
-	var pid int
+	return waitPIDs(t, file, 1)[0]
+}
+
+// waitPIDs waits until a pidfile has n PIDs, one per line, and returns them.
+func waitPIDs(t *testing.T, file string, n int) []int {
+	t.Helper()
+	var pids []int
 	require.Eventually(t, func() bool {
+		pids = pids[:0]
 		b, err := os.ReadFile(file)
 		if err != nil {
 			return false
 		}
-		pid, err = strconv.Atoi(strings.TrimSpace(string(b)))
-		return err == nil && pid > 0
-	}, 10*time.Second, 10*time.Millisecond, "no pidfile %s", file)
-	return pid
+		for _, f := range strings.Fields(string(b)) {
+			pid, err := strconv.Atoi(f)
+			if err != nil || pid <= 0 {
+				return false
+			}
+			pids = append(pids, pid)
+		}
+		return len(pids) >= n
+	}, 10*time.Second, 10*time.Millisecond, "no %d PIDs in %s", n, file)
+	return pids
+}
+
+// killAllAtCleanup kills processes the test started indirectly, should they still run.
+func killAllAtCleanup(t *testing.T, pids []int) {
+	for _, pid := range pids {
+		killAtCleanup(t, pid)
+	}
+}
+
+// allGone reports whether none of the processes runs any more.
+func allGone(pids []int) bool {
+	return !slices.ContainsFunc(pids, func(pid int) bool { return !gone(pid) })
+}
+
+// running returns the processes that still run.
+func running(pids []int) []int {
+	return slices.DeleteFunc(slices.Clone(pids), gone)
 }
 
 // gone reports whether a process no longer runs: it does not exist or is a zombie (kill -0
@@ -324,6 +355,7 @@ func TestHarnessClaudeCode(t *testing.T) {
 	assert.Equal(t, cwd, inv[0].get("pwd_env"), "PWD is the working directory")
 	assert.NoDirExists(t, cwd, "the temporary working directory is removed")
 	assert.Equal(t, os.Getenv("HOME"), inv[0].get("home"))
+	assert.Equal(t, "set", inv[0].get("cookie"), "the CLI gets the run's cookie")
 	assert.Contains(t, rec.persistent, "claude-code 2.1.283 (claude-sonnet-4-6), apiKeySource none (the Claude login of "+
 		"this machine)")
 	assert.Contains(t, rec.persistent[len(rec.persistent)-1], "agent run finished")
@@ -741,9 +773,10 @@ func TestHarnessTimeoutKillsAfterGrace(t *testing.T) {
 		"the leader and its child in the group are killed")
 }
 
-// TestHarnessDetachedChildSurvives documents the limit of the group signals: a process the
-// CLI started in a session of its own survives them unless the CLI stops it.
-func TestHarnessDetachedChildSurvives(t *testing.T) {
+// TestHarnessTimeoutStopsDetachedChild: a process the CLI started in a session of its own is
+// out of the group signals' reach, and the CLI does not stop it; the runner recorded it and
+// stops it.
+func TestHarnessTimeoutStopsDetachedChild(t *testing.T) {
 	f := useFakeClaude(t)
 	shortGrace(t, time.Second)
 	t.Setenv("FAKE_CLAUDE_MODE", "hang-detached")
@@ -755,8 +788,8 @@ func TestHarnessDetachedChildSurvives(t *testing.T) {
 	killAtCleanup(t, child)
 	leader, err := strconv.Atoi(f.invocations(t)[0].get("pid"))
 	require.NoError(t, err)
-	assert.Eventually(t, func() bool { return gone(leader) }, 3*time.Second, 20*time.Millisecond)
-	assert.False(t, gone(child), "a detached child is out of the group's reach")
+	assert.True(t, gone(leader), "the CLI is gone when Run returns")
+	assert.True(t, gone(child), "the detached child is gone when Run returns")
 }
 
 func TestHarnessLeavesNoGroupProcesses(t *testing.T) {
@@ -777,6 +810,7 @@ func TestHarnessLeavesNoGroupProcesses(t *testing.T) {
 			took := time.Since(start)
 			require.NoError(t, err)
 			assert.Equal(t, "Done: NOTES.md lists the changes.", res.Output)
+			assert.Empty(t, res.Warnings, "what the CLI left in its own group is stopped without a warning")
 			child := waitPID(t, f.pidfile)
 			killAtCleanup(t, child)
 			assert.Eventually(t, func() bool { return gone(child) }, 500*time.Millisecond, 10*time.Millisecond,
@@ -791,9 +825,11 @@ func TestHarnessLeavesNoGroupProcesses(t *testing.T) {
 }
 
 // TestHarnessDrainIsBounded runs a CLI that leaves a process behind which keeps writing to
-// its stdout, outside the group's reach: the runner stops reading harnessDrain after the CLI
-// exited, and a cancellation ends the run at once.
+// its stdout, outside the group's reach and not recorded (the process table cannot be read):
+// the runner stops reading harnessDrain after the CLI exited, and a cancellation ends the run
+// at once.
 func TestHarnessDrainIsBounded(t *testing.T) {
+	failProcTable(t, errors.New("no process table in this test"))
 	run := func(t *testing.T, f fakeCLI, req Request) (time.Duration, error) {
 		t.Helper()
 		start := time.Now()
@@ -879,7 +915,8 @@ func runHarnessHelper(dir string) int {
 	if err != nil {
 		return 2
 	}
-	h := harnessRun{dir: dir, env: newClaudeEnvironment(os.Environ(), nil, true, dir), info: &harnessInfo{}}
+	h := harnessRun{dir: dir, env: newClaudeEnvironment(os.Environ(), nil, true, dir), info: &harnessInfo{},
+		debug: func(msg string) { fmt.Fprintln(os.Stderr, "harness helper: debug:", msg) }}
 	run := func(ctx context.Context) error {
 		return runClaude(ctx, h, args, "hang", &claudeStream{parser: p, handle: func(harness.Event) {}})
 	}

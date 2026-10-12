@@ -11,7 +11,8 @@ import (
 )
 
 // setPdeathsig makes the kernel send SIGTERM to the CLI when the provider dies, also by
-// SIGKILL. The CLI then shuts down and stops the shell commands it tracks.
+// SIGKILL. That reaches the CLI only: the processes it started get no signal from the
+// kernel, and the provider can no longer stop them (harness_unix.go).
 func setPdeathsig(a *syscall.SysProcAttr) { a.Pdeathsig = syscall.SIGTERM }
 
 // waitUnreaped waits until the process exited without reaping it, so that its PID keeps

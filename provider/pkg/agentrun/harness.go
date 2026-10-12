@@ -36,12 +36,14 @@ import (
 //   - in the run's working directory, with the environment of claudeEnv (procenv.go);
 //   - with the prompt on stdin, so it is never part of argv (no 128 KiB argument limit, no
 //     option injection, not visible in /proc/<pid>/cmdline);
-//   - in its own process group. A cancelled or timed-out run asks the group to stop
-//     (SIGTERM, SIGCONT), keeps reading its output so that the CLI can shut down, and kills
-//     the group after harnessGrace. After the CLI exits, the rest of its group gets the same
-//     treatment with postExitGrace (harness_unix.go). Claude Code runs every shell command
-//     in a session of its own, which the group signals do not reach; it stops the ones it
-//     tracks when it gets SIGTERM;
+//   - in its own process group, recording the processes started under it while it runs and
+//     marking them with a cookie in their environment: Claude Code runs every shell command
+//     in a session of its own, which the group signals do not reach, and leaves the commands
+//     it ran in the background running when it exits (descendants.go). A cancelled or timed-out run asks the group and those processes to
+//     stop (SIGTERM, SIGCONT), keeps reading the CLI's output so that it can shut down, and
+//     kills them after harnessGrace. After the CLI exits, the rest of its group and the
+//     processes started under it get the same treatment with postExitGrace, and the run
+//     warns when the CLI left processes running outside its group (harness_unix.go);
 //   - with the end of stderr kept, redacted, for error messages;
 //   - reporting only Claude Code's final result as the agent's answer: docker-agent would
 //     otherwise join the text of every turn into it.
@@ -54,7 +56,8 @@ import (
 var (
 	// harnessGrace is how long a cancelled CLI may take to stop before its group is killed.
 	harnessGrace = 10 * time.Second
-	// postExitGrace is how long the rest of the group may take to stop after the CLI exited.
+	// postExitGrace is how long the rest of the group and the processes started under the
+	// CLI may take to stop after the CLI exited.
 	postExitGrace = time.Second
 	// harnessDrain is how long the runner keeps reading the output pipes after the CLI
 	// exited, in total: a process the CLI started can hold them open.
@@ -108,6 +111,9 @@ type harnessRun struct {
 	env     claudeEnvironment
 	secrets []string
 	info    *harnessInfo
+	// debug receives the runner's debug messages (problems tracking the CLI's processes);
+	// nil drops them.
+	debug func(string)
 }
 
 // harnessInfo is what the CLIs of a run reported about themselves, and what their
@@ -119,6 +125,9 @@ type harnessInfo struct {
 	version, model, apiKeySource string
 	// emptyResults counts the CLI runs whose empty final result was replaced by their text.
 	emptyResults int
+	// leftRunning counts the processes that the CLIs left running when they exited on their
+	// own, and that the runner stopped.
+	leftRunning int
 	// noKey is what the CLIs' environment bills when Claude Code reports apiKeySource none.
 	noKey noKeySource
 }
@@ -135,6 +144,12 @@ func (h *harnessInfo) emptyResult() {
 	h.emptyResults++
 }
 
+func (h *harnessInfo) addLeftRunning(n int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.leftRunning += n
+}
+
 func (h *harnessInfo) setNoKey(n noKeySource) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -145,7 +160,7 @@ func (h *harnessInfo) setNoKey(n noKeySource) {
 type harnessReport struct {
 	seen                         bool
 	version, model, apiKeySource string
-	emptyResults                 int
+	emptyResults, leftRunning    int
 	noKey                        noKeySource
 }
 
@@ -153,7 +168,7 @@ type harnessReport struct {
 func (h *harnessInfo) get() harnessReport {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return harnessReport{h.seen, h.version, h.model, h.apiKeySource, h.emptyResults, h.noKey}
+	return harnessReport{h.seen, h.version, h.model, h.apiKeySource, h.emptyResults, h.leftRunning, h.noKey}
 }
 
 // newHarnessFactory returns the harness factory of a run. docker-agent calls it for every
@@ -236,9 +251,12 @@ func lookPathIn(file, path string) (string, error) {
 	return "", errClaudeNotFound
 }
 
-// harnessProcess is a started Claude Code CLI and its process group (harness_unix.go).
+// harnessProcess is a started Claude Code CLI, its process group and the processes started
+// under it (harness_unix.go).
 type harnessProcess struct {
 	pgid int
+	// tree records the processes started under the CLI; nil when tracking is off.
+	tree *procTree
 	// exited is closed when the CLI exited and was reaped; state, waitErr and exitedAt are
 	// set then.
 	exited   chan struct{}
@@ -254,6 +272,9 @@ type harnessProcess struct {
 	shutdown bool // stopped because the provider is shutting down
 	kill     *time.Timer
 	killAt   time.Time
+	// leftRunning is how many processes the CLI left running when it exited on its own, which
+	// the cleanup stopped. It is set before done is closed.
+	leftRunning int
 }
 
 // stoppedForShutdown reports whether the CLI was stopped because the provider got SIGINT.
@@ -269,7 +290,8 @@ func (p *harnessProcess) drainLeft() time.Duration {
 }
 
 // runClaude runs the CLI with the prompt on stdin and streams its events. It returns when
-// the CLI exited, its output was read and the rest of its group was stopped.
+// the CLI exited, its output was read and the rest of its group and the processes started
+// under it were stopped.
 func runClaude(ctx context.Context, h harnessRun, args []string, prompt string, s *claudeStream) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -304,7 +326,7 @@ func runClaude(ctx context.Context, h harnessRun, args []string, prompt string, 
 	cmd.Dir = h.dir
 	cmd.Env = h.env.list()
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdinR, stdoutW, stderrW
-	proc, err := startHarness(cmd)
+	proc, err := startHarness(cmd, h.debug)
 	// The child has its own copies of these ends.
 	_, _, _ = stdinR.Close(), stdoutW.Close(), stderrW.Close()
 	if err != nil {
@@ -343,6 +365,9 @@ func runClaude(ctx context.Context, h harnessRun, args []string, prompt string, 
 	_ = stderrR.Close()
 	<-stderrDone
 	<-proc.done
+	if proc.leftRunning > 0 && h.info != nil {
+		h.info.addLeftRunning(proc.leftRunning)
+	}
 	if err := s.result(ctx, proc, streamErr, tail.text(h.secrets)); err != nil {
 		return err
 	}
