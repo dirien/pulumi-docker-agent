@@ -13,7 +13,9 @@ subscription of the machine that runs Pulumi, without an API key:
 
 Both runs set `inheritEnvironment: false`: Claude Code gets the system variables (`PATH`, `HOME`, `USER`, ...), its
 configuration locations (`CLAUDE_CONFIG_DIR`, `XDG_*_HOME`) and `env`, but not an `ANTHROPIC_API_KEY` of your shell,
-which it would use and bill instead of the subscription, or your Pulumi and cloud credentials.
+which it would use and bill instead of the subscription, or your Pulumi and cloud credentials. A
+`CLAUDE_CODE_OAUTH_TOKEN` exported in your shell does not reach it either: without the `claudeCodeOauthToken` setting,
+Claude Code uses the login of the machine, and the preview warns that the token of your shell is not used.
 
 **Claude Code runs its own tools (shell commands, file edits, web requests) without approval**, on the machine that
 runs `pulumi up` and with the permissions of your user. The prompts keep it to `workspace/` and a temporary directory,

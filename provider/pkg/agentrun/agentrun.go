@@ -332,6 +332,9 @@ func reportHarness(info *harnessInfo, prog *progress) []string {
 		if n.gateway {
 			source += ", through ANTHROPIC_BASE_URL"
 		}
+		if n.withheldToken {
+			source += "; " + withheldTokenNote
+		}
 		source += ")"
 		if n.billed != "" {
 			billed = fmt.Sprintf("%s used %s, which bills %s, not a Claude subscription", codingharness.TypeClaudeCode,

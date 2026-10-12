@@ -509,6 +509,48 @@ func TestClaudeEnvironment(t *testing.T) {
 	assert.Equal(t, map[string]string{"TMPDIR": "/tmp/t", "SHELL": "/bin/zsh", "GIT_EDITOR": "true"}, e.vars)
 }
 
+// TestHarnessWithheldToken runs claude with inheritEnvironment: false while the Pulumi CLI has
+// a CLAUDE_CODE_OAUTH_TOKEN: the CLI uses the machine's login, and the record and an
+// authentication error say why.
+func TestHarnessWithheldToken(t *testing.T) {
+	f := useFakeClaude(t)
+	t.Setenv(claudeOAuthTokenVar, fakeOAuthToken)
+	const note = "inheritEnvironment: false did not pass the Pulumi CLI's CLAUDE_CODE_OAUTH_TOKEN"
+	run := func(mode string) (*records, error) {
+		var rec records
+		req := f.request("Write NOTES.md")
+		req.InheritEnvironment = false
+		req.Env = map[string]string{"FAKE_CLAUDE_LOG": f.log, "FAKE_CLAUDE_MODE": mode}
+		req.Progress = rec.progress
+		_, err := Run(t.Context(), req)
+		return &rec, err
+	}
+	rec, err := run("ok")
+	require.NoError(t, err)
+	inv := f.invocations(t)
+	assert.Equal(t, "unset", inv[len(inv)-1].get("oauth_token"))
+	assert.Contains(t, rec.persistent, "claude-code 2.1.283 (claude-sonnet-4-6), apiKeySource none (the Claude login of "+
+		"this machine; "+note+")")
+
+	_, err = run("error")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), authHint+" ("+note+")")
+	assert.NotContains(t, err.Error(), fakeOAuthToken)
+	_, err = run("contention")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), contentionHint+" ("+note+")", "the token avoids a login refreshed elsewhere too")
+
+	// Without the token in the Pulumi CLI's environment, nothing is said.
+	t.Setenv(claudeOAuthTokenVar, "")
+	rec, err = run("ok")
+	require.NoError(t, err)
+	assert.Contains(t, rec.persistent, "claude-code 2.1.283 (claude-sonnet-4-6), apiKeySource none (the Claude login of "+
+		"this machine)")
+	_, err = run("error")
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), note)
+}
+
 func TestHarnessNoKeySource(t *testing.T) {
 	f := useFakeClaude(t)
 	const authToken = "an-explicit-auth-token-0123456789"
@@ -1172,7 +1214,7 @@ func TestHarnessUnsupportedOS(t *testing.T) {
 
 func TestCheckConfigWarnings(t *testing.T) {
 	for _, k := range []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK",
-		"CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "IS_SANDBOX"} {
+		"CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "IS_SANDBOX", claudeOAuthTokenVar} {
 		t.Setenv(k, "")
 	}
 	prevEUID := geteuid
@@ -1264,6 +1306,38 @@ func TestCheckConfigWarnings(t *testing.T) {
 		assert.True(t, has(w, "ANTHROPIC_BASE_URL (inherited from the environment of the Pulumi CLI) sends Claude Code's "+
 			"requests to ANTHROPIC_BASE_URL"))
 		assert.False(t, has(w, "proxy.example.com"))
+	})
+	t.Run("W8 a token of the Pulumi CLI that inheritEnvironment false withholds", func(t *testing.T) {
+		const w8 = "CLAUDE_CODE_OAUTH_TOKEN is set in the environment of the Pulumi CLI, but inheritEnvironment: false keeps " +
+			"it from the claude CLI, which then uses the Claude login of this machine; pass the token in env (for example " +
+			"from secret config) to use it, or set it to \"\" in env to use the login"
+		withheld := CheckOptions{AllowHarnessAgents: true}
+		assert.False(t, has(check(claudeAgent, withheld), w8), "no token in the environment")
+		t.Setenv(claudeOAuthTokenVar, fakeOAuthToken)
+		w := check(claudeAgent, withheld)
+		assert.Contains(t, w, w8)
+		assert.False(t, has(w, fakeOAuthToken), "never the value")
+		withheld.EnvKeys = map[string]bool{"OTHER": true}
+		assert.Contains(t, check(claudeAgent, withheld), w8, "env without the token")
+
+		token := withheld
+		token.EnvKeys = map[string]bool{claudeOAuthTokenVar: true}
+		assert.False(t, has(check(claudeAgent, token), w8), "env sets the token (a secret value is fine)")
+		blank := withheld
+		blank.EnvKeys = map[string]bool{claudeOAuthTokenVar: false}
+		assert.False(t, has(check(claudeAgent, blank), w8), "env blanks it on purpose")
+		apiKey := withheld
+		apiKey.EnvKeys = map[string]bool{"ANTHROPIC_API_KEY": true}
+		assert.False(t, has(check(claudeAgent, apiKey), w8), "the CLI uses the API key instead of the login")
+		ce := newClaudeEnvironment([]string{claudeOAuthTokenVar + "=" + fakeOAuthToken}, map[string]string{
+			"ANTHROPIC_API_KEY": "sk-ant-api03-explicit"}, false, "")
+		assert.False(t, ce.noKeySource().withheldToken, "the record agrees: no withheld-token clause with an API key")
+		unknown := withheld
+		unknown.EnvKeys, unknown.EnvUnknown = nil, true
+		assert.False(t, has(check(claudeAgent, unknown), w8), "an unknown env may set the token")
+		assert.False(t, has(check(claudeAgent, allowed), w8), "inheritEnvironment: true passes the token")
+		t.Setenv(claudeOAuthTokenVar, "")
+		assert.False(t, has(check(claudeAgent, withheld), w8), "an empty token")
 	})
 	t.Run("W3", func(t *testing.T) {
 		assert.False(t, has(check(claudeAgent, allowed), w3))

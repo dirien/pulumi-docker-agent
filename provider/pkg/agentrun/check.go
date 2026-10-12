@@ -25,6 +25,9 @@ type CheckOptions struct {
 	InheritEnvironment bool
 	// EnvKeys are the keys of Request.Env, true when the value is non-empty or unknown.
 	EnvKeys map[string]bool
+	// EnvUnknown reports that Request.Env is unknown during the preview, so its keys are not
+	// known either.
+	EnvUnknown bool
 	// EnvValues are the values of Request.Env that are known. CheckConfig reads only those of
 	// the flags whose value decides a warning (CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX,
 	// CLAUDE_CODE_USE_FOUNDRY, IS_SANDBOX) and never shows a value.
@@ -46,8 +49,9 @@ type CheckOptions struct {
 //   - warnings: for claude-code agents that may run, that they run without tool approval
 //     (W1), the credentials Claude Code would bill (W2), a provider running as root (W3),
 //     an instruction (W4) or structured_output (W5) the harness does not get, and a model
-//     the harness inherits from the agent (W6); for configurations without harness agents,
-//     a delete prompt that toolApproval deny can hardly carry out (W7).
+//     the harness inherits from the agent (W6), and a CLAUDE_CODE_OAUTH_TOKEN of the Pulumi
+//     CLI that inheritEnvironment: false keeps from the CLI (W8); for configurations without
+//     harness agents, a delete prompt that toolApproval deny can hardly carry out (W7).
 //
 // A configuration that does not load is reported by the validator, not here.
 func CheckConfig(ctx context.Context, name string, yamlDoc []byte, opts CheckOptions) (problems, warnings []string) {
@@ -84,6 +88,9 @@ func CheckConfig(ctx context.Context, name string, yamlDoc []byte, opts CheckOpt
 		}
 	}
 	ce := newClaudeEnvironment(os.Environ(), env, opts.InheritEnvironment, "")
+	if opts.EnvUnknown {
+		ce.withheldToken = false // env may set the token
+	}
 	warnings = agents.runWarnings(ce, opts.HideNames)
 	if geteuid() == 0 && !ce.sandboxed() {
 		warnings = append(warnings, "the provider runs as root, and Claude Code refuses --dangerously-skip-permissions as "+
@@ -183,7 +190,7 @@ func (h harnessAgents) problems(allowed, hideNames bool) []string {
 }
 
 // runWarnings are the warnings about running the claude-code agents with an environment:
-// W1, and W2 with the information that inherited API credentials are dropped.
+// W1, W2 with the information that inherited API credentials are dropped, and W8.
 func (h harnessAgents) runWarnings(ce claudeEnvironment, hideNames bool) []string {
 	claude := h.claudeCode()
 	if len(claude) == 0 {

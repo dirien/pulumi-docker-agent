@@ -834,6 +834,57 @@ func TestAgentRunHarnessCheckWithSkipValidation(t *testing.T) {
 	assert.Empty(t, rec.messages("warning"))
 }
 
+// A CLAUDE_CODE_OAUTH_TOKEN of the Pulumi CLI that inheritEnvironment: false keeps from the
+// claude CLI is a preview warning, also with skipValidation, unless env sets the token or is
+// unknown.
+func TestAgentRunWithheldTokenWarning(t *testing.T) {
+	const token = "sk-ant-oat01-pulumi-cli-token-0123456789"
+	t.Setenv("CLAUDE_CODE_OAUTH_TOKEN", token)
+	const w8 = "CLAUDE_CODE_OAUTH_TOKEN is set in the environment of the Pulumi CLI, but inheritEnvironment: false keeps it " +
+		"from the claude CLI"
+	in := func(env property.Value) property.Map {
+		m := runProps(map[string]any{"yaml": harnessYAML, "prompt": "Write NOTES.md", "allowHarnessAgents": true,
+			"inheritEnvironment": false})
+		if env.IsNull() {
+			return m
+		}
+		return m.Set("env", env)
+	}
+	for _, skip := range []bool{false, true} {
+		s, rec := loggingServer(t)
+		if skip {
+			require.NoError(t, s.Configure(p.ConfigureRequest{Args: runProps(map[string]any{"skipValidation": true})}))
+		}
+		warned := func(env property.Value) bool {
+			t.Helper()
+			rec.reset()
+			checked := runCheck(t, s, in(env))
+			require.Empty(t, checked.Failures, runFailures(checked.Failures))
+			all := strings.Join(rec.messages("warning"), "\n")
+			assert.NotContains(t, all, token)
+			return strings.Contains(all, w8)
+		}
+		assert.True(t, warned(property.Value{}), "no env (skipValidation %v)", skip)
+		assert.True(t, warned(property.New(property.NewMap(map[string]property.Value{"OTHER": property.New("x")})).
+			WithSecret(true)), "env without the token")
+		assert.False(t, warned(property.New(property.NewMap(map[string]property.Value{
+			"CLAUDE_CODE_OAUTH_TOKEN": property.New(token)})).WithSecret(true)), "env sets the token")
+		assert.False(t, warned(property.New(property.Computed)), "an unknown env")
+	}
+
+	// An inheritEnvironment that is unknown during the preview is not false: no W8, and the
+	// warning about an inherited API key applies as for the default.
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-api03-inherited-provider-test-0123")
+	s, rec := loggingServer(t)
+	unknown := in(property.Value{}).Set("inheritEnvironment", property.New(property.Computed))
+	checked := runCheck(t, s, unknown)
+	require.Empty(t, checked.Failures, runFailures(checked.Failures))
+	all := strings.Join(rec.messages("warning"), "\n")
+	assert.NotContains(t, all, w8)
+	assert.NotContains(t, all, "inheritEnvironment: false keeps", "no warning claims it is false")
+	assert.Contains(t, all, "claude-code would use ANTHROPIC_API_KEY (inherited from the environment of the Pulumi CLI)")
+}
+
 func TestAgentRunCheckWarnings(t *testing.T) {
 	s, rec := loggingServer(t)
 	srv := fakeopenai.New(nil)

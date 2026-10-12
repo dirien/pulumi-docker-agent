@@ -466,12 +466,16 @@ func checkOptions(in property.Map, args AgentRunArgs) agentrun.CheckOptions {
 		// An opt-in that is unknown during a preview (an output of another resource) fails
 		// nothing yet; the run enforces it.
 		AllowHarnessAgents: in.Get("allowHarnessAgents").IsComputed() || runBool(args.AllowHarnessAgents),
-		InheritEnvironment: inheritEnvironment(args),
+		// An inheritEnvironment that is unknown during a preview counts as true, its default: the
+		// warnings about inherited credentials apply, and none claims that it is false.
+		InheritEnvironment: in.Get("inheritEnvironment").IsComputed() || inheritEnvironment(args),
 		DeletePrompt:       isSet(in.Get("deletePrompt")),
 		ToolApprovalDeny:   toolApproval(args) == ToolApprovalDeny,
 		HideNames:          in.Get("yaml").Secret() || in.Get("agent").Secret(),
 	}
-	if env := in.Get("env"); env.IsMap() {
+	if env := in.Get("env"); env.IsComputed() {
+		opts.EnvUnknown = true
+	} else if env.IsMap() {
 		opts.EnvKeys, opts.EnvValues = map[string]bool{}, map[string]string{}
 		for k, v := range env.AsMap().All {
 			opts.EnvKeys[k] = v.IsComputed() || v.IsString() && v.AsString() != ""

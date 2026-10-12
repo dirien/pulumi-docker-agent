@@ -199,7 +199,8 @@ func (c *claudeHarness) exec(ctx context.Context, args []string, prompt string, 
 	if err != nil {
 		return err
 	}
-	return runClaude(ctx, c.run, args, prompt, &claudeStream{parser: c.p, handle: handle, info: c.run.info})
+	return runClaude(ctx, c.run, args, prompt, &claudeStream{parser: c.p, handle: handle, info: c.run.info,
+		loginInsteadOfToken: c.run.env.usesLoginInsteadOfToken()})
 }
 
 var errUnexpectedArgs = errors.New("unexpected claude-code arguments from the harness driver")
@@ -353,6 +354,10 @@ type claudeStream struct {
 	parser baseharness.Provider
 	handle func(harness.Event)
 	info   *harnessInfo
+
+	// loginInsteadOfToken: the CLI uses the machine's login because inheritEnvironment: false
+	// keeps the Pulumi CLI's CLAUDE_CODE_OAUTH_TOKEN from it (an authentication error says so).
+	loginInsteadOfToken bool
 
 	// canceled stops the events: after a cancellation the output is read and discarded.
 	canceled bool
@@ -658,6 +663,9 @@ func (s *claudeStream) result(ctx context.Context, proc *harnessProcess, streamE
 		return errors.New("claude was stopped because Pulumi is stopping the provider (SIGINT)")
 	}
 	hint := claudeHint(s.errorText, stderr, s.apiErrorStatus)
+	if (hint == "; "+authHint || hint == "; "+contentionHint) && s.loginInsteadOfToken {
+		hint += " (" + withheldTokenNote + ")"
+	}
 	switch {
 	case !state.Success():
 		msg := "claude exited with status " + fmt.Sprint(state.ExitCode())

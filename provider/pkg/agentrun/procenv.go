@@ -160,7 +160,13 @@ type claudeEnvironment struct {
 	fromEnv map[string]bool
 	// dropped lists the inherited credentials removed for an explicit CLAUDE_CODE_OAUTH_TOKEN.
 	dropped []string
+	// withheldToken reports that the provider's environment has a CLAUDE_CODE_OAUTH_TOKEN that
+	// the CLI does not get: inheritEnvironment is false and env does not set the variable.
+	withheldToken bool
 }
+
+// withheldTokenNote says why the CLI does not use the Pulumi CLI's CLAUDE_CODE_OAUTH_TOKEN.
+const withheldTokenNote = "inheritEnvironment: false did not pass the Pulumi CLI's " + claudeOAuthTokenVar
 
 // claudeEnv is the environment of the Claude Code CLI of a run working in dir.
 func claudeEnv(req Request, dir string) claudeEnvironment {
@@ -184,6 +190,13 @@ func newClaudeEnvironment(environ []string, env map[string]string, inherit bool,
 	for _, k := range claudeSessionEnvVars {
 		delete(e.vars, k)
 	}
+	if _, set := env[claudeOAuthTokenVar]; !inherit && !set {
+		for _, kv := range environ {
+			if v, ok := strings.CutPrefix(kv, claudeOAuthTokenVar+"="); ok && v != "" {
+				e.withheldToken = true
+			}
+		}
+	}
 	if env[claudeOAuthTokenVar] != "" {
 		for _, k := range claudeAPICredentialVars {
 			if v, ok := e.vars[k]; ok {
@@ -203,6 +216,13 @@ func newClaudeEnvironment(environ []string, env map[string]string, inherit bool,
 		delete(e.fromEnv, "PWD")
 	}
 	return e
+}
+
+// usesLoginInsteadOfToken reports that the CLI falls back to the Claude login of the machine
+// although the Pulumi CLI has a CLAUDE_CODE_OAUTH_TOKEN, which inheritEnvironment: false keeps
+// from it: no API key, auth token or cloud provider of its environment takes over.
+func (e claudeEnvironment) usesLoginInsteadOfToken() bool {
+	return e.noKeySource().withheldToken
 }
 
 // list returns the environment as KEY=VALUE entries, sorted by name.
@@ -258,6 +278,11 @@ func (e claudeEnvironment) billingWarnings() []string {
 	for _, k := range e.dropped {
 		out = append(out, fmt.Sprintf("inherited %s is not passed to claude because env sets %s", k, claudeOAuthTokenVar))
 	}
+	if e.usesLoginInsteadOfToken() {
+		out = append(out, claudeOAuthTokenVar+" is set in the environment of the Pulumi CLI, but inheritEnvironment: false "+
+			"keeps it from the claude CLI, which then uses the Claude login of this machine; pass the token in env (for "+
+			"example from secret config) to use it, or set it to \"\" in env to use the login")
+	}
 	return out
 }
 
@@ -272,7 +297,12 @@ type noKeySource struct {
 	billed string
 	// gateway is set when ANTHROPIC_BASE_URL sends the requests elsewhere.
 	gateway bool
+	// withheldToken: the login is used because inheritEnvironment: false did not pass the
+	// Pulumi CLI's CLAUDE_CODE_OAUTH_TOKEN.
+	withheldToken bool
 }
+
+const claudeLogin = "the Claude login of this machine"
 
 // noKeySource returns what the environment selects when Claude Code reports apiKeySource
 // none, in the order Claude Code checks: a cloud provider, then ANTHROPIC_AUTH_TOKEN.
@@ -287,7 +317,8 @@ func (e claudeEnvironment) noKeySource() noKeySource {
 	case e.vars[claudeOAuthTokenVar] != "":
 		n.what = claudeOAuthTokenVar
 	default:
-		n.what = "the Claude login of this machine"
+		n.what = claudeLogin
+		n.withheldToken = e.withheldToken && e.vars["ANTHROPIC_API_KEY"] == ""
 	}
 	return n
 }
