@@ -34,6 +34,15 @@ func TestNonSecretEnvValue(t *testing.T) {
 		{"OPENAI_BASE_URL", "https://gateway.example/v1?key=abcdefgh", false},
 		{"ANTHROPIC_BASE_URL", "https://gateway.example/#token", false},
 		{"OPENAI_BASE_URL", "gateway.example/v1", false},
+		// A path segment that looks like a token (phase-2 review #11).
+		{"OPENAI_BASE_URL", "https://gw.example/v1/sk0a1b2c3d4e5f6a7b8c9d0e/openai", false},
+		{"OPENAI_BASE_URL", "https://gw.example/v1/0123456789abcdef0123456789abcdef/openai", false},
+		{"OPENAI_BASE_URL", "https://gw.example/v1/123e4567-e89b-12d3-a456-426614174000", false},
+		{"OPENAI_BASE_URL", "https://gw.example/openai/deployments/gpt-4o/v1", true},
+		{"ANTHROPIC_BASE_URL", "https://gateway.ai.cloudflare.com/v1/account/gateway-name/anthropic", true},
+		// The configuration directories of the coding harnesses (codex review #4).
+		{"CODEX_HOME", "/Users/engin/.codex-agentrun", true},
+		{"CLAUDE_CONFIG_DIR", "/Users/engin/.claude-agentrun", true},
 		// No wildcard, no number rule, no credential names.
 		{"CORP_BASE_URL", "https://gateway.example/v1", false},
 		{"PIN", "12345678", false},
@@ -54,6 +63,12 @@ func TestRedactionSetSkipsConfiguration(t *testing.T) {
 	assert.False(t, slices.Contains(set, "true"))
 	assert.True(t, slices.Contains(set, providerKey))
 	assert.True(t, slices.Contains(set, "https://u:pw@gw.example"))
+
+	// A value of Request.Secrets (a secret input) is never exempted.
+	set = redactionSet(Request{Env: map[string]string{"AWS_REGION": "us-east-1"}, Secrets: []string{"us-east-1"}})
+	assert.True(t, slices.Contains(set, "us-east-1"))
+	assert.True(t, AnswerContainsSecret("deployed to us-east-1", Request{Env: map[string]string{"AWS_REGION": "us-east-1"},
+		Secrets: []string{"us-east-1"}}))
 }
 
 // TestAnswerWithConfigurationIsNotSecret: an answer that repeats a region or a flag of `env` is

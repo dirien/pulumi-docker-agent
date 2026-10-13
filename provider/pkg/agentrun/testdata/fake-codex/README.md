@@ -19,7 +19,7 @@ would, and prints a recorded JSONL session from the `*.jsonl` files next to it.
 | Arguments | Behaviour |
 |---|---|
 | `--version` | Logs `kind=version` and prints `codex-cli $FAKE_CODEX_VERSION` (default `0.162.1`). With `FAKE_CODEX_VERSION_FAIL`, writes an error to stderr and exits 1. |
-| `--config=sandbox_mode="workspace-write" sandbox -- true` | The sandbox check AgentRun runs under `toolApproval: deny`. Logs `kind=sandbox`; behaves as `FAKE_CODEX_SANDBOX` says: `ok` (default, exit 0), `unavailable` (bubblewrap's user-namespace error on stderr, exit 1), `missing` (`error: unrecognized subcommand 'sandbox'`, exit 2), `hang` (starts `sleep 300`, its PID to the pidfile, and waits). Any other arguments exit 2 with `fake codex: ...`. |
+| `--config=sandbox_mode="workspace-write" sandbox -- true` | The sandbox check AgentRun runs under `toolApproval: deny`. Logs `kind=sandbox`; behaves as `FAKE_CODEX_SANDBOX` says: `ok` (default, exit 0), `unavailable` (bubblewrap's user-namespace error on stderr, exit 1), `missing` (`error: unrecognized subcommand 'sandbox'`, exit 2), `broken` (a config.toml error that is not a sandbox failure, exit 1), `hang` (starts `sleep 300`, its PID to the pidfile, and waits). Any other arguments exit 2 with `fake codex: ...`. |
 | `exec ...` | A turn, see below. |
 
 Anything else exits 2 with `fake codex: unexpected arguments`.

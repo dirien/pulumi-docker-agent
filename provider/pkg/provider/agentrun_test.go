@@ -207,13 +207,19 @@ func TestAgentRunCheck(t *testing.T) {
 		})
 	}
 
-	// A codex agent whose CODEX_HOME does not exist would not start (the path is an env value,
-	// so it is redacted).
-	codexHome := runInputs(srv, "    harness:\n      type: codex\n      model: gpt-6.1-sol\n",
-		map[string]any{"allowHarnessAgents": true}).Set("env", property.New(property.NewMap(map[string]property.Value{
-		"FAKE_API_KEY": property.New(runKey), "CODEX_HOME": property.New(t.TempDir() + "/nope"),
-	})).WithSecret(true))
-	codexResp := runCheck(t, s, codexHome)
+	// A codex agent whose CODEX_HOME does not exist would not start. The path is configuration,
+	// not a credential (codex review #4): it is shown, unless the program marked it secret itself.
+	missingHome := t.TempDir() + "/nope"
+	codexEnv := func(home property.Value) property.Map {
+		return runInputs(srv, "    harness:\n      type: codex\n      model: gpt-6.1-sol\n",
+			map[string]any{"allowHarnessAgents": true}).Set("env", property.New(property.NewMap(map[string]property.Value{
+			"FAKE_API_KEY": property.New(runKey), "CODEX_HOME": home,
+		})).WithSecret(true))
+	}
+	codexResp := runCheck(t, s, codexEnv(property.New(missingHome)))
+	assert.Contains(t, runFailures(codexResp.Failures), "yaml: CODEX_HOME points to "+missingHome+", which does not "+
+		"exist, so codex would not start")
+	codexResp = runCheck(t, s, codexEnv(property.New(missingHome).WithSecret(true)))
 	assert.Contains(t, runFailures(codexResp.Failures), "yaml: CODEX_HOME points to [secret], which does not exist, so "+
 		"codex would not start")
 

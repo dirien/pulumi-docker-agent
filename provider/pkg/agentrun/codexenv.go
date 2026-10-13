@@ -19,9 +19,10 @@ import (
 //     the proxy and CA variables let Codex reach its backend from a corporate network, and the
 //     desktop session variables let it read a login kept in the Linux keyring. None of them is
 //     a credential. The cookies of the supervisors are kept too (descendants.go);
-//  2. without the variables a parent Codex session sets for the processes it starts
-//     (codexSessionEnvVars), so the CLI starts a session of its own also when `pulumi up` runs
-//     inside Codex;
+//  2. without the variables a parent Codex or Claude Code session sets for the processes it
+//     starts, and without the trace context (parentSessionEnvVars), so the CLI starts a session
+//     of its own, outside the parent's trace, also when `pulumi up` runs inside Codex or Claude
+//     Code;
 //  3. without an inherited RUST_LOG unless Request.Env sets it: at trace level Codex logs the
 //     whole environment of every command it starts to stderr;
 //  4. without an inherited CODEX_API_KEY when Request.Env sets CODEX_ACCESS_TOKEN: Codex
@@ -95,7 +96,7 @@ func newCodexEnvironment(environ []string, env map[string]string, inherit bool, 
 			e.vars[k] = v
 		}
 	}
-	for _, k := range codexSessionEnvVars {
+	for _, k := range parentSessionEnvVars() {
 		delete(e.vars, k)
 	}
 	delete(e.vars, "RUST_LOG")

@@ -9,10 +9,13 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/docker/docker-agent/pkg/chat"
 	"github.com/docker/docker-agent/pkg/chatgpt"
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
 	"github.com/docker/docker-agent/pkg/environment"
+	"github.com/docker/docker-agent/pkg/modelsdev"
+	"github.com/docker/docker-agent/pkg/session"
 	"github.com/docker/docker-agent/pkg/team"
 )
 
@@ -35,7 +38,9 @@ func newRunModels(ctx context.Context, cfg *latest.Config, req Request, t *team.
 		v.env = map[string]string{}
 	}
 	prov := v.asProvider()
-	if namesChatGPT(cfg) && chatgpt.LoggedIn() {
+	// In a run child the chatgpt package reads the run's copy of the login, which exists once
+	// the run asked for the login's token.
+	if chatgpt.LoggedIn() && slices.ContainsFunc(chatgptUses(ctx, cfg, prov), modelUse.usesChatGPTLogin) {
 		prov = environment.NewMultiProvider(prov, loginPresence{})
 	}
 	selectors := firstAvailableSelectors(cfg)
@@ -69,25 +74,28 @@ func (rm runModels) line(hideNames bool) string {
 	return credentialLine(rm.uses, rm.view, rm.auto, hideNames)
 }
 
-// chatgptOnly reports whether every model the agents answer with is a chatgpt model: the run is
-// billed to the ChatGPT plan, and docker-agent has no price for it.
-func (rm runModels) chatgptOnly() bool {
-	seen := false
-	for _, u := range rm.uses {
-		if u.role == "title" || u.role == "tool" || u.role == "compaction" {
+// chatgptAnswered reports whether a chatgpt model answered during the run (an assistant message
+// of the session or a sub-session that a model of provider chatgpt, or of a custom provider of
+// it, wrote): that usage is billed to the ChatGPT plan, and docker-agent has no price for it.
+func chatgptAnswered(cfg *latest.Config, sess *session.Session) bool {
+	if cfg == nil || sess == nil {
+		return false
+	}
+	names := []string{chatgpt.ProviderName}
+	for name, p := range cfg.Providers {
+		if modelsdev.CanonicalProviderID(p.Provider) == chatgpt.ProviderName {
+			names = append(names, name)
+		}
+	}
+	for _, m := range sess.GetAllMessages() {
+		if m.Message.Role != chat.MessageRoleAssistant {
 			continue
 		}
-		if u.auto {
-			if r, ok := rm.auto(u); ok {
-				u = r
-			}
+		if p, _, ok := strings.Cut(m.Message.Model, "/"); ok && slices.Contains(names, p) {
+			return true
 		}
-		if !u.isChatGPT() {
-			return false
-		}
-		seen = true
 	}
-	return seen
+	return false
 }
 
 // authFailure matches a model API's rejection of a request's credentials.

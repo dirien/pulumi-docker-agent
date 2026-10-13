@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -115,8 +116,12 @@ type pullOutput struct {
 	model   string
 }
 
-// pullStart is docker-agent's first line of a pull (dmr/pull.go runModelPull).
-var pullStart = regexp.MustCompile(`^Pulling model (\S+)\.\.\.$`)
+// pullStart and pullDone are docker-agent's first and last lines of a pull (dmr/pull.go
+// runModelPull).
+var (
+	pullStart = regexp.MustCompile(`^Pulling model (\S+)\.\.\.$`)
+	pullDone  = regexp.MustCompile(`^Model (\S+) pulled successfully\.$`)
+)
 
 // ansiCSI matches terminal escape sequences of `docker model pull`'s progress output.
 var ansiCSI = regexp.MustCompile(`\x1b\[[0-9;?]*[a-zA-Z]`)
@@ -147,11 +152,13 @@ func (w *pullOutput) line(s string) {
 	if m := pullStart.FindStringSubmatch(s); m != nil {
 		w.model = m[1]
 		w.started(m[1])
+	} else if pullDone.MatchString(s) {
+		w.model = ""
 	}
 	w.debug("docker model pull: " + s)
 }
 
-// pulling returns the model a pull started for, or "".
+// pulling returns the model of a pull that started and did not finish, or "".
 func (w *pullOutput) pulling() string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -159,9 +166,14 @@ func (w *pullOutput) pulling() string {
 }
 
 // withModelRunner gives a run's context docker agent run's Docker connection and routes model
-// pulls to out.
+// pulls to out. Without a docker CLI on PATH there is no connection, as before v0.2.0:
+// docker-agent then probes Docker Model Runner's default endpoints itself, while with a
+// connection a failing `docker model status` fails the model (a model with a base_url, or
+// MODEL_RUNNER_HOST, needs neither).
 func withModelRunner(ctx context.Context, out *pullOutput, debug func(string)) context.Context {
-	if c, err := withDockerConnection(ctx); err != nil {
+	if _, err := exec.LookPath("docker"); err != nil {
+		debug("Docker Model Runner gets no Docker connection: the docker CLI is not on PATH")
+	} else if c, err := withDockerConnection(ctx); err != nil {
 		debug("Docker Model Runner gets no Docker connection: " + err.Error())
 	} else {
 		ctx = c

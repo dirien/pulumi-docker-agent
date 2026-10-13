@@ -220,12 +220,15 @@ func (p *progress) summary(res *Result) {
 	if len(res.RejectedToolCalls) > 0 {
 		calls += fmt.Sprintf(" (%d rejected)", len(res.RejectedToolCalls))
 	}
+	// The cost counts usage billed per token; the plans that paid for the rest are named after it.
 	cost := "no cost estimate (no known pricing for the models)"
 	switch {
+	case res.Usage.Cost > 0 && res.costNote != "":
+		cost = fmt.Sprintf("estimated cost $%.4f, and usage %s", res.Usage.Cost, res.costNote)
 	case res.Usage.Cost > 0:
 		cost = fmt.Sprintf("estimated cost $%.4f", res.Usage.Cost)
 	case res.costNote != "":
-		cost = "no cost estimate (" + res.costNote + ")"
+		cost = "no per-token cost: " + res.costNote
 	}
 	took := time.Since(p.started)
 	if took < time.Second {

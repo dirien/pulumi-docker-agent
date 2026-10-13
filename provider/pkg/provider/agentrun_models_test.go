@@ -103,4 +103,19 @@ func TestAgentRunSecretStringsSkipConfiguration(t *testing.T) {
 	assert.False(t, slices.Contains(got, "us-east-1"))
 	assert.False(t, slices.Contains(got, "true"))
 	assert.ElementsMatch(t, append(got, "us-east-1", "true"), secretStrings(in), "only those values are left out")
+
+	// A value the program marked secret itself stays secret (phase-2 review #11): Pulumi YAML
+	// passes `env: {OPENAI_BASE_URL: ${secretUrl}}` as a plain map with a secret entry, and the
+	// SDKs keep such an entry secret inside their secret map.
+	for _, mapSecret := range []bool{false, true} {
+		in := runProps(map[string]any{"prompt": "Hi"}).Set("env", property.New(property.NewMap(map[string]property.Value{
+			"OPENAI_BASE_URL": property.New("https://gw.example/v1").WithSecret(true),
+			"CODEX_HOME":      property.New("/home/u/.codex-agentrun"),
+			"AWS_REGION":      property.New("eu-west-1").WithSecret(true),
+		})).WithSecret(mapSecret))
+		got := agentRunSecretStrings(in)
+		assert.True(t, slices.Contains(got, "https://gw.example/v1"), "map secret %v", mapSecret)
+		assert.True(t, slices.Contains(got, "eu-west-1"), "map secret %v", mapSecret)
+		assert.False(t, slices.Contains(got, "/home/u/.codex-agentrun"), "CODEX_HOME is configuration (codex review #4)")
+	}
 }

@@ -296,8 +296,21 @@ func (r *codexRun) preflight(ctx context.Context, h harnessRun) error {
 	case errors.Is(err, errShuttingDown):
 		return err
 	case err != nil || res.exit != 0 || r.version == "":
+		// A codex that cannot print its version cannot run a turn either (a broken install, a
+		// config.toml it rejects): no check of its sandbox, and no sandbox advice.
 		r.logf("codex --version did not report a version (exit status %d, error %v): %s", res.exit, err,
 			firstLine(res.stderr))
+		detail := firstLine(res.stderr)
+		switch {
+		case err != nil:
+			detail = cmp.Or(detail, err.Error())
+		case res.exit != 0:
+			detail = cmp.Or(detail, fmt.Sprintf("codex --version exited with status %d", res.exit))
+		default:
+			detail = cmp.Or(detail, "codex --version printed no version")
+		}
+		r.checked, r.checkErr = true, codexBrokenError(detail)
+		return r.checkErr
 	}
 	if r.deny {
 		r.checkErr = r.probeSandbox(ctx, h)
@@ -391,14 +404,34 @@ func (r *codexRun) probeSandbox(ctx context.Context, h harnessRun) error {
 	case errors.Is(err, errShuttingDown):
 		return err
 	case err != nil:
-		return codexSandboxError(err.Error())
+		return codexCheckError(err.Error())
 	case res.exit == 0:
 		return nil
 	case codexCLIDrift(res.stderr):
 		r.logf("codex sandbox is not available in this codex (%s); checking bubblewrap instead", firstLine(res.stderr))
 		return r.probeBwrap(ctx, h)
+	case isSandboxFailure(res.stderr) || harnessOS == "darwin" && res.exit == 71:
+		return codexSandboxError(cmp.Or(sandboxLine(res.stderr), fmt.Sprintf("codex sandbox exited with status %d",
+			res.exit)))
 	}
-	return codexSandboxError(cmp.Or(firstLine(res.stderr), fmt.Sprintf("codex sandbox exited with status %d", res.exit)))
+	return codexCheckError(cmp.Or(firstLine(res.stderr), fmt.Sprintf("codex sandbox exited with status %d", res.exit)))
+}
+
+// isSandboxFailure reports output that says a sandbox could not start (bubblewrap, Seatbelt,
+// Landlock, seccomp), rather than that codex failed otherwise.
+func isSandboxFailure(text string) bool {
+	return containsAny(text, codexSandboxSignatures...) || strings.Contains(text, "sandbox error:")
+}
+
+// sandboxLine returns the line of text that says the sandbox could not start, else its first
+// line.
+func sandboxLine(text string) string {
+	for _, l := range strings.Split(text, "\n") {
+		if isSandboxFailure(l) {
+			return strings.TrimSpace(l)
+		}
+	}
+	return firstLine(text)
 }
 
 // probeBwrap runs Codex's own probe of the system's bubblewrap on Linux: a user and network
@@ -419,7 +452,7 @@ func (r *codexRun) probeBwrap(ctx context.Context, h harnessRun) error {
 	case errors.Is(err, errShuttingDown):
 		return err
 	case err != nil:
-		return codexSandboxError(err.Error())
+		return codexCheckError(err.Error())
 	case res.exit != 0:
 		return codexSandboxError(cmp.Or(firstLine(res.stderr), fmt.Sprintf("bwrap exited with status %d", res.exit)))
 	}
@@ -435,6 +468,22 @@ const codexSandboxAdvice = "enable unprivileged user namespaces or install bubbl
 func codexSandboxError(detail string) error {
 	return fmt.Errorf("codex's sandbox cannot start on this machine (%s): with toolApproval deny codex runs the model's "+
 		"commands in its workspace-write sandbox, so none of them could run; %s", truncate(detail, maxReason), codexSandboxAdvice)
+}
+
+// codexCheckError is the error of a run whose check of codex's sandbox failed for another reason
+// than the sandbox (codex itself failed, or the check did not finish).
+func codexCheckError(detail string) error {
+	return fmt.Errorf("the check of codex's sandbox (codex --config=sandbox_mode=\"workspace-write\" sandbox -- true) "+
+		"failed (%s), which does not say that the sandbox cannot start: under toolApproval deny AgentRun runs it before "+
+		"the first codex turn; run it yourself as the user that runs pulumi up (it needs no login and calls no model) and "+
+		"fix what it reports", truncate(detail, maxReason))
+}
+
+// codexBrokenError is the error of a run whose codex CLI does not run at all.
+func codexBrokenError(detail string) error {
+	return fmt.Errorf("the codex CLI does not run (%s): reinstall Codex (npm i -g @openai/codex, or brew install codex) "+
+		"on the machine that runs pulumi up, or set PATH in env to a codex that runs; codex --version must print its "+
+		"version", truncate(detail, maxReason))
 }
 
 // firstLine returns the first line of s that is not empty, trimmed.
@@ -843,7 +892,7 @@ var codexSandboxSignatures = []string{
 
 // scanSandbox counts a command output or error that shows that the sandbox could not start.
 func (s *codexStream) scanSandbox(text string) {
-	if containsAny(text, codexSandboxSignatures...) || strings.Contains(text, "sandbox error:") {
+	if isSandboxFailure(text) {
 		s.sandboxFailures++
 	}
 }
@@ -893,15 +942,18 @@ func (s *codexStream) finish(ctx context.Context, proc *harnessProcess, streamEr
 	return nil
 }
 
-// report records what the CLI did for the run's info line and warnings.
+// report records what the CLI did for the run's info line and warnings. The turn's estimate at
+// API prices counts as the run's cost only when the login bills per token (codexAuth.billed);
+// a ChatGPT plan (also a ChatGPT workspace, and a login whose kind is not known) pays the rest.
 func (s *codexStream) report(proc *harnessProcess, usage *harness.Usage) {
 	r := s.run
 	cost, known := codexCost(s.model, r.auth.cfg.serviceTier, usage)
 	tokens := usage != nil && usage.InputTokens+usage.OutputTokens+usage.CacheReadInputTokens > 0
+	perToken := r.auth.billed != ""
 	r.info.updateCodex(func(c *codexReport) {
 		c.seen = true
 		c.version, c.model, c.sandbox, c.source, c.plan = r.version, s.model, r.sandboxName(), r.auth.source, r.auth.plan
-		c.home, c.billed = r.auth.home.dir, r.auth.billed
+		c.home, c.billed, c.planBilled = r.auth.home.dir, r.auth.billed, !perToken
 		if s.threadID != "" {
 			c.thread = s.threadID
 		}
@@ -909,7 +961,11 @@ func (s *codexStream) report(proc *harnessProcess, usage *harness.Usage) {
 		c.sandboxFailures += s.sandboxFailures
 		c.declined += s.declined
 		c.leftRunning += proc.leftRunning
-		c.cost += cost
+		if perToken {
+			c.cost += cost
+		} else {
+			c.planCost += cost
+		}
 		c.costUnknown = c.costUnknown || !known && tokens
 		for _, w := range s.warnings {
 			if len(c.warnings) < maxItemWarnings && !slices.Contains(c.warnings, w) {
@@ -1020,7 +1076,7 @@ func codexHint(text, stderr string) string {
 		hint = codexHomeHint
 	case codexCLIDrift(stderr):
 		hint = codexDriftHint
-	case containsAny(all, codexSandboxSignatures...) || strings.Contains(all, "sandbox error:"):
+	case isSandboxFailure(all):
 		hint = "codex's sandbox could not start: " + codexSandboxAdvice
 	}
 	if hint == "" {
@@ -1066,15 +1122,17 @@ func cutString(s string, n int) string {
 	return s[:n] + "..."
 }
 
-// codexReport is what the codex CLIs of a run reported, for its info line and warnings.
+// codexReport is what the codex CLIs of a run reported, for its info line and warnings. cost is
+// the estimate of the turns billed per token, planCost that of the turns a ChatGPT plan paid
+// for (planBilled).
 type codexReport struct {
 	seen                                                bool
 	version, model, sandbox, source, plan, home, billed string
 	thread                                              string
 	spawned, sandboxFailures, declined, leftRunning     int
 	warnings                                            []string
-	cost                                                float64
-	costUnknown                                         bool
+	cost, planCost                                      float64
+	costUnknown, planBilled                             bool
 }
 
 func (h *harnessInfo) updateCodex(f func(*codexReport)) {
@@ -1091,7 +1149,7 @@ func (h *harnessInfo) codexSummary() codexReport {
 	return c
 }
 
-// codexCost is the cost estimate of the run's codex turns.
+// codexCost is the cost estimate of the run's codex turns that were billed per token.
 func (h *harnessInfo) codexCost() float64 {
 	if h == nil {
 		return 0
@@ -1152,10 +1210,12 @@ func reportCodex(info *harnessInfo, prog *progress) []string {
 			line += fmt.Sprintf(", %d spawned agent(s) whose tokens and tool calls are not counted", r.spawned)
 		}
 		switch {
+		case r.costUnknown && r.model == "":
+			line += ", cost unknown (Codex's default model is not known)"
 		case r.costUnknown:
 			line += ", cost unknown (Codex reports none, and the model is not in the catalog)"
-		case r.cost > 0 && r.plan != "":
-			line += ", cost an API-price estimate (a ChatGPT plan bills no per-token cost)"
+		case r.planBilled && r.planCost > 0:
+			line += fmt.Sprintf(", billed to the ChatGPT plan, not per token (API price about $%.4f)", r.planCost)
 		case r.cost > 0:
 			line += ", cost an API-price estimate"
 		}

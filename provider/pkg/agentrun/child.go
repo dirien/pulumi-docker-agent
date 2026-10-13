@@ -168,6 +168,9 @@ type childRequest struct {
 	// WithheldToken: the provider's environment has a CLAUDE_CODE_OAUTH_TOKEN that the child's
 	// environment does not inherit (procenv.go).
 	WithheldToken bool `json:"withheldToken,omitempty"`
+	// ChatGPTLogin is the ChatGPT login of docker agent setup the run may use (chatgpt.go), ""
+	// when it uses none.
+	ChatGPTLogin string `json:"chatgptLogin,omitempty"`
 	// Test holds the tests' overrides; only a test binary sends and honours it (childtest.go).
 	Test *childTest `json:"test,omitempty"`
 }
@@ -193,8 +196,10 @@ type childMessage struct {
 	Message    string `json:"msg,omitempty"`
 	Persistent bool   `json:"persistent,omitempty"`
 	Level      int    `json:"level,omitempty"`
-	// error: the variables a MissingCredentialsError names (the parent adds its hints).
-	Missing []string `json:"missing,omitempty"`
+	// error: the variables a MissingCredentialsError names (the parent adds its hints), and
+	// that only coding-harness CLIs failed (the parent adds no model notes).
+	Missing     []string `json:"missing,omitempty"`
+	HarnessOnly bool     `json:"harnessOnly,omitempty"`
 	// result
 	Result *childResult `json:"result,omitempty"`
 }
@@ -299,7 +304,7 @@ func childMain(ctx context.Context, cancel context.CancelCauseFunc, input io.Rea
 		InheritEnvironment: creq.InheritEnvironment, WorkingDir: creq.WorkingDir, ToolApproval: creq.ToolApproval,
 		AllowHookApprovals: creq.AllowHookApprovals, Timeout: creq.Timeout, Secrets: creq.Secrets, Logging: creq.Logging,
 		HideNames: creq.HideNames, AllowHarnessAgents: creq.AllowHarnessAgents, AnnounceHarness: creq.AnnounceHarness,
-		withheldToken: creq.WithheldToken,
+		withheldToken: creq.WithheldToken, chatgptLogin: creq.ChatGPTLogin,
 	}
 	if creq.Log {
 		req.Log = w.log
@@ -331,7 +336,9 @@ func endMessage(res *Result, err error) childMessage {
 		if mce, ok := errors.AsType[*MissingCredentialsError](err); ok {
 			missing = mce.Variables
 		}
-		return childMessage{Type: msgError, Message: err.Error(), Missing: missing}
+		rf, failed := errors.AsType[*runFailure](err)
+		return childMessage{Type: msgError, Message: err.Error(), Missing: missing,
+			HarnessOnly: failed && rf.inProcess == ""}
 	}
 	cr := &childResult{
 		Output: res.Output, HasStructuredOutput: res.HasStructuredOutput, AgentName: res.AgentName, Usage: res.Usage,
@@ -456,10 +463,11 @@ type childEvent struct {
 type childOutcome struct {
 	result *childResult
 	err    error
-	// fromChild reports that err is the child's own error, and missing the variables it says
-	// are missing.
-	fromChild bool
-	missing   []string
+	// fromChild reports that err is the child's own error, missing the variables it says are
+	// missing, and harnessOnly that only coding-harness CLIs failed.
+	fromChild   bool
+	missing     []string
+	harnessOnly bool
 	// warnings are the parent's own: what the child left running.
 	warnings []string
 }
@@ -499,8 +507,9 @@ func runInChild(ctx context.Context, req Request, approval ToolApproval, timeout
 		}
 	}
 	// The ChatGPT login of this machine, for a configuration that names a chatgpt model
-	// (chatgpt.go); its tokens join both redaction sets.
-	login, tokens := prepareChatGPTLogin(ctx, req, stateRoot)
+	// (chatgpt.go): the child copies it when the run asks for it, and its tokens join both
+	// redaction sets now.
+	login, tokens := planChatGPTLogin(ctx, req, stateRoot)
 	if len(tokens) > 0 {
 		secrets = append(slices.Clone(secrets), tokens...)
 		prog.secrets = secrets
@@ -517,6 +526,9 @@ func runInChild(ctx context.Context, req Request, approval ToolApproval, timeout
 		WorkingDir: workingDir, StateRoot: stateRoot,
 		WithheldToken: withheldClaudeToken(req),
 	}
+	if login != nil {
+		creq.ChatGPTLogin = login.real
+	}
 	if req.Progress == nil {
 		creq.Logging = LoggingNone
 	}
@@ -530,15 +542,18 @@ func runInChild(ctx context.Context, req Request, approval ToolApproval, timeout
 	// The child hid the names in what it sent, as runs in process did; the parent redacts it
 	// again, with the provider's credentials.
 	out := superviseChild(ctx, req, creq, secrets, names)
-	// A login the run refreshed goes back to this machine's login (chatgpt.go).
-	secrets = append(secrets, login.finish(ctx, debug)...)
+	// A login the run refreshed and could not write back goes back to this machine's login
+	// (chatgpt.go).
+	loginSecrets, loginWarnings := login.finish(ctx, debug)
+	secrets = append(secrets, loginSecrets...)
+	out.warnings = append(out.warnings, loginWarnings...)
 	if out.err != nil {
 		for _, w := range out.warnings {
 			warn(w)
 		}
 		msg := out.err.Error()
 		if out.fromChild {
-			msg = parentErrorHints(ctx, req, msg, out.missing, login)
+			msg = parentErrorHints(ctx, req, msg, out.missing, out.harnessOnly)
 		}
 		if len(out.missing) > 0 {
 			return nil, &MissingCredentialsError{Variables: out.missing, msg: redact(msg, secrets)}
@@ -769,7 +784,7 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 		case m.Type == msgError:
 			// An error that came after the context ended (the child has the same deadline) or
 			// after a stop is a consequence of it.
-			end.childErr, end.missing = m.Message, m.Missing
+			end.childErr, end.missing, end.harnessOnly = m.Message, m.Missing, m.HarnessOnly
 			end.first = reason == stopNone && !proc.stoppedForShutdown() && ctx.Err() == nil
 		}
 		if backstop != nil {
@@ -932,9 +947,10 @@ type childEnd struct {
 	// childErr is the child's own error, and missing the variables it says are missing; first
 	// reports that the error came before the parent's context ended, before the parent stopped
 	// the child and before Pulumi stopped the provider.
-	childErr string
-	first    bool
-	missing  []string
+	childErr    string
+	first       bool
+	missing     []string
+	harnessOnly bool
 	// shutdown: a SIGINT to the provider stopped the child. ctxErr is the error of the
 	// parent's context.
 	shutdown bool
@@ -961,7 +977,7 @@ func (e childEnd) outcome(timeout time.Duration, noResult func() error) childOut
 	case e.result != nil:
 		out.result = e.result
 	case e.childErr != "" && e.first:
-		out.err, out.fromChild, out.missing = errors.New(e.childErr), true, e.missing
+		out.err, out.fromChild, out.missing, out.harnessOnly = errors.New(e.childErr), true, e.missing, e.harnessOnly
 	case e.shutdown:
 		out.err = errStoppedForShutdown
 	case errors.Is(e.ctxErr, context.DeadlineExceeded):
@@ -973,7 +989,7 @@ func (e childEnd) outcome(timeout time.Duration, noResult func() error) childOut
 	case e.reason == stopTimeout:
 		out.err = fmt.Errorf("the agent did not finish within %s (timeoutSeconds)", timeout)
 	case e.childErr != "":
-		out.err, out.fromChild, out.missing = errors.New(e.childErr), true, e.missing
+		out.err, out.fromChild, out.missing, out.harnessOnly = errors.New(e.childErr), true, e.missing, e.harnessOnly
 	default:
 		out.err = noResult()
 	}

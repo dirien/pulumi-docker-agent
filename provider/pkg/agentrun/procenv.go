@@ -134,8 +134,9 @@ func hookEnv(req Request) []string {
 //     set. They select the login (the macOS keychain entry and ~/.claude/.credentials.json
 //     depend on CLAUDE_CONFIG_DIR) and are not credentials. The cookies of the supervisors
 //     are kept too (descendants.go);
-//  2. without the variables a parent Claude Code session sets (claudeSessionEnvVars), so the
-//     CLI starts a top-level session also when `pulumi up` runs inside Claude Code;
+//  2. without the variables a parent Claude Code or Codex session sets (parentSessionEnvVars),
+//     so the CLI starts a top-level session of its own, outside the parent's trace, also when
+//     `pulumi up` runs inside Claude Code or Codex;
 //  3. without an inherited ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN when Request.Env sets
 //     CLAUDE_CODE_OAUTH_TOKEN: Claude Code prefers them to the token in print mode, which
 //     would silently bill API usage instead of the subscription the token belongs to;
@@ -159,6 +160,17 @@ var claudeSessionEnvVars = []string{
 	"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_PID",
 	"CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN", "AI_AGENT", "CLAUDE_EFFORT",
 	"TRACEPARENT", "CLAUDE_CODE_EXECPATH", "CLAUDE_CODE_TMPDIR", "CLAUDE_CODE_INVOKED_SKILLS",
+}
+
+// traceEnvVars carry the W3C trace context of the process that started `pulumi up` (a Claude
+// Code or Codex session, or any traced tool): both CLIs continue that trace, and Codex forwards
+// it to OpenAI with every request.
+var traceEnvVars = []string{"TRACEPARENT", "TRACESTATE"}
+
+// parentSessionEnvVars are the variables of a parent coding-agent session that neither CLI
+// gets: the markers of a Claude Code and of a Codex session, and the trace context.
+func parentSessionEnvVars() []string {
+	return slices.Concat(claudeSessionEnvVars, codexSessionEnvVars, traceEnvVars)
 }
 
 const claudeOAuthTokenVar = "CLAUDE_CODE_OAUTH_TOKEN" //nolint:gosec // the name of a variable, not a credential
@@ -213,7 +225,7 @@ func newClaudeEnvironment(environ []string, env map[string]string, inherit bool,
 			e.vars[k] = v
 		}
 	}
-	for _, k := range claudeSessionEnvVars {
+	for _, k := range parentSessionEnvVars() {
 		delete(e.vars, k)
 	}
 	if _, set := env[claudeOAuthTokenVar]; !inherit && !set {

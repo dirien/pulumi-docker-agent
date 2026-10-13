@@ -228,6 +228,83 @@ func TestCheckModelsSDKVariables(t *testing.T) {
 		assert.Contains(t, warnings[0], "no longer reaches a model since v0.2.0")
 		assert.NotContains(t, warnings[0], "gpt-4o-mini")
 		assert.NotContains(t, warnings[0], "root")
+
+		// Neither the host of a base_url nor a model key (phase-2 review #6).
+		t.Setenv("OPENAI_API_KEY", processOnlyKey)
+		secret := "models:\n  secretmodel:\n    provider: ollama\n    model: gpt-oss:120b\n    base_url: " +
+			"https://internal.secret-host.example/v1\n    bypass_models_gateway: true\n" + agentWith("secretmodel")
+		for _, inherit := range []bool{true, false} {
+			opts := CheckOptions{InheritEnvironment: inherit, EnvKeys: map[string]bool{}, HideNames: true}
+			warnings, _ := CheckModels(t.Context(), "models.yaml", []byte(secret), opts)
+			require.Len(t, warnings, 2, joined(warnings))
+			assert.NotContains(t, joined(warnings), "secret-host")
+			assert.NotContains(t, joined(warnings), "secretmodel")
+			assert.Contains(t, joined(warnings), "bypass_models_gateway (a model) has no effect")
+			assert.Contains(t, joined(warnings), "its endpoint")
+		}
+	})
+	t.Run("ANTHROPIC_CUSTOM_HEADERS only where anthropic-sdk-go sends them", func(t *testing.T) {
+		isolateProviderEnv(t)
+		t.Setenv("ANTHROPIC_CONFIG_DIR", t.TempDir())
+		t.Setenv("ANTHROPIC_CUSTOM_HEADERS", "X-Gateway: yes")
+		direct := "models:\n  m:\n    provider: anthropic\n    model: claude-haiku-4-5\n" + agentWith("m")
+		corp := "providers:\n  corp:\n    provider: anthropic\n    base_url: https://llm.example\n    token_key: CORP_KEY\n" +
+			"models:\n  m:\n    provider: corp\n    model: claude-haiku-4-5\n" + agentWith("m")
+		withKey := map[string]string{"ANTHROPIC_API_KEY": providerKey}
+		corpKey := map[string]string{"CORP_KEY": providerKey}
+
+		// The SDK returns before it reads the headers when its environment has a key.
+		warnings, _ := checkModels(t, direct, withKey, true)
+		assert.Empty(t, warnings)
+		t.Setenv("ANTHROPIC_API_KEY", inheritedKey)
+		warnings, _ = checkModels(t, direct, nil, true)
+		assert.Empty(t, warnings, "the usual setup: ANTHROPIC_API_KEY and ANTHROPIC_CUSTOM_HEADERS exported")
+		warnings, _ = checkModels(t, corp, corpKey, false)
+		assert.Empty(t, warnings, "before v0.2.0 the provider's ANTHROPIC_API_KEY kept the headers off too")
+		require.NoError(t, os.Unsetenv("ANTHROPIC_API_KEY"))
+
+		// Without a key of the SDK's own they are sent (inherited) and were sent before v0.2.0.
+		warnings, _ = checkModels(t, corp, corpKey, true)
+		assert.Equal(t, []string{"ANTHROPIC_CUSTOM_HEADERS (inherited from the environment of the Pulumi CLI) adds its " +
+			"headers to the requests of agents.root.model (corp/claude-haiku-4-5) to https://llm.example, as with docker " +
+			"agent run; set inheritEnvironment: false, or blank it with env: {ANTHROPIC_CUSTOM_HEADERS: \"\"}"}, warnings)
+		warnings, _ = checkModels(t, corp, corpKey, false)
+		assert.Equal(t, []string{"ANTHROPIC_CUSTOM_HEADERS is set in the environment of the Pulumi CLI, but with " +
+			"inheritEnvironment: false it no longer reaches agents.root.model (corp/claude-haiku-4-5) since v0.2.0: its " +
+			"requests no longer carry the header it sets; set it in env"}, warnings)
+
+		// ANTHROPIC_PROFILE, env federation and a profile file are credentials of the SDK too.
+		for _, extra := range []map[string]string{{"ANTHROPIC_PROFILE": "work"}, {"ANTHROPIC_FEDERATION_RULE_ID": "r",
+			"ANTHROPIC_ORGANIZATION_ID": "o", "ANTHROPIC_IDENTITY_TOKEN": "fake-identity-token-0123456789"}} {
+			env := maps.Clone(corpKey)
+			maps.Copy(env, extra)
+			warnings, _ = checkModels(t, corp, env, true)
+			assert.Empty(t, warnings, "%v", extra)
+		}
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "configs"), 0o700))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "configs", "default.json"), []byte(`{}`), 0o600))
+		t.Setenv("ANTHROPIC_CONFIG_DIR", dir)
+		warnings, _ = checkModels(t, corp, corpKey, true)
+		assert.Empty(t, warnings, "a fallback profile")
+	})
+	t.Run("a realistic shell environment", func(t *testing.T) {
+		isolateProviderEnv(t)
+		t.Setenv("ANTHROPIC_CONFIG_DIR", t.TempDir())
+		for k, v := range map[string]string{"ANTHROPIC_API_KEY": inheritedKey, "OPENAI_API_KEY": processOnlyKey,
+			"OPENAI_ORG_ID": "org-of-the-cli", "ANTHROPIC_CUSTOM_HEADERS": "X-Gateway: yes", "AWS_PROFILE": "dev"} {
+			t.Setenv(k, v)
+		}
+		doc := "models:\n  o:\n    provider: openai\n    model: gpt-4o-mini\n  a:\n    provider: anthropic\n" +
+			"    model: claude-haiku-4-5\n" + agentWith("o") + "    fallback:\n      models: [a]\n"
+		warnings, infos := checkModels(t, doc, nil, true)
+		assert.Empty(t, warnings, "the organization goes to OpenAI's own API, the headers are not sent")
+		assert.Empty(t, infos)
+		warnings, _ = checkModels(t, doc, map[string]string{"OPENAI_API_KEY": providerKey, "ANTHROPIC_API_KEY": providerKey},
+			false)
+		assert.Equal(t, []string{"OPENAI_ORG_ID is set in the environment of the Pulumi CLI, but with inheritEnvironment: " +
+			"false it no longer reaches agents.root.model (openai/gpt-4o-mini) since v0.2.0: its requests no longer carry " +
+			"the header it sets; set it in env"}, warnings)
 	})
 }
 
@@ -287,6 +364,28 @@ func TestCheckModelsAuto(t *testing.T) {
 	require.Len(t, infos, 1)
 	assert.Contains(t, infos[0], "agents.root.model auto finds no provider credential in the run's environment and "+
 		"resolves to Docker Model Runner (dmr/ai/qwen3:latest")
+
+	// A selected model whose credential is not set fails the run: a warning (phase-2 review #12).
+	warnings, infos := checkModels(t, doc, map[string]string{"DOCKER_AGENT_DEFAULT_MODEL": "anthropic/claude-haiku-4-5"},
+		false)
+	assert.Empty(t, infos)
+	assert.Equal(t, []string{"agents.root.model auto resolves to anthropic/claude-haiku-4-5, selected by " +
+		"DOCKER_AGENT_DEFAULT_MODEL from env, but the run's environment does not set its credential (ANTHROPIC_API_KEY " +
+		"(not set)), so the run fails: set it in env (for example from a secret config value), or select another model " +
+		"with DOCKER_AGENT_DEFAULT_MODEL"}, warnings)
+}
+
+// TestCheckModelsUnknownVertexFlag: a GOOGLE_GENAI_USE_VERTEXAI that is not known yet may select
+// the Gemini API or Vertex AI; only what both need is missing.
+func TestCheckModelsUnknownVertexFlag(t *testing.T) {
+	isolateProviderEnv(t)
+	doc := agentWith("google/gemini-2.5-flash")
+	opts := CheckOptions{EnvKeys: map[string]bool{"GOOGLE_GENAI_USE_VERTEXAI": true}, EnvValues: map[string]string{}}
+	warnings, _ := CheckModels(t.Context(), "models.yaml", []byte(doc), opts)
+	assert.Empty(t, warnings)
+	warnings, _ = checkModels(t, doc, map[string]string{"GOOGLE_GENAI_USE_VERTEXAI": "false"}, false)
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], "the configuration needs GOOGLE_API_KEY")
 }
 
 // fakeChatGPTLogin writes a ChatGPT login whose access token is valid for an hour and points the
@@ -331,6 +430,36 @@ func TestCheckModelsChatGPT(t *testing.T) {
 	// model auto does not see the login (U#2): with only GOOGLE_API_KEY it stays with Google.
 	_, infos = checkModels(t, agentWith("auto"), map[string]string{"GOOGLE_API_KEY": providerKey}, false)
 	assert.Equal(t, []string{"agents.root.model auto resolves to google/gemini-3.8-flash (GOOGLE_API_KEY from env)"}, infos)
+
+	// DOCKER_AGENT_DEFAULT_MODEL selects a chatgpt model for auto: it uses the login.
+	dm := map[string]string{"DOCKER_AGENT_DEFAULT_MODEL": "chatgpt/gpt-5.6"}
+	warnings, infos = checkModels(t, agentWith("auto"), dm, false)
+	assert.Empty(t, warnings)
+	assert.Equal(t, []string{"agents.root.model (auto: chatgpt/gpt-5.6) uses the ChatGPT login of docker agent setup on " +
+		"this machine (" + path + "), billed to the ChatGPT plan: AgentRun reads that file, and writes a token it " +
+		"refreshed back to it", "agents.root.model auto resolves to chatgpt/gpt-5.6, selected by DOCKER_AGENT_DEFAULT_MODEL " +
+		"from env (the ChatGPT login of docker agent setup, billed to the ChatGPT plan)"}, infos)
+
+	// An empty CHATGPT_OAUTH_TOKEN hides the login, as at run time (phase-2 review #12).
+	warnings, infos = checkModels(t, doc, map[string]string{"CHATGPT_OAUTH_TOKEN": ""}, false)
+	assert.Empty(t, infos)
+	assert.Equal(t, []string{"agents.root.model (chatgpt/gpt-5.6) uses a ChatGPT subscription, but env sets " +
+		"CHATGPT_OAUTH_TOKEN to an empty value, which hides the ChatGPT login of docker agent setup from the run, so the " +
+		"run fails: remove it from env to use the login, or pass a ChatGPT access token in env"}, warnings)
+
+	// A first_available candidate that is not chosen does not use the login.
+	fa := "models:\n  pick:\n    first_available: [openai/gpt-5-mini, chatgpt/gpt-5.6]\n" + agentWith("pick")
+	warnings, infos = checkModels(t, fa, map[string]string{"OPENAI_API_KEY": providerKey}, false)
+	assert.Empty(t, warnings)
+	assert.Empty(t, infos)
+
+	// Not signed in.
+	t.Cleanup(chatgpt.SetCredentialsPathForTests(filepath.Join(t.TempDir(), "none.json")))
+	warnings, infos = checkModels(t, agentWith("auto"), dm, false)
+	assert.Empty(t, infos)
+	assert.Equal(t, []string{"agents.root.model (auto: chatgpt/gpt-5.6) uses a ChatGPT subscription, but this machine " +
+		"has no ChatGPT login and env does not set CHATGPT_OAUTH_TOKEN: sign in with `docker agent setup` on the machine " +
+		"that runs pulumi up (it stores the login in " + path + ")"}, warnings)
 }
 
 // TestCheckModelsProviderCases: the provider matrix's configurations (with their credentials in
@@ -395,6 +524,55 @@ agents:
 	}, got, "harness agents are left out")
 	assert.True(t, uses[2].isChatGPT() && uses[2].custom && uses[2].firstAvailable)
 
+	// Hooks, RAG and model_picker models are model uses too; a router's own requests use only
+	// its provider/model (phase-2 review #9).
+	uses = load(`models:
+  router:
+    provider: openai
+    model: gpt-4o-mini
+    base_url: https://router.example/v1
+    token_key: ROUTER_KEY
+    routing:
+      - model: anthropic/claude-haiku-4-5
+        examples: [poem]
+agents:
+  root:
+    model: router
+    instruction: hi
+    hooks:
+      pre_tool_use:
+        - matcher: "*"
+          hooks:
+            - type: model
+              model: chatgpt/gpt-5.6
+              prompt: judge
+    toolsets:
+      - type: model_picker
+        models: [mistral/devstral-small-2507]
+      - type: rag
+        ref: docs
+rag:
+  docs:
+    docs: [README.md]
+    strategies:
+      - type: chunked-embeddings
+        embedding_model: openai/text-embedding-3-small
+        vector_dimensions: 1536
+        database: ./rag.db
+    results:
+      reranking:
+        model: dmr/ai/qwen3-reranker
+`)
+	got = nil
+	for _, u := range uses {
+		got = append(got, u.role+" "+u.name+"/"+u.model)
+	}
+	assert.ElementsMatch(t, []string{" openai/gpt-4o-mini", "routed anthropic/claude-haiku-4-5",
+		"tool mistral/devstral-small-2507", "tool openai/text-embedding-3-small", "tool dmr/ai/qwen3-reranker",
+		"tool chatgpt/gpt-5.6"}, got)
+	assert.Empty(t, uses[0].cfg.BaseURL, "the router's fallback is rebuilt from provider/model")
+	assert.Empty(t, uses[0].cfg.TokenKey)
+
 	for doc, want := range map[string]bool{
 		agentWith("chatgpt/gpt-5.6"): true,
 		agentWith("auto"):            false,
@@ -405,6 +583,6 @@ agents:
 	} {
 		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)))
 		require.NoError(t, err)
-		assert.Equal(t, want, namesChatGPT(cfg), doc)
+		assert.Equal(t, want, usesChatGPT(t.Context(), cfg, envView{}.asProvider()), doc)
 	}
 }

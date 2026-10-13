@@ -42,6 +42,9 @@ type envView struct {
 	// Pulumi CLI's), inherited or not.
 	inherit  bool
 	provider map[string]string
+	// unknown marks the variables of env whose value a preview does not know yet (their value
+	// is a placeholder).
+	unknown map[string]bool
 }
 
 // lookup returns a variable's value and where it comes from ("" when it is not set).
@@ -72,7 +75,39 @@ func (v envView) set(name string) bool {
 	return from != ""
 }
 
-// asProvider returns the view as an environment.Provider.
+// present reports whether a variable is in the run's environment at all, also with an empty
+// value, which hides the sources after it: docker-agent's map and process-environment providers
+// report an empty variable as found (environment.MultiProvider stops there).
+func (v envView) present(name string) bool {
+	if _, ok := v.env[name]; ok {
+		return true
+	}
+	_, ok := v.provider[name]
+	return v.inherit && ok
+}
+
+// runLookup reads a variable as the model SDKs of a run child read their process environment:
+// env, over the provider's environment when it is inherited.
+func (v envView) runLookup(name string) (string, bool) {
+	if val, ok := v.env[name]; ok {
+		return val, true
+	}
+	if !v.inherit {
+		return "", false
+	}
+	val, ok := v.provider[name]
+	return val, ok
+}
+
+// providerLookup reads a variable of the provider's environment, which the model SDKs read
+// before v0.2.0 (in the provider process).
+func (v envView) providerLookup(name string) (string, bool) {
+	val, ok := v.provider[name]
+	return val, ok
+}
+
+// asProvider returns the view as an environment.Provider, as docker-agent's providers of the
+// run resolve it: a variable that is present is found, also with an empty value.
 func (v envView) asProvider() environment.Provider {
 	return envViewProvider{v}
 }
@@ -80,8 +115,8 @@ func (v envView) asProvider() environment.Provider {
 type envViewProvider struct{ v envView }
 
 func (p envViewProvider) Get(_ context.Context, name string) (string, bool) {
-	val, from := p.v.lookup(name)
-	return val, from != ""
+	val, _ := p.v.lookup(name)
+	return val, p.v.present(name)
 }
 
 // credentialSource says how a model authenticates with the environment v, as docker-agent and
@@ -269,11 +304,34 @@ func missingVariables(err error) []string {
 	return nil
 }
 
+// missingAlternatives reports a model client's error that asks for one of two variables
+// ("GITHUB_TOKEN or GH_TOKEN environment variable is required").
+func missingAlternatives(err error) bool {
+	if isRequiredEnvError(err) {
+		return false
+	}
+	m := requiredVar.FindStringSubmatch(err.Error())
+	return m != nil && m[2] != ""
+}
+
+func isRequiredEnvError(err error) bool {
+	var re *environment.RequiredEnvError
+	if errors.As(err, &re) {
+		return true
+	}
+	_, fa := errors.AsType[modelCredentialsError](err)
+	return fa
+}
+
 // missingCredentialsMessage explains missing variables of a run, without docker-agent's advice
 // for its CLI (export, --env-from-file, docker agent setup's env file), which AgentRun does not
-// read.
-func missingCredentialsMessage(vars []string, inherit, firstAvailable bool) string {
+// read. With alternatives, one of the variables is enough.
+func missingCredentialsMessage(vars []string, inherit, firstAvailable bool, alternatives ...bool) string {
 	list := strings.Join(vars, ", ")
+	either := len(alternatives) > 0 && alternatives[0] && len(vars) > 1
+	if either {
+		list = strings.Join(vars, " or ")
+	}
 	msg := "the configuration needs " + list
 	if firstAvailable {
 		msg = "no first_available candidate has its credentials (" + list + ")"
@@ -286,6 +344,8 @@ func missingCredentialsMessage(vars []string, inherit, firstAvailable bool) stri
 	switch {
 	case firstAvailable:
 		msg += "; set the credentials of one candidate in env (for example from a secret config value)"
+	case either:
+		msg += "; set one of them in env (for example from a secret config value)"
 	case len(vars) > 1:
 		msg += "; set them in env (for example from secret config values)"
 	default:
@@ -355,43 +415,59 @@ func describeMissingCredentials(err error, inherit bool) error {
 	var re *environment.RequiredEnvError
 	firstAvailable = firstAvailable && !errors.As(err, &re)
 	return &MissingCredentialsError{Variables: vars, msg: "loading the agent configuration: " +
-		missingCredentialsMessage(vars, inherit, firstAvailable)}
+		missingCredentialsMessage(vars, inherit, firstAvailable, missingAlternatives(err))}
 }
 
-// describeAutoError rewrites docker-agent's error for a model auto that found no provider
-// (config.AutoModelFallbackError), whose advice is for the docker agent CLI.
-func describeAutoError(err error, inherit bool) error {
+// describeAutoError rewrites docker-agent's error for a model auto whose model could not be
+// built (config.AutoModelFallbackError, whose advice is for the docker agent CLI). It says what
+// auto chose, as docker-agent chose it from the run's environment env: Docker Model Runner when
+// no provider credential was found, else the model DOCKER_AGENT_DEFAULT_MODEL selects or that of
+// the first provider whose credential is set.
+func describeAutoError(ctx context.Context, err error, req Request, cfg *latest.Config, env environment.Provider) error {
 	var ae *config.AutoModelFallbackError
 	if !errors.As(err, &ae) {
 		return nil
 	}
+	cause := ""
+	if ae.Cause != nil {
+		cause = ", which failed: " + strings.TrimSpace(firstLine(ae.Cause.Error()))
+	}
+	dm, dmVar := defaultModel(ctx, env)
+	m := config.AutoModelConfig(ctx, "", env, dm, nil)
+	if dm != nil || m.Provider != typeDMR {
+		if cfg == nil {
+			cfg = &latest.Config{}
+		}
+		v := envView{env: req.Env, inherit: req.InheritEnvironment, provider: providerEnvMap()}
+		u := newModelUse(cfg, m)
+		how := credentialSource(u, v)
+		if dm != nil {
+			how = "selected by " + cmp.Or(v.source(dmVar), dmVar)
+		}
+		return fmt.Errorf("loading the agent configuration: model auto resolved to %s (%s)%s", u.display(req.HideNames,
+			"a model"), how, cause)
+	}
 	where := "env"
-	if inherit {
+	if req.InheritEnvironment {
 		where = "env and the environment of the Pulumi CLI"
 	}
-	msg := "loading the agent configuration: model auto found no provider credential in " + where +
+	return errors.New("loading the agent configuration: model auto found no provider credential in " + where +
 		" (it looks for ANTHROPIC_API_KEY, OPENAI_API_KEY, GITHUB_TOKEN, GOOGLE_API_KEY and the other providers' keys) " +
-		"and fell back to Docker Model Runner"
-	if ae.Cause != nil {
-		msg += ", which failed: " + strings.TrimSpace(firstLine(ae.Cause.Error()))
-	}
-	return errors.New(msg + "; set a provider's key in env, set DOCKER_AGENT_DEFAULT_MODEL (provider/model) in env, " +
-		"or name the model in the configuration")
+		"and fell back to Docker Model Runner" + cause + "; set a provider's key in env, set DOCKER_AGENT_DEFAULT_MODEL " +
+		"(provider/model) in env, or name the model in the configuration")
 }
 
 // parentErrorHints adds to the error of a run child what only the parent knows: the environment
 // of the Pulumi CLI (a missing variable it sets but inheritEnvironment: false keeps from the
-// run, the model SDK variables that no longer reach the models since v0.2.0 when a request was
-// rejected or did not connect), docker agent's env file, and the ChatGPT login.
-func parentErrorHints(ctx context.Context, req Request, msg string, missing []string, login *chatgptLogin) string {
+// run, and, when a model request was rejected or did not connect, the model SDK variables that
+// no longer reach the models since v0.2.0) and docker agent's env file. The model notes are left
+// out when only coding-harness CLIs failed (harnessOnly): their requests are not the models'.
+func parentErrorHints(ctx context.Context, req Request, msg string, missing []string, harnessOnly bool) string {
 	var hints []string
 	if len(missing) > 0 {
 		hints = append(hints, credentialHints(missing, req.InheritEnvironment, providerEnvMap())...)
 	}
-	if h := login.errorHint(msg); h != "" {
-		hints = append(hints, h)
-	}
-	if isAuthFailure(msg) || isConnectionFailure(msg) {
+	if !harnessOnly && (isAuthFailure(msg) || isConnectionFailure(msg)) {
 		hints = append(hints, connectionNotes(ctx, req)...)
 	}
 	return joinHints(msg, hints)

@@ -601,7 +601,7 @@ func TestProviders(t *testing.T) {
 				case res.Usage.Cost > 0:
 					assert.Contains(t, summary, "estimated cost $", "the summary shows the cost")
 				case strings.HasPrefix(c.name, "chatgpt/"):
-					assert.Contains(t, summary, "no cost estimate (billed to the ChatGPT plan)")
+					assert.Contains(t, summary, "no per-token cost: billed to the ChatGPT plan")
 				default:
 					assert.Contains(t, summary, "no cost estimate (no known pricing for the models)")
 				}

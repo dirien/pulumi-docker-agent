@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -275,4 +276,63 @@ func cfgOf(provider string, opts ...string) latest.ModelConfig {
 func withToken(m latest.ModelConfig, key string) latest.ModelConfig {
 	m.TokenKey = key
 	return m
+}
+
+// TestDescribeAutoError: a model auto that could not be built says what auto chose; only a
+// fallback to Docker Model Runner says that no credential was found (phase-2 review #5).
+func TestDescribeAutoError(t *testing.T) {
+	isolateProviderEnv(t)
+	cause := &config.AutoModelFallbackError{Cause: errors.New("failed to load AWS config: profile nope\nmore")}
+	describe := func(env map[string]string, hide bool) string {
+		req := Request{Env: env, HideNames: hide}
+		err := describeAutoError(t.Context(), cause, req, nil, envProvider(req))
+		require.Error(t, err)
+		return err.Error()
+	}
+	assert.Equal(t, "loading the agent configuration: model auto resolved to anthropic/claude-haiku-4-5 (selected by "+
+		"DOCKER_AGENT_DEFAULT_MODEL from env), which failed: failed to load AWS config: profile nope",
+		describe(map[string]string{"DOCKER_AGENT_DEFAULT_MODEL": "anthropic/claude-haiku-4-5"}, false))
+	assert.Equal(t, "loading the agent configuration: model auto resolved to google/gemini-3.8-flash (this machine's "+
+		"Google application default credentials (the gcloud login, or the metadata server)), which failed: failed to load "+
+		"AWS config: profile nope", describe(map[string]string{"GOOGLE_GENAI_USE_VERTEXAI": "true"}, false))
+	assert.Equal(t, "loading the agent configuration: model auto resolved to a model (MISTRAL_API_KEY from env), which "+
+		"failed: failed to load AWS config: profile nope", describe(map[string]string{"MISTRAL_API_KEY": providerKey}, true))
+	assert.Equal(t, "loading the agent configuration: model auto found no provider credential in env (it looks for "+
+		"ANTHROPIC_API_KEY, OPENAI_API_KEY, GITHUB_TOKEN, GOOGLE_API_KEY and the other providers' keys) and fell back to "+
+		"Docker Model Runner, which failed: failed to load AWS config: profile nope; set a provider's key in env, set "+
+		"DOCKER_AGENT_DEFAULT_MODEL (provider/model) in env, or name the model in the configuration", describe(nil, false))
+	assert.NoError(t, describeAutoError(t.Context(), errors.New("other"), Request{}, nil, envProvider(Request{})))
+}
+
+// TestMissingAlternatives: "X or Y environment variable is required" needs one of them
+// (phase-2 review #12).
+func TestMissingAlternatives(t *testing.T) {
+	err := describeMissingCredentials(errors.New("creating model: GITHUB_TOKEN or GH_TOKEN environment variable is required"),
+		false)
+	var mce *MissingCredentialsError
+	require.ErrorAs(t, err, &mce)
+	assert.Equal(t, []string{"GITHUB_TOKEN", "GH_TOKEN"}, mce.Variables)
+	assert.Equal(t, "loading the agent configuration: the configuration needs GITHUB_TOKEN or GH_TOKEN, which env does not "+
+		"set (inheritEnvironment is false, so the environment of the Pulumi CLI is not used); set one of them in env (for "+
+		"example from a secret config value)", err.Error())
+	err = describeMissingCredentials(errors.New("OPENAI_API_KEY environment variable is required"), true)
+	assert.Contains(t, err.Error(), "needs OPENAI_API_KEY, which neither env nor the environment of the Pulumi CLI sets; "+
+		"set it in env")
+}
+
+// TestEnvViewPresence: an empty variable of the run's environment is found, as docker-agent's
+// providers find it, and hides the sources after it (phase-2 review #12).
+func TestEnvViewPresence(t *testing.T) {
+	v := envView{env: map[string]string{"CHATGPT_OAUTH_TOKEN": ""}, provider: map[string]string{"EMPTY": "", "SET": "x"},
+		inherit: true}
+	val, found := v.asProvider().Get(t.Context(), "CHATGPT_OAUTH_TOKEN")
+	assert.True(t, found)
+	assert.Empty(t, val)
+	assert.False(t, v.set("CHATGPT_OAUTH_TOKEN"))
+	assert.True(t, v.present("CHATGPT_OAUTH_TOKEN"))
+	_, found = v.asProvider().Get(t.Context(), "EMPTY")
+	assert.True(t, found, "an inherited empty variable is found too")
+	v.inherit = false
+	_, found = v.asProvider().Get(t.Context(), "SET")
+	assert.False(t, found)
 }

@@ -5,15 +5,19 @@ package agentrun
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"maps"
 	"net"
 	"net/url"
+	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/docker/docker-agent/pkg/chatgpt"
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/environment"
 	"github.com/docker/docker-agent/pkg/model/provider"
 	"github.com/docker/docker-agent/pkg/modelsdev"
 )
@@ -60,14 +64,20 @@ type modelUse struct {
 	// auto is model auto (cfg is empty until resolved); firstAvailable a candidate of a
 	// first_available selector.
 	auto, firstAvailable bool
+	// byDefault names the variable (DOCKER_AGENT_DEFAULT_MODEL) that selected this model for
+	// model auto (autoDefaultUses), "" otherwise.
+	byDefault string
 }
 
 // configModels returns the models the configuration's agents can send requests to, each once:
-// their models (several for an alloy), fallbacks, compaction models and the models of their
-// toolsets and forked skills, with the targets of routing models, the title and compaction
-// models of models, and every candidate of a first_available selector. model auto is included
-// unresolved. cfg is a configuration config.Load returned (inline references are entries of
-// cfg.Models).
+// their models (several for an alloy), fallbacks, compaction models, the models of their
+// toolsets (also model_picker's, and RAG's embedding, chat and reranking models), of their
+// forked skills and of their `type: model` hooks, with the targets of routing models, the title
+// and compaction models of models, and every candidate of a first_available selector. A routing
+// model's own requests (its fallback) use its provider/model only, as docker-agent rebuilds it
+// (routerFallback). model auto is included unresolved. The models of external sub-agents are
+// not: their configuration is not loaded here. cfg is a configuration config.Load returned
+// (inline references are entries of cfg.Models).
 func configModels(cfg *latest.Config) []modelUse {
 	var out []modelUse
 	seen := map[string]bool{}
@@ -96,7 +106,11 @@ func configModels(cfg *latest.Config) []modelUse {
 			}
 			return
 		}
-		u := newModelUse(cfg, m)
+		leaf := m
+		if len(m.Routing) > 0 {
+			leaf = routerFallback(cfg, m)
+		}
+		u := newModelUse(cfg, leaf)
 		u.loc, u.role, u.ref, u.firstAvailable = loc, role, ref, firstAvailable
 		out = append(out, u)
 		for i, r := range m.Routing {
@@ -125,11 +139,71 @@ func configModels(cfg *latest.Config) []modelUse {
 			visit(ref, loc+".compaction_model", "compaction", false)
 		}
 		for j, ts := range a.Toolsets {
-			visit(ts.Model, fmt.Sprintf("%s.toolsets[%d].model", loc, j), "tool", false)
+			at := fmt.Sprintf("%s.toolsets[%d]", loc, j)
+			visit(ts.Model, at+".model", "tool", false)
+			for k, ref := range ts.Models {
+				visit(ref, fmt.Sprintf("%s.models[%d]", at, k), "tool", false)
+			}
+			if rag := ts.RAGConfig; rag != nil {
+				for k, st := range rag.Strategies {
+					for _, param := range []string{"embedding_model", "chat_model"} {
+						if ref, ok := st.Params[param].(string); ok {
+							visit(ref, fmt.Sprintf("%s.strategies[%d].%s", at, k, param), "tool", false)
+						}
+					}
+				}
+				if rr := rag.Results.Reranking; rr != nil {
+					visit(rr.Model, at+".results.reranking.model", "tool", false)
+				}
+			}
 		}
 		for j, s := range a.Skills.Inline {
 			if s.Context == "fork" {
 				visit(s.Model, fmt.Sprintf("%s.skills.inline[%d].model", loc, j), "tool", false)
+			}
+		}
+		for _, ref := range hookModels(a.Hooks) {
+			visit(ref, loc+".hooks", "tool", false)
+		}
+	}
+	return out
+}
+
+// routerFallback is the model a routing model's own requests (its fallback) use, as docker-agent
+// rebuilds it (rulebased.NewClient, config.routerFallbackLeaf): the model named
+// "provider/model" when the configuration has one, else only its provider and model, without
+// the router's base_url, token_key or provider_opts.
+func routerFallback(cfg *latest.Config, router latest.ModelConfig) latest.ModelConfig {
+	if m, ok := cfg.Models[router.Provider+"/"+router.Model]; ok {
+		return m
+	}
+	return latest.ModelConfig{Provider: router.Provider, Model: router.Model}
+}
+
+// hookModels returns the models of the `type: model` hooks of an agent, of every hook event.
+func hookModels(h *latest.HooksConfig) []string {
+	if h == nil {
+		return nil
+	}
+	var out []string
+	add := func(defs latest.HookDefinitions) {
+		for _, d := range defs {
+			if d.Type == "model" && strings.TrimSpace(d.Model) != "" {
+				out = append(out, d.Model)
+			}
+		}
+	}
+	v := reflect.ValueOf(*h)
+	for i := range v.NumField() {
+		if !v.Type().Field(i).IsExported() {
+			continue
+		}
+		switch f := v.Field(i).Interface().(type) {
+		case latest.HookDefinitions:
+			add(f)
+		case latest.HookMatcherConfigs:
+			for _, m := range f {
+				add(m.Hooks)
 			}
 		}
 	}
@@ -205,6 +279,13 @@ func (u modelUse) sdk() string {
 // through a custom provider).
 func (u modelUse) isChatGPT() bool { return !u.auto && u.cfg.Provider == chatgpt.ProviderName }
 
+// usesChatGPTLogin reports whether a chatgpt model can authenticate with the ChatGPT login of
+// docker agent setup: its token variable is CHATGPT_OAUTH_TOKEN, which docker-agent's login
+// source serves (a token_key of its own must be set instead).
+func (u modelUse) usesChatGPTLogin() bool {
+	return u.isChatGPT() && (u.cfg.TokenKey == "" || u.cfg.TokenKey == chatgpt.TokenEnvVar)
+}
+
 // isVertex reports whether a google model uses Vertex AI (gemini/client.go): a project or
 // location in provider_opts, GOOGLE_GENAI_USE_VERTEXAI in the run's environment, or a
 // publisher other than google (Model Garden).
@@ -225,16 +306,44 @@ func (u modelUse) usesADC() bool {
 	return u.cfg.BaseURL == "" || u.cfg.ProviderOpts["project"] != nil || u.cfg.ProviderOpts["location"] != nil
 }
 
-// namesChatGPT reports whether the configuration names a chatgpt model anywhere an agent can
-// use it (also as a fallback, routing target or first_available candidate). model auto does not
-// count: AgentRun never offers the ChatGPT login to auto.
-func namesChatGPT(cfg *latest.Config) bool {
-	for _, u := range configModels(cfg) {
+// chatgptUses returns the chatgpt models a run can use: those the configuration names anywhere
+// an agent can use them (also as a fallback, routing target or first_available candidate), and
+// the model DOCKER_AGENT_DEFAULT_MODEL of env selects for model auto when that is a chatgpt
+// model. model auto's own choice does not count: AgentRun never offers the ChatGPT login to
+// auto's provider detection (U#2).
+func chatgptUses(ctx context.Context, cfg *latest.Config, env environment.Provider) []modelUse {
+	var out []modelUse
+	for _, u := range slices.Concat(configModels(cfg), autoDefaultUses(ctx, cfg, env)) {
 		if u.isChatGPT() {
-			return true
+			out = append(out, u)
 		}
 	}
-	return false
+	return out
+}
+
+// usesChatGPT reports whether a run can use a chatgpt model (chatgptUses).
+func usesChatGPT(ctx context.Context, cfg *latest.Config, env environment.Provider) bool {
+	return len(chatgptUses(ctx, cfg, env)) > 0
+}
+
+// autoDefaultUses returns model auto's model when DOCKER_AGENT_DEFAULT_MODEL (or
+// CAGENT_DEFAULT_MODEL) of env selects one, which docker-agent takes whatever the credentials
+// (config.AutoModelConfig); nil without one, or without model auto.
+func autoDefaultUses(ctx context.Context, cfg *latest.Config, env environment.Provider) []modelUse {
+	var out []modelUse
+	for _, u := range configModels(cfg) {
+		if !u.auto {
+			continue
+		}
+		dm, name := defaultModel(ctx, env)
+		if dm == nil {
+			return nil
+		}
+		r := newModelUse(cfg, *dm)
+		r.loc, r.role, r.ref, r.byDefault = u.loc, u.role, u.ref, name
+		out = append(out, r)
+	}
+	return out
 }
 
 // isLoopbackURL reports whether a URL's host is this machine.

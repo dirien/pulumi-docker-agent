@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"syscall"
 	"time"
@@ -47,4 +48,13 @@ func lockFile(ctx context.Context, path string, timeout time.Duration) (unlock f
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
+}
+
+// lockUnavailable reports an error of lockFile that says the lock cannot be had at all, rather
+// than that another process holds it: a lock file that cannot be created or opened (EACCES,
+// EPERM, EROFS: a read-only directory), or a file system without flock (ENOLCK, EOPNOTSUPP,
+// ENOTSUP, ENOSYS: some NFS, SMB and FUSE mounts).
+func lockUnavailable(err error) bool {
+	return errors.Is(err, fs.ErrPermission) || errors.Is(err, errors.ErrUnsupported) ||
+		errors.Is(err, syscall.EROFS) || errors.Is(err, syscall.ENOLCK)
 }

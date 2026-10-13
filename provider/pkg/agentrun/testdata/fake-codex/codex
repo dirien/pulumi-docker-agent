@@ -70,6 +70,10 @@ case "${1:-}" in
 		echo "error: unrecognized subcommand 'sandbox'" >&2
 		exit 2
 		;;
+	broken)
+		echo "Error loading config.toml: unknown variant \`full-auto\`, expected one of \`read-only\`, \`workspace-write\`" >&2
+		exit 1
+		;;
 	hang)
 		sleep 300 &
 		echo $! >"$pidfile"

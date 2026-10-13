@@ -751,7 +751,8 @@ func TestAgentRunHarness(t *testing.T) {
 	assert.True(t, state.Get("env").Secret())
 	assert.Equal(t, "Write", state.Get("toolCalls").AsArray().Get(0).AsString())
 	assert.Equal(t, 15040.0, state.Get("usage").AsMap().Get("inputTokens").AsNumber())
-	assert.Equal(t, 0.0123, state.Get("usage").AsMap().Get("cost").AsNumber())
+	// CLAUDE_CODE_OAUTH_TOKEN: a Claude subscription bills no per-token cost (codex review #1).
+	assert.Equal(t, 0.0, state.Get("usage").AsMap().Get("cost").AsNumber())
 	assert.FileExists(t, filepath.Join(dir, "NOTES.md"))
 	logged, err := os.ReadFile(claudeLog)
 	require.NoError(t, err, "the fake claude ran")

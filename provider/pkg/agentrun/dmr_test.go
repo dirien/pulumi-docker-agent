@@ -54,7 +54,10 @@ func TestPullOutput(t *testing.T) {
 	_, _ = w.Write([]byte("Pulling model ai/smollm2...\n\x1b[2Kdownloading 10%\rdownloading 50%"))
 	_, _ = w.Write([]byte("\r\nModel ai/smollm2 pulled successfully.\n"))
 	assert.Equal(t, []string{"ai/smollm2"}, started)
-	assert.Equal(t, "ai/smollm2", w.pulling())
+	assert.Empty(t, w.pulling(), "the pull finished: a later timeout is not the pull's")
+	_, _ = w.Write([]byte("Pulling model ai/other...\n"))
+	assert.Equal(t, "ai/other", w.pulling(), "a pull that started and did not finish")
 	assert.Equal(t, "docker model pull: Pulling model ai/smollm2...\ndocker model pull: downloading 10%\n"+
-		"docker model pull: downloading 50%\ndocker model pull: Model ai/smollm2 pulled successfully.", strings.Join(debug, "\n"))
+		"docker model pull: downloading 50%\ndocker model pull: Model ai/smollm2 pulled successfully.\n"+
+		"docker model pull: Pulling model ai/other...", strings.Join(debug, "\n"))
 }

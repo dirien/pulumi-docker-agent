@@ -15,3 +15,6 @@ import (
 func lockFile(context.Context, string, time.Duration) (unlock func(), err error) {
 	return func() {}, nil
 }
+
+// lockUnavailable: lockFile never fails here.
+func lockUnavailable(error) bool { return false }

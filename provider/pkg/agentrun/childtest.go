@@ -4,15 +4,23 @@
 package agentrun
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/docker/docker-agent/pkg/atomicfile"
+	"github.com/docker/docker-agent/pkg/chatgpt"
+	"github.com/docker/docker-agent/pkg/paths"
 )
 
 // A run child is a new process: what the tests of this package change in it (the process
@@ -43,6 +51,10 @@ type childTest struct {
 	NoProcs        bool   `json:"noProcs,omitempty"`
 	// RootCAs are PEM certificates the child's HTTP clients trust (testFaults.rootCAs).
 	RootCAs []string `json:"rootCAs,omitempty"`
+	// ChatGPTLockTimeout is chatgptLockTimeout; ChatGPTRefresh replaces the refresh of the
+	// ChatGPT login (testFaults.chatgptRefresh).
+	ChatGPTLockTimeout time.Duration       `json:"chatgptLockTimeout"`
+	ChatGPTRefresh     *chatgptRefreshFake `json:"chatgptRefresh,omitempty"`
 
 	// The faults a test asks one run for (Request.test).
 	childFaults
@@ -84,6 +96,47 @@ var testFaults struct {
 	procTableError string
 	noProcs        bool
 	rootCAs        []string
+	chatgptRefresh *chatgptRefreshFake
+}
+
+// chatgptRefreshFake is a refresh of the ChatGPT login in a run child (chatgptAccessToken): the
+// token endpoint of the chatgpt package cannot be redirected. An expired copy gets the tokens
+// Access and Refresh, valid for an hour, or fails with Err; Calls, when set, is a file that
+// gets a line per refresh.
+type chatgptRefreshFake struct {
+	Access  string `json:"access,omitempty"`
+	Refresh string `json:"refresh,omitempty"`
+	Err     string `json:"err,omitempty"`
+	Calls   string `json:"calls,omitempty"`
+}
+
+// accessToken is chatgpt.AccessToken with the fake refresh.
+func (f chatgptRefreshFake) accessToken(context.Context) (string, error) {
+	c, err := chatgpt.Load()
+	if err != nil {
+		return "", err
+	}
+	if !c.Expired() {
+		return c.AccessToken, nil
+	}
+	if f.Calls != "" {
+		if lf, err := os.OpenFile(f.Calls, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); err == nil {
+			_, _ = lf.WriteString("refresh\n")
+			_ = lf.Close()
+		}
+	}
+	if f.Err != "" {
+		return "", errors.New(f.Err)
+	}
+	c.AccessToken, c.RefreshToken, c.ExpiresAt = f.Access, f.Refresh, time.Now().Add(time.Hour)
+	data, err := json.MarshalIndent(c, "", "  ") //nolint:gosec // a test login, saved as chatgpt.AccessToken saves it
+	if err != nil {
+		return "", err
+	}
+	if err := atomicfile.Write(filepath.Join(paths.GetConfigDir(), chatgptAuthFile), bytes.NewReader(data), 0o600); err != nil {
+		return "", err
+	}
+	return c.AccessToken, nil
 }
 
 // snapshotChildTest returns the tests' current values and the faults of one run.
@@ -93,6 +146,7 @@ func snapshotChildTest(f *childFaults) *childTest {
 		ToolsetStopTimeout: toolsetStopTimeout, HarnessOS: harnessOS, ProcTableError: testFaults.procTableError,
 		NoProcs: testFaults.noProcs, RootCAs: testFaults.rootCAs,
 		InterruptGrace: interruptGrace, CodexProbeTimeout: codexProbeTimeout,
+		ChatGPTLockTimeout: chatgptLockTimeout, ChatGPTRefresh: testFaults.chatgptRefresh,
 	}
 	snapshotProcLimits(t)
 	if f != nil {
@@ -108,6 +162,10 @@ func (t *childTest) apply(ctx context.Context, w *childWriter, input io.Reader) 
 	toolsetStopTimeout = t.ToolsetStopTimeout
 	interruptGrace, codexProbeTimeout = t.InterruptGrace, t.CodexProbeTimeout
 	harnessOS = t.HarnessOS
+	chatgptLockTimeout = t.ChatGPTLockTimeout
+	if t.ChatGPTRefresh != nil {
+		chatgptAccessToken = t.ChatGPTRefresh.accessToken
+	}
 	applyProcLimits(t)
 	if len(t.RootCAs) > 0 {
 		pool := x509.NewCertPool()
@@ -145,7 +203,12 @@ func (t *childTest) apply(ctx context.Context, w *childWriter, input io.Reader) 
 		if f.CauseFile != "" {
 			_ = os.WriteFile(f.CauseFile, []byte(context.Cause(ctx).Error()), 0o600)
 		}
-		w.send(childMessage{Type: msgError, Message: fmt.Sprintf("hung until canceled: %v", context.Cause(ctx))})
+		msg := fmt.Sprintf("hung until canceled: %v", context.Cause(ctx))
+		if errors.Is(context.Cause(ctx), context.DeadlineExceeded) {
+			// As run reports the parent's deadline, which the child shares: both may notice it first.
+			msg = "the operation's time limit (customTimeouts) ran out before the agent finished"
+		}
+		w.send(childMessage{Type: msgError, Message: msg})
 		return 0, true
 	}
 	return 0, false

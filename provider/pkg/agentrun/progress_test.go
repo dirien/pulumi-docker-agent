@@ -238,3 +238,39 @@ func TestProgressRedactsEscapedSecrets(t *testing.T) {
 		assert.NotContains(t, all, leak)
 	}
 }
+
+// TestBillingNote: the summary counts the usage billed per token and names the plans that paid
+// for the rest, never dropping a plan because another part has a cost (codex review #1).
+func TestBillingNote(t *testing.T) {
+	codex := planUsage{plan: chatgptPlan, part: "codex", price: 0.0421, priced: true}
+	claude := planUsage{plan: claudePlan, part: "claude-code", price: 0.03, priced: true}
+	for _, c := range []struct {
+		chatgpt bool
+		plans   []planUsage
+		want    string
+	}{
+		{false, nil, ""},
+		{true, nil, "billed to the ChatGPT plan"},
+		{false, []planUsage{codex}, "billed to the ChatGPT plan (API price about $0.0421)"},
+		{true, []planUsage{codex}, "billed to the ChatGPT plan (API price about $0.0421 for codex)"},
+		{false, []planUsage{claude, codex}, "billed to the ChatGPT plan (API price about $0.0421) and the Claude " +
+			"subscription (API price about $0.0300)"},
+		{false, []planUsage{{plan: claudePlan, part: "claude-code"}}, "billed to the Claude subscription"},
+	} {
+		assert.Equal(t, c.want, billingNote(c.chatgpt, c.plans))
+	}
+
+	summary := func(res *Result) string {
+		var got []Progress
+		p := newProgress(Request{Progress: func(m Progress) { got = append(got, m) }}, nil, nil)
+		p.summary(res)
+		require.Len(t, got, 1)
+		return got[0].Message
+	}
+	assert.Contains(t, summary(&Result{Usage: Usage{Cost: 0.01}, costNote: "billed to the ChatGPT plan"}),
+		"; estimated cost $0.0100, and usage billed to the ChatGPT plan")
+	assert.Contains(t, summary(&Result{costNote: "billed to the ChatGPT plan"}), "; no per-token cost: billed to the "+
+		"ChatGPT plan")
+	assert.Contains(t, summary(&Result{Usage: Usage{Cost: 0.01}}), "; estimated cost $0.0100")
+	assert.Contains(t, summary(&Result{}), "; no cost estimate (no known pricing for the models)")
+}

@@ -47,7 +47,9 @@ func secretStrings(m property.Map) []string {
 // agentRunSecretStrings is secretStrings for the inputs of an AgentRun, without the values of
 // `env` that are configuration, not credentials (agentrun.NonSecretEnvValue: a region, a project,
 // a flag, a base URL without credentials): the Pulumi SDKs mark the whole `env` map secret, so
-// every value would otherwise be redacted and make an answer that repeats it secret.
+// every value would otherwise be redacted and make an answer that repeats it secret. A value the
+// program marked secret itself (an entry that is secret on its own, as Pulumi YAML passes
+// `env: {X: ${secretValue}}`, or one nested in the SDKs' secret map) stays secret.
 func agentRunSecretStrings(m property.Map) []string {
 	var out []string
 	for k, v := range m.All {
@@ -56,7 +58,7 @@ func agentRunSecretStrings(m property.Map) []string {
 			continue
 		}
 		for name, e := range v.AsMap().All {
-			if e.IsString() && agentrun.NonSecretEnvValue(name, e.AsString()) {
+			if e.IsString() && !e.Secret() && agentrun.NonSecretEnvValue(name, e.AsString()) {
 				continue
 			}
 			out = append(out, secretStrings(property.NewMap(map[string]property.Value{name: e.WithSecret(e.Secret() || v.Secret())}))...)

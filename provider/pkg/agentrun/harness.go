@@ -159,6 +159,111 @@ type harnessInfo struct {
 	// secrets are values found during the run that are secret too (the tokens of a codex
 	// login, codexauth.go): the run's errors, warnings and progress are redacted with them.
 	secrets []string
+	// claudePlan is what the Claude Code CLIs that a Claude subscription paid for reported as
+	// their cost (total_cost_usd, at API prices), and claudePlanTurns how many of their turns.
+	claudePlan      float64
+	claudePlanTurns int
+}
+
+// The subscription plans of a run's usage (billingNote).
+const (
+	chatgptPlan = "the ChatGPT plan"
+	claudePlan  = "the Claude subscription"
+)
+
+// planUsage is usage that a subscription plan pays for, not billed per token: part names it,
+// price is what it would cost at API prices, when known (priced).
+type planUsage struct {
+	plan, part string
+	price      float64
+	priced     bool
+}
+
+// claudeSubscription reports whether the Claude Code CLIs of the run use a Claude subscription:
+// apiKeySource none with neither a cloud provider nor ANTHROPIC_AUTH_TOKEN (a Claude login, or
+// CLAUDE_CODE_OAUTH_TOKEN).
+func (h *harnessInfo) claudeSubscription() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.seen && h.apiKeySource == "none" && h.noKey.billed == ""
+}
+
+// addClaudePlan records the cost a Claude Code CLI reported for a turn its subscription paid for.
+func (h *harnessInfo) addClaudePlan(cost float64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.claudePlan += cost
+	h.claudePlanTurns++
+}
+
+// plans returns the usage of the run's coding-harness CLIs that subscription plans paid for.
+func (h *harnessInfo) plans() []planUsage {
+	if h == nil {
+		return nil
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []planUsage
+	if c := h.codex; c.seen && c.planBilled {
+		out = append(out, planUsage{plan: chatgptPlan, part: codingharness.TypeCodex, price: c.planCost,
+			priced: !c.costUnknown && c.planCost > 0})
+	}
+	if h.claudePlanTurns > 0 {
+		out = append(out, planUsage{plan: claudePlan, part: codingharness.TypeClaudeCode, price: h.claudePlan,
+			priced: h.claudePlan > 0})
+	}
+	return out
+}
+
+// billingNote names the subscription plans that paid for a run's usage, for the summary:
+// "billed to the ChatGPT plan", with what their usage would cost at API prices where that is
+// known ("billed to the Claude subscription (API price about $0.0421)"), "" when no plan paid.
+// chatgptModels reports that chatgpt models answered (docker-agent has no price for them).
+func billingNote(chatgptModels bool, plans []planUsage) string {
+	type entry struct {
+		price            float64
+		priced, unpriced []string
+	}
+	byPlan := map[string]*entry{}
+	add := func(p planUsage) {
+		e := byPlan[p.plan]
+		if e == nil {
+			e = &entry{}
+			byPlan[p.plan] = e
+		}
+		if p.priced {
+			e.price += p.price
+			e.priced = append(e.priced, p.part)
+		} else {
+			e.unpriced = append(e.unpriced, p.part)
+		}
+	}
+	if chatgptModels {
+		add(planUsage{plan: chatgptPlan, part: "the chatgpt models"})
+	}
+	for _, p := range plans {
+		add(p)
+	}
+	var notes []string
+	for _, plan := range []string{chatgptPlan, claudePlan} {
+		e := byPlan[plan]
+		if e == nil {
+			continue
+		}
+		note := plan
+		if len(e.priced) > 0 {
+			note += fmt.Sprintf(" (API price about $%.4f", e.price)
+			if len(e.unpriced) > 0 {
+				note += " for " + strings.Join(e.priced, " and ")
+			}
+			note += ")"
+		}
+		notes = append(notes, note)
+	}
+	if len(notes) == 0 {
+		return ""
+	}
+	return "billed to " + strings.Join(notes, " and ")
 }
 
 func (h *harnessInfo) set(version, model, apiKeySource string) {
@@ -672,6 +777,14 @@ func (s *claudeStream) line(line string) error {
 		case baseharness.EventResult:
 			s.sawResult = true
 			s.resultText = ev.Result
+			// A Claude subscription bills no per-token cost: Claude Code's total_cost_usd (its
+			// estimate at API prices) goes to the summary, not to the run's usage.cost.
+			if ev.Usage != nil && s.info != nil && s.info.claudeSubscription() {
+				u := *ev.Usage
+				s.info.addClaudePlan(u.TotalCostUSD)
+				u.TotalCostUSD = 0
+				ev.Usage = &u
+			}
 		}
 		s.handle(adaptEvent(ev))
 	}

@@ -51,37 +51,49 @@ var codexSystemConfigDir = "/etc/codex"
 type codexConfig struct {
 	// modelProvider is the active model_provider; "" means Codex's default, openai.
 	modelProvider string
-	// envKey is the env_key of a custom model provider.
-	envKey string
+	// envKey is the env_key of a custom model provider, and requiresOpenAIAuth its
+	// requires_openai_auth: it authenticates with Codex's own login (a ChatGPT login or an API
+	// key) instead.
+	envKey             string
+	requiresOpenAIAuth bool
+	// openAIBaseURL is openai_base_url: the built-in provider, with Codex's login, sends its
+	// requests there.
+	openAIBaseURL string
 	// model and serviceTier are the active model and service tier ("" for Codex's defaults).
 	model, serviceTier string
 	// forcedLoginMethod is "chatgpt", "api" or ""; forcedIn names the file that sets it.
 	forcedLoginMethod, forcedIn string
+	// forcedWorkspaces is forced_chatgpt_workspace_id (a string or a list); workspacesIn names
+	// the file that sets it.
+	forcedWorkspaces []string
+	workspacesIn     string
 	// credentialsStore is cli_auth_credentials_store: file (""), keyring, auto or ephemeral.
 	credentialsStore string
 	// problems are the files that could not be read or parsed.
 	problems []string
 }
 
-// readCodexConfig reads the config.toml layers of a CODEX_HOME ("" for the system files only).
-func readCodexConfig(home string) codexConfig {
+// codexProjectDenied are the keys Codex ignores in a project's .codex/config.toml (config
+// loader, PROJECT_LOCAL_CONFIG_DENYLIST): repository content must not choose where a user's
+// credentials go.
+var codexProjectDenied = []string{"openai_base_url", "chatgpt_base_url", "model_provider", "model_providers", "notify",
+	"profile", "profiles", "otel"}
+
+// readCodexConfig reads the config.toml layers of a CODEX_HOME ("" for the system files only)
+// for a codex CLI working in dir ("" when not known), in Codex's order: the system file, the
+// user's $CODEX_HOME/config.toml, the .codex/config.toml of the trusted project directories of
+// dir (codexProjectLayers), and the managed file.
+func readCodexConfig(home, dir string) codexConfig {
 	var c codexConfig
 	type layer struct {
 		path string
 		doc  map[string]any
 	}
 	var layers []layer // lowest precedence first
-	for _, path := range []string{
-		filepath.Join(codexSystemConfigDir, "config.toml"),
-		filepath.Join(home, "config.toml"),
-		filepath.Join(codexSystemConfigDir, "managed_config.toml"),
-	} {
-		if strings.HasPrefix(path, "config.toml") { // no CODEX_HOME
-			continue
-		}
-		b, err := os.ReadFile(path)
+	read := func(path string) (map[string]any, bool) {
+		b, err := os.ReadFile(path) //nolint:gosec // Codex's own configuration files
 		if errors.Is(err, fs.ErrNotExist) {
-			continue
+			return nil, false
 		}
 		var doc map[string]any
 		if err == nil {
@@ -90,9 +102,46 @@ func readCodexConfig(home string) codexConfig {
 		if err != nil {
 			// The error can quote the file; only its name is kept.
 			c.problems = append(c.problems, path)
-			continue
+			return nil, false
 		}
-		layers = append(layers, layer{path, doc})
+		return doc, true
+	}
+	paths := []string{filepath.Join(codexSystemConfigDir, "config.toml")}
+	if home != "" {
+		paths = append(paths, filepath.Join(home, "config.toml"))
+	}
+	for _, path := range paths {
+		if doc, ok := read(path); ok {
+			layers = append(layers, layer{path, doc})
+		}
+	}
+	managed := filepath.Join(codexSystemConfigDir, "managed_config.toml")
+	managedDoc, hasManaged := read(managed)
+	// Trust comes from the layers below the project's, and the managed file.
+	trust := slices.Clone(layers)
+	if hasManaged {
+		trust = append(trust, layer{managed, managedDoc})
+	}
+	trusted := func(path string) bool {
+		for i := len(trust) - 1; i >= 0; i-- {
+			projects, _ := trust[i].doc["projects"].(map[string]any)
+			if p, ok := projects[path].(map[string]any); ok {
+				level, _ := p["trust_level"].(string)
+				return level == "trusted"
+			}
+		}
+		return false
+	}
+	for _, path := range codexProjectLayers(dir, home, trusted) {
+		if doc, ok := read(path); ok {
+			for _, k := range codexProjectDenied {
+				delete(doc, k)
+			}
+			layers = append(layers, layer{path, doc})
+		}
+	}
+	if hasManaged {
+		layers = append(layers, layer{managed, managedDoc})
 	}
 	// get returns the value of a top-level key in the highest layer that sets it.
 	get := func(key string) (string, string) {
@@ -106,8 +155,26 @@ func readCodexConfig(home string) codexConfig {
 	c.modelProvider, _ = get("model_provider")
 	c.model, _ = get("model")
 	c.serviceTier, _ = get("service_tier")
+	c.openAIBaseURL, _ = get("openai_base_url")
 	c.forcedLoginMethod, c.forcedIn = get("forced_login_method")
 	c.credentialsStore, _ = get("cli_auth_credentials_store")
+	for i := len(layers) - 1; i >= 0; i-- {
+		switch v := layers[i].doc["forced_chatgpt_workspace_id"].(type) {
+		case string:
+			c.forcedWorkspaces = []string{v}
+		case []any:
+			for _, x := range v {
+				if id, ok := x.(string); ok {
+					c.forcedWorkspaces = append(c.forcedWorkspaces, id)
+				}
+			}
+		default:
+			continue
+		}
+		c.forcedWorkspaces = slices.DeleteFunc(c.forcedWorkspaces, func(id string) bool { return strings.TrimSpace(id) == "" })
+		c.workspacesIn = layers[i].path
+		break
+	}
 	// The active profile's values win over the top-level ones.
 	if profile, _ := get("profile"); profile != "" {
 		for i := len(layers) - 1; i >= 0; i-- {
@@ -130,11 +197,62 @@ func readCodexConfig(home string) codexConfig {
 			providers, _ := layers[i].doc["model_providers"].(map[string]any)
 			if p, ok := providers[c.modelProvider].(map[string]any); ok {
 				c.envKey, _ = p["env_key"].(string)
+				c.requiresOpenAIAuth, _ = p["requires_openai_auth"].(bool)
 				break
 			}
 		}
 	}
 	return c
+}
+
+// codexProjectLayers returns the .codex/config.toml files Codex reads as project layers for a
+// codex CLI working in dir, lowest precedence first: those of dir and its parents up to the
+// project root (the nearest directory with a .git, else dir), as far as trusted reports the
+// directory, or the project root, as a trusted project of config.toml ([projects."<path>"]
+// trust_level = "trusted"). An untrusted project's files are not loaded, as Codex does.
+func codexProjectLayers(dir, home string, trusted func(path string) bool) []string {
+	if dir == "" || !filepath.IsAbs(dir) {
+		return nil
+	}
+	dir = filepath.Clean(dir)
+	root := dir
+	for d := dir; ; d = filepath.Dir(d) {
+		if _, err := os.Stat(filepath.Join(d, ".git")); err == nil {
+			root = d
+			break
+		}
+		if filepath.Dir(d) == d {
+			break
+		}
+	}
+	trustedDir := func(d string) bool {
+		for _, k := range []string{d, evalSymlinks(d), root, evalSymlinks(root)} {
+			if trusted(k) {
+				return true
+			}
+		}
+		return false
+	}
+	var dirs []string
+	for d := dir; ; d = filepath.Dir(d) {
+		dirs = append(dirs, d)
+		if d == root || filepath.Dir(d) == d {
+			break
+		}
+	}
+	slices.Reverse(dirs)
+	var out []string
+	for _, d := range dirs {
+		// CODEX_HOME itself (~/.codex of a working directory in the home directory) is no project.
+		dot := filepath.Join(d, ".codex")
+		if home != "" && (dot == filepath.Clean(home) || evalSymlinks(dot) == evalSymlinks(home)) {
+			continue
+		}
+		if trustedDir(d) {
+			out = append(out, filepath.Join(dot, "config.toml"))
+		}
+	}
+	return out
 }
 
 // customProvider reports whether config.toml selects a model provider other than openai.
@@ -323,10 +441,10 @@ type codexAuth struct {
 func codexAuthOf(e codexEnvironment, withSecrets bool) codexAuth {
 	a := codexAuth{home: e.home()}
 	if !a.home.unknown && a.home.dir != "" {
-		a.cfg = readCodexConfig(a.home.dir)
+		a.cfg = readCodexConfig(a.home.dir, e.dir)
 		a.authPath = filepath.Join(a.home.dir, "auth.json")
 	} else {
-		a.cfg = readCodexConfig("")
+		a.cfg = readCodexConfig("", e.dir)
 	}
 	forced := strings.ToLower(a.cfg.forcedLoginMethod)
 	conflict := func(what, kind, remedy string) {
@@ -352,6 +470,15 @@ func codexAuthOf(e codexEnvironment, withSecrets bool) codexAuth {
 		a.source = codexAccessTokenVar + " (" + e.origin(codexAccessTokenVar) + ", a ChatGPT workspace)"
 		conflict("CODEX_ACCESS_TOKEN ("+e.origin(codexAccessTokenVar)+")", "chatgpt",
 			e.remedy(codexAccessTokenVar)+dedicated)
+		// Codex checks the token's workspace against forced_chatgpt_workspace_id and logs out when
+		// it is another one, or none; the account of a token is not something AgentRun reads.
+		if a.conflict == "" && len(a.cfg.forcedWorkspaces) > 0 {
+			a.conflict = fmt.Sprintf("codex would delete the stored login of its CODEX_HOME (%s): %s sets "+
+				"forced_chatgpt_workspace_id, and codex would use CODEX_ACCESS_TOKEN (%s), whose workspace AgentRun cannot "+
+				"check: when the token belongs to another workspace, or names none, codex logs out (removing auth.json and "+
+				"the keyring entry) and exits; %s", a.home.dir, a.cfg.workspacesIn, e.origin(codexAccessTokenVar),
+				e.remedy(codexAccessTokenVar)+dedicated)
+		}
 	case slices.ContainsFunc(codexWorkloadIdentityVars, func(k string) bool { _, ok := e.vars[k]; return ok }):
 		var k string
 		for _, k = range codexWorkloadIdentityVars {
@@ -367,7 +494,13 @@ func codexAuthOf(e codexEnvironment, withSecrets bool) codexAuth {
 		a.source = "workload identity (" + k + ", " + e.origin(k) + ", a ChatGPT workspace)"
 		a.billing = fmt.Sprintf("%s (%s) selects Codex's workload identity login (a ChatGPT workspace) instead of the "+
 			"Codex login of this machine; %s", k, e.origin(k), remedy)
-		conflict("workload identity ("+k+")", "chatgpt", remedy+dedicated)
+		// codex exec skips its login restrictions for workload identity, so nothing is deleted:
+		// it refuses to start instead.
+		if forced != "" && forced != "chatgpt" {
+			a.conflict = fmt.Sprintf("codex would refuse to start: %s sets forced_login_method = %q, but workload "+
+				"identity (%s) needs a login policy that permits ChatGPT authentication; %s", a.cfg.forcedIn,
+				a.cfg.forcedLoginMethod, k, remedy+dedicated)
+		}
 	default:
 		stored = true
 	}
@@ -380,7 +513,15 @@ func codexAuthOf(e codexEnvironment, withSecrets bool) codexAuth {
 		a.secrets, a.stamp = f.secrets, f.stamp
 	}
 
-	if a.cfg.customProvider() {
+	switch {
+	case a.cfg.customProvider() && a.cfg.requiresOpenAIAuth:
+		// The provider authenticates with Codex's own login, which decides the billing as for
+		// the built-in provider.
+		a.source += ", through model_provider " + a.cfg.modelProvider + " of config.toml"
+	case !a.cfg.customProvider() && a.cfg.openAIBaseURL != "":
+		// The built-in provider sends Codex's login to another endpoint (a gateway).
+		a.source += ", through openai_base_url " + hostOf(a.cfg.openAIBaseURL) + " of config.toml"
+	case a.cfg.customProvider():
 		// The provider decides the login and the billing; no plan is claimed.
 		via := ""
 		if a.cfg.envKey != "" {

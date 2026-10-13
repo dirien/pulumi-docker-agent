@@ -93,3 +93,54 @@ func TestModelRunner(t *testing.T) {
 			"Runner model ai/smollm2; pull it first (docker model pull ai/smollm2) or raise timeoutSeconds", err.Error())
 	})
 }
+
+// TestModelRunnerWithoutStatus: the Docker connection makes a failing `docker model status`
+// fatal, so a host without a docker CLI gets none (as before v0.2.0), and a model with a
+// base_url, or MODEL_RUNNER_HOST, never asks for the status (phase-2 review #8).
+func TestModelRunnerWithoutStatus(t *testing.T) {
+	isolation := isolateProviderEnv(t)
+	f := newFakeModels(t, providerScript)
+	run := func(t *testing.T, doc string, env map[string]string) (string, error) {
+		t.Helper()
+		var mu sync.Mutex
+		var debug []string
+		req := Request{Name: "dmr", YAML: []byte(doc), Prompt: "Say hello", Env: maps.Clone(isolation),
+			Log: func(_ slog.Level, msg string) {
+				mu.Lock()
+				defer mu.Unlock()
+				debug = append(debug, msg)
+			}}
+		maps.Copy(req.Env, env)
+		res, err := Run(t.Context(), req)
+		mu.Lock()
+		defer mu.Unlock()
+		if err == nil {
+			assert.Equal(t, "Hello from the fake: Say hello", res.Output)
+		}
+		return strings.Join(debug, "\n"), err
+	}
+	withBaseURL := "models:\n  m:\n    provider: dmr\n    model: ai/smollm2\n    base_url: " + f.URL + "/engines/v1/\n" +
+		agentWith("m")
+
+	t.Run("no docker CLI", func(t *testing.T) {
+		t.Setenv("PATH", t.TempDir())
+		debug, err := run(t, agentWith("dmr/ai/smollm2"), map[string]string{"MODEL_RUNNER_HOST": f.URL})
+		require.NoError(t, err)
+		assert.Contains(t, debug, "Docker Model Runner gets no Docker connection: the docker CLI is not on PATH")
+		_, err = run(t, withBaseURL, nil)
+		require.NoError(t, err)
+	})
+	t.Run("a failing docker model status", func(t *testing.T) {
+		dir := t.TempDir()
+		argsLog := filepath.Join(dir, "args.log")
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "docker"), []byte("#!/bin/sh\necho \"$*\" >> '"+argsLog+
+			"'\necho 'docker: unknown command: model' >&2\nexit 1\n"), 0o755)) //nolint:gosec // a test script
+		t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+		_, err := run(t, withBaseURL, nil)
+		require.NoError(t, err, "a base_url needs no status")
+		_, err = run(t, agentWith("dmr/ai/smollm2"), map[string]string{"MODEL_RUNNER_HOST": f.URL})
+		require.NoError(t, err, "nor does MODEL_RUNNER_HOST")
+		logged, _ := os.ReadFile(argsLog)
+		assert.NotContains(t, string(logged), "model status")
+	})
+}

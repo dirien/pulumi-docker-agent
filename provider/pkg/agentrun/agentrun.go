@@ -41,6 +41,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -48,8 +49,10 @@ import (
 	"github.com/docker/docker-agent/pkg/agent"
 	"github.com/docker/docker-agent/pkg/bootstrap"
 	"github.com/docker/docker-agent/pkg/chat"
+	"github.com/docker/docker-agent/pkg/chatgpt"
 	"github.com/docker/docker-agent/pkg/codingharness"
 	"github.com/docker/docker-agent/pkg/config"
+	"github.com/docker/docker-agent/pkg/config/latest"
 	"github.com/docker/docker-agent/pkg/config/sources"
 	"github.com/docker/docker-agent/pkg/environment"
 	"github.com/docker/docker-agent/pkg/harness"
@@ -167,6 +170,9 @@ type Request struct {
 	// withheldToken is set in a run child: the provider's environment has a
 	// CLAUDE_CODE_OAUTH_TOKEN that the child does not inherit (procenv.go).
 	withheldToken bool
+	// chatgptLogin is set in a run child: the ChatGPT login of docker agent setup the run may use
+	// (chatgpt.go).
+	chatgptLogin string
 	// test is what a test makes the run child do (childtest.go).
 	test *childFaults
 }
@@ -175,8 +181,12 @@ type Request struct {
 type Usage struct {
 	InputTokens  int64
 	OutputTokens int64
-	// Cost is in US dollars, as estimated by docker-agent from the models.dev catalog.
-	// It is 0 for models without known pricing (for example custom providers).
+	// Cost is in US dollars, as estimated by docker-agent from the models.dev catalog, for the
+	// usage billed per token (API keys, cloud accounts, custom endpoints with a `cost` table). It
+	// is 0 for models without known pricing (for example custom providers), and for the usage a
+	// subscription plan pays for: a chatgpt model, Claude Code with a Claude subscription login
+	// or CLAUDE_CODE_OAUTH_TOKEN, Codex with a ChatGPT login (the run's summary names the plan,
+	// with the usage's price at API rates where one is known).
 	Cost float64
 }
 
@@ -206,7 +216,8 @@ type Result struct {
 	// (for example an `env` value the model repeated), so it must be stored as a secret.
 	OutputContainsSecret bool
 
-	// costNote says why Usage.Cost is 0 when it is not the missing pricing (the summary).
+	// costNote names the subscription plans that pay for usage Usage.Cost does not count, for
+	// the summary ("billed to the ChatGPT plan"; billingNote).
 	costNote string
 }
 
@@ -292,25 +303,42 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 			req.Log(slog.LevelDebug, names.hide(redact(msg, secrets)))
 		}
 	}
+	// The ChatGPT login the parent planned for, which the run copies when it asks for it.
+	var login *chatgptSource
+	if req.chatgptLogin != "" {
+		login = newChatGPTSource(req.chatgptLogin, stateRoot, debug, info.addSecrets)
+	}
 	// What run started is stopped after ended (and before stopLog: the teardown's records still
 	// reach the run's log).
 	var td teardown
 	defer td.run()
 	res, err := run(ctx, req, runSetup{req.ToolApproval, req.Timeout, req.WorkingDir, secrets, info, warn, debug, timed,
-		&td}, prog)
-	// The secrets found during the run (the tokens of a codex login) are secrets of its result.
+		&td, login}, prog)
+	// The secrets found during the run (the tokens of a codex login, a refreshed ChatGPT login)
+	// are secrets of its result.
 	secrets = append(secrets, info.extraSecrets()...)
 	harnessWarnings := reportHarness(info, prog)
 	if err != nil {
 		for _, w := range harnessWarnings {
 			warn(w)
 		}
-		msg := names.hide(redact(err.Error(), secrets))
-		if mce, ok := errors.AsType[*MissingCredentialsError](err); ok {
-			ended(nil, &MissingCredentialsError{Variables: mce.Variables, msg: msg})
-			return
+		text := err.Error()
+		rf, failed := errors.AsType[*runFailure](err)
+		// The ChatGPT login's hints concern the agents' own models, not a coding-harness CLI.
+		if !failed {
+			text = joinHints(text, nonEmpty(login.errorHint(text, "")))
+		} else if rf.inProcess != "" {
+			text = joinHints(text, nonEmpty(login.errorHint(rf.inProcess, rf.chatgpt)))
 		}
-		ended(nil, errors.New(msg))
+		msg := names.hide(redact(text, secrets))
+		switch mce, ok := errors.AsType[*MissingCredentialsError](err); {
+		case ok:
+			ended(nil, &MissingCredentialsError{Variables: mce.Variables, msg: msg})
+		case failed:
+			ended(nil, &runFailure{msg: msg, inProcess: names.hide(redact(rf.inProcess, secrets))})
+		default:
+			ended(nil, errors.New(msg))
+		}
 		return
 	}
 	res.Warnings = append(res.Warnings, harnessWarnings...)
@@ -413,6 +441,28 @@ type runSetup struct {
 	timed func()
 	// teardown gets what run stops after the conversation; nil stops it when run returns.
 	teardown *teardown
+	// login serves the ChatGPT login of docker agent setup (chatgpt.go); nil when the run uses
+	// none.
+	login *chatgptSource
+}
+
+// runFailure is the error of a run whose conversation failed. inProcess is what the agents'
+// own models reported, "" when only coding-harness CLIs failed (docker-agent's "harness <type>
+// failed: ..."): the hints about the models' credentials and endpoints concern only that part.
+// chatgpt is what the agents with a chatgpt model reported.
+type runFailure struct{ msg, inProcess, chatgpt string }
+
+func (e *runFailure) Error() string { return e.msg }
+
+// harnessError matches docker-agent's error of a coding-harness CLI (runtime/harness.go).
+var harnessError = regexp.MustCompile(`^harness [A-Za-z0-9_-]+ failed: `)
+
+// nonEmpty returns s as a list of at most one hint.
+func nonEmpty(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return []string{s}
 }
 
 // teardown is what a run stops after its conversation, in the reverse order of add: the
@@ -474,9 +524,13 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 		cfg = nil
 	}
 
-	// A configuration that names a chatgpt model also resolves CHATGPT_OAUTH_TOKEN from the
-	// ChatGPT login the parent copied into the run's config directory (chatgpt.go).
-	env := chatgptEnv(envProvider(req), cfg != nil && namesChatGPT(cfg))
+	// A run that may use a chatgpt model also resolves CHATGPT_OAUTH_TOKEN from the ChatGPT login
+	// of docker agent setup, which it copies into its config directory when it asks for it
+	// (chatgpt.go).
+	env := envProvider(req)
+	if rs.login != nil {
+		env = environment.NewMultiProvider(env, rs.login)
+	}
 	runConfig := &config.RuntimeConfig{
 		Config:              config.Config{WorkingDir: workingDir},
 		EnvProviderOverride: env,
@@ -519,7 +573,7 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 			}
 			return nil, fmt.Errorf("the agent did not finish within %s (timeoutSeconds)", timeout)
 		}
-		return nil, describeLoadError(err, req)
+		return nil, describeLoadError(ctx, err, req, cfg, env)
 	}
 	t := loaded.Team
 	rs.teardown.add(func() { stopToolSets(ctx, t) })
@@ -618,12 +672,16 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 		return nil, fmt.Errorf("the agent run was canceled: %w", err)
 	}
 	if len(col.errors) > 0 {
-		msg := strings.Join(slices.Compact(col.errors), "; ")
-		if line := models.line(req.HideNames); line != "" && isAuthFailure(msg) {
+		errs := slices.Compact(col.errors)
+		msg := strings.Join(errs, "; ")
+		// The errors of the agents' own models, without those of coding-harness CLIs.
+		inProcess := strings.Join(slices.DeleteFunc(slices.Clone(errs), harnessError.MatchString), "; ")
+		if line := models.line(req.HideNames); line != "" && isAuthFailure(inProcess) {
 			// Which credentials the rejected requests carried (never their values).
 			msg += "; the run's " + line
 		}
-		return nil, fmt.Errorf("the agent run failed: %s", msg)
+		return nil, &runFailure{msg: "the agent run failed: " + msg, inProcess: inProcess,
+			chatgpt: strings.Join(col.errorsOf(chatgptAgents(t)), "; ")}
 	}
 	if col.stopReason != "" && col.stopReason != runtime.TurnEndReasonNormal {
 		return nil, fmt.Errorf("the agent stopped without a final answer (%s)", strings.ReplaceAll(col.stopReason, "_", " "))
@@ -662,10 +720,13 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	}
 
 	res.Usage = usageOf(sess)
-	// Codex reports no cost: its turns add an estimate at API prices (harness_codex.go).
+	// Only usage billed per token counts. Codex reports no cost: its turns with a login billed
+	// per token add an estimate at API prices (harness_codex.go). A plan's usage (chatgpt models,
+	// a Claude subscription, a ChatGPT login of Codex) is named in the summary instead.
 	res.Usage.Cost += rs.harness.codexCost()
-	if models.chatgptOnly() {
-		res.costNote = "billed to the ChatGPT plan"
+	res.costNote = billingNote(chatgptAnswered(cfg, sess), rs.harness.plans())
+	if w := rs.login.unusedWarning(models.line(req.HideNames)); w != "" {
+		res.Warnings = append(res.Warnings, w)
 	}
 	res.ToolCalls = col.toolNames()
 	for _, r := range col.rejected {
@@ -711,8 +772,9 @@ var enabledFeatures = []config.Feature{
 
 // describeLoadError explains a configuration the loader rejected. Run reports coding-harness
 // agents that cannot run before it loads the configuration (see harnessAgents.problems);
-// this covers what the loader still finds.
-func describeLoadError(err error, req Request) error {
+// this covers what the loader still finds. cfg is the loaded configuration (nil when it did
+// not load), env the run's environment chain.
+func describeLoadError(ctx context.Context, err error, req Request, cfg *latest.Config, env environment.Provider) error {
 	var ue *config.UnsupportedError
 	if errors.As(err, &ue) {
 		for _, f := range ue.Features {
@@ -731,7 +793,7 @@ func describeLoadError(err error, req Request) error {
 	if e := describeMissingCredentials(err, req.InheritEnvironment); e != nil {
 		return e
 	}
-	if e := describeAutoError(err, req.InheritEnvironment); e != nil {
+	if e := describeAutoError(ctx, err, req, cfg, env); e != nil {
 		return e
 	}
 	return fmt.Errorf("loading the agent configuration: %w", err)
@@ -831,15 +893,48 @@ type collector struct {
 	toolCalls   []toolCall
 	rejected    []rejection
 	errors      []string
-	warnings    []string
-	stopReason  string
+	// errorAgents are the agents of errors: the agent that last ran in the error's session.
+	errorAgents  []string
+	sessionAgent map[string]string
+	warnings     []string
+	stopReason   string
+}
+
+// errorsOf returns the errors of the agents of names, without those of coding-harness CLIs.
+func (c *collector) errorsOf(names []string) []string {
+	var out []string
+	for i, e := range c.errors {
+		if slices.Contains(names, c.errorAgents[i]) && !harnessError.MatchString(e) && !slices.Contains(out, e) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// chatgptAgents returns the agents of a team that have a chatgpt model (also as a fallback).
+func chatgptAgents(t *team.Team) []string {
+	var out []string
+	for _, a := range teamAgents(t) {
+		for _, m := range slices.Concat(a.ConfiguredModels(), a.FallbackModels()) {
+			if m.BaseConfig().ModelConfig.Provider == chatgpt.ProviderName {
+				out = append(out, a.Name())
+				break
+			}
+		}
+	}
+	return out
 }
 
 func newCollector(rootSession string) *collector {
-	return &collector{rootSession: rootSession}
+	return &collector{rootSession: rootSession, sessionAgent: map[string]string{}}
 }
 
 func (c *collector) observe(ev runtime.Event) {
+	if a, ok := ev.(interface{ GetAgentName() string }); ok && a.GetAgentName() != "" {
+		if s, ok := ev.(interface{ GetSessionID() string }); ok {
+			c.sessionAgent[cmp.Or(s.GetSessionID(), c.rootSession)] = a.GetAgentName()
+		}
+	}
 	switch e := ev.(type) {
 	case *runtime.ToolCallEvent:
 		// Emitted when a tool actually runs (after approval).
@@ -858,6 +953,7 @@ func (c *collector) observe(ev runtime.Event) {
 	case *runtime.ErrorEvent:
 		if e.Error != "" {
 			c.errors = append(c.errors, e.Error)
+			c.errorAgents = append(c.errorAgents, c.sessionAgent[cmp.Or(e.SessionID, c.rootSession)])
 		}
 	case *runtime.WarningEvent:
 		if e.Message != "" {

@@ -336,11 +336,13 @@ func TestHarnessCodex(t *testing.T) {
 	assert.Equal(t, "root", res.AgentName)
 	assert.Equal(t, []string{"Bash", "mcp__docs__search", "web_search", "apply_patch"}, res.ToolCalls)
 	assert.Empty(t, res.RejectedToolCalls)
-	// Codex's input_tokens includes the cached tokens; the cost is the API-price estimate of
-	// gpt-6.1-sol (2, 0.1 and 10 USD per 1M fresh input, cached input and output tokens).
+	// Codex's input_tokens includes the cached tokens. A ChatGPT plan pays for the turn: no
+	// per-token cost; the summary names the plan with the API-price estimate of gpt-6.1-sol (2,
+	// 0.1 and 10 USD per 1M fresh input, cached input and output tokens).
 	assert.Equal(t, int64(24763), res.Usage.InputTokens)
 	assert.Equal(t, int64(122), res.Usage.OutputTokens)
-	assert.InDelta(t, (315*2+24448*0.1+122*10)/1e6, res.Usage.Cost, 1e-9)
+	assert.Zero(t, res.Usage.Cost, "a ChatGPT plan bills no per-token cost")
+	price := fmt.Sprintf("$%.4f", (315*2+24448*0.1+122*10)/1e6)
 	assert.False(t, res.HasStructuredOutput)
 	assert.Empty(t, res.Warnings)
 
@@ -364,8 +366,10 @@ func TestHarnessCodex(t *testing.T) {
 
 	record := "codex 0.162.1 (gpt-6.1-sol), sandbox workspace-write, auth the ChatGPT login of this machine (" +
 		filepath.Join(f.home, "auth.json") + ", plan plus), CODEX_HOME " + f.home + ", thread " + fakeCodexThread +
-		", cost an API-price estimate (a ChatGPT plan bills no per-token cost)"
+		", billed to the ChatGPT plan, not per token (API price about " + price + ")"
 	assert.Contains(t, rec.persistent, record)
+	assert.Contains(t, rec.persistent[len(rec.persistent)-1], "; no per-token cost: billed to the ChatGPT plan (API "+
+		"price about "+price+")")
 	all := strings.Join(append(rec.persistent, rec.status...), "\n")
 	assert.NotContains(t, all, fakeCodexEmail, "never the login's e-mail address")
 	assert.NotContains(t, all, fakeCodexAccount, "nor its account")
@@ -669,15 +673,18 @@ func TestHarnessCodexEnvironment(t *testing.T) {
 func TestCodexEnvironment(t *testing.T) {
 	environ := []string{"PATH=/bin", "HOME=/home/u", "SECRET_THING=x", "CODEX_THREAD_ID=t", "CODEX_HOME=/c",
 		"CODEX_MANAGED_BY_NPM=1", "CODEX_ESCALATE_SOCKET=3", "EXEC_WRAPPER=/w", "CODEX_API_KEY=inherited", "RUST_LOG=trace",
-		"HTTPS_PROXY=http://p", "CODEX_CA_CERTIFICATE=/ca.pem", "CLAUDECODE=1", "PWD=/elsewhere", "=C:=C:\\",
+		"HTTPS_PROXY=http://p", "CODEX_CA_CERTIFICATE=/ca.pem", "CLAUDECODE=1", "CLAUDE_CODE_SESSION_ID=s",
+		"TRACEPARENT=00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01", "TRACESTATE=k=v", "PWD=/elsewhere", "=C:=C:\\",
 		childCookieVar + "=c1", runCookieVar + "=c2"}
 
 	e := newCodexEnvironment(environ, map[string]string{"A": "1"}, true, "/work")
 	assert.Equal(t, "x", e.vars["SECRET_THING"])
-	for _, k := range []string{"CODEX_THREAD_ID", "CODEX_MANAGED_BY_NPM", "CODEX_ESCALATE_SOCKET", "EXEC_WRAPPER", "RUST_LOG"} {
+	// A parent Codex or Claude Code session's markers and its trace context are dropped (codex
+	// review #7): Codex continues a TRACEPARENT and forwards it to OpenAI.
+	for _, k := range []string{"CODEX_THREAD_ID", "CODEX_MANAGED_BY_NPM", "CODEX_ESCALATE_SOCKET", "EXEC_WRAPPER", "RUST_LOG",
+		"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "TRACEPARENT", "TRACESTATE"} {
 		assert.NotContains(t, e.vars, k)
 	}
-	assert.Equal(t, "1", e.vars["CLAUDECODE"], "a Claude Code marker does not change Codex")
 	assert.Equal(t, "/work", e.vars["PWD"])
 	assert.Equal(t, "inherited", e.vars[codexAPIKeyVar])
 	assert.Equal(t, "inherited from the environment of the Pulumi CLI", e.origin(codexAPIKeyVar))
@@ -838,6 +845,73 @@ env_key = "OLLAMA_KEY"
 		assert.Contains(t, a.billing, `codex uses model_provider "ollama" of its config.toml`)
 		assert.Contains(t, a.billed, "which bills that provider, not a ChatGPT plan")
 	})
+	t.Run("forced_chatgpt_workspace_id", func(t *testing.T) {
+		for _, value := range []string{`"ws-A"`, `["ws-A", "ws-B"]`} {
+			dir := home(t, map[string]string{"config.toml": "forced_chatgpt_workspace_id = " + value + "\n",
+				"auth.json": chatgptAuthJSON("plus")})
+			a := auth(dir, map[string]string{codexAccessTokenVar: "at-0123456789"})
+			assert.Equal(t, "codex would delete the stored login of its CODEX_HOME ("+dir+"): "+
+				filepath.Join(dir, "config.toml")+" sets forced_chatgpt_workspace_id, and codex would use CODEX_ACCESS_TOKEN "+
+				"(from env), whose workspace AgentRun cannot check: when the token belongs to another workspace, or names "+
+				"none, codex logs out (removing auth.json and the keyring entry) and exits; remove it from env to use the "+
+				"Codex login of the machine, or give AgentRun a CODEX_HOME of its own (env: {CODEX_HOME: ...}) with its own "+
+				"codex login", a.conflict, value)
+			assert.Empty(t, auth(dir, map[string]string{codexAPIKeyVar: fakeCodexAPIKey}).conflict, "an API key has no workspace")
+			assert.Empty(t, auth(dir, nil).conflict, "the stored login is the user's own")
+			assert.Empty(t, auth(dir, map[string]string{"OPENAI_IDENTITY_TOKEN_FILE": "/t"}).conflict,
+				"codex exec does not check workload identity")
+		}
+	})
+	t.Run("workload identity under forced_login_method api", func(t *testing.T) {
+		dir := home(t, map[string]string{"config.toml": "forced_login_method = \"api\"\n",
+			"auth.json": chatgptAuthJSON("plus")})
+		a := auth(dir, map[string]string{"OPENAI_IDENTITY_TOKEN_FILE": "/var/run/token"})
+		assert.Equal(t, "codex would refuse to start: "+filepath.Join(dir, "config.toml")+" sets forced_login_method = "+
+			"\"api\", but workload identity (OPENAI_IDENTITY_TOKEN_FILE) needs a login policy that permits ChatGPT "+
+			"authentication; remove it from env to use the Codex login of the machine, or give AgentRun a CODEX_HOME of its "+
+			"own (env: {CODEX_HOME: ...}) with its own codex login", a.conflict)
+		assert.NotContains(t, a.conflict, "delete", "codex deletes nothing then")
+	})
+	t.Run("gateways that keep Codex's login", func(t *testing.T) {
+		dir := home(t, map[string]string{"auth.json": chatgptAuthJSON("plus"), "config.toml": `model_provider = "proxy"
+
+[model_providers.proxy]
+name = "Proxy"
+base_url = "https://proxy.example/v1"
+requires_openai_auth = true
+`})
+		a := auth(dir, nil)
+		assert.Equal(t, "the ChatGPT login of this machine ("+filepath.Join(dir, "auth.json")+", plan plus), through "+
+			"model_provider proxy of config.toml", a.source)
+		assert.Empty(t, a.billing+a.billed, "the login decides the billing")
+		assert.Equal(t, "plus", a.plan)
+
+		dir = home(t, map[string]string{"auth.json": chatgptAuthJSON("plus"),
+			"config.toml": "openai_base_url = \"https://gw.example/v1/openai\"\n"})
+		a = auth(dir, nil)
+		assert.Equal(t, "the ChatGPT login of this machine ("+filepath.Join(dir, "auth.json")+", plan plus), through "+
+			"openai_base_url https://gw.example of config.toml", a.source)
+		assert.Empty(t, a.billing+a.billed)
+	})
+	t.Run("a trusted project's .codex/config.toml", func(t *testing.T) {
+		project := t.TempDir()
+		work := filepath.Join(project, "sub")
+		require.NoError(t, os.MkdirAll(filepath.Join(work, ".codex"), 0o700))
+		require.NoError(t, os.Mkdir(filepath.Join(project, ".git"), 0o700))
+		require.NoError(t, os.WriteFile(filepath.Join(work, ".codex", "config.toml"), []byte("model = \"gpt-6.2-sol\"\n"+
+			"service_tier = \"flex\"\nmodel_provider = \"evil\"\nopenai_base_url = \"https://evil.example\"\n"), 0o600))
+		of := func(cfg string) codexConfig {
+			dir := home(t, map[string]string{"auth.json": chatgptAuthJSON("plus"), "config.toml": cfg})
+			return codexAuthOf(newCodexEnvironment([]string{"CODEX_HOME=" + dir}, nil, true, work), false).cfg
+		}
+		c := of("model = \"gpt-6.1-sol\"\n")
+		assert.Equal(t, "gpt-6.1-sol", c.model, "an untrusted project is not read")
+		c = of("model = \"gpt-6.1-sol\"\n\n[projects.\"" + project + "\"]\ntrust_level = \"trusted\"\n")
+		assert.Equal(t, "gpt-6.2-sol", c.model, "the project layer is above the user's")
+		assert.Equal(t, "flex", c.serviceTier)
+		assert.Empty(t, c.modelProvider, "a project cannot choose where the login goes")
+		assert.Empty(t, c.openAIBaseURL)
+	})
 	t.Run("an invalid config.toml", func(t *testing.T) {
 		a := auth(home(t, map[string]string{"config.toml": "model = [", "auth.json": chatgptAuthJSON("plus")}), nil)
 		assert.Len(t, a.cfg.problems, 1)
@@ -967,14 +1041,32 @@ func TestHarnessCodexSandboxCheck(t *testing.T) {
 		start := time.Now()
 		_, err := Run(t.Context(), f.request("Write NOTES.md"))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "codex's sandbox cannot start on this machine (codex "+
-			`--config=sandbox_mode="workspace-write" sandbox -- true did not finish within 1s)`)
+		assert.Contains(t, err.Error(), `the check of codex's sandbox (codex --config=sandbox_mode="workspace-write" `+
+			`sandbox -- true) failed (codex --config=sandbox_mode="workspace-write" sandbox -- true did not finish within `+
+			`1s), which does not say that the sandbox cannot start`)
+		assert.NotContains(t, err.Error(), codexSandboxAdvice)
 		assert.Less(t, time.Since(start), 10*time.Second)
 		sleeper := waitPID(t, f.pidfile)
 		killAtCleanup(t, sleeper)
 		assert.Eventually(t, func() bool { return gone(sleeper) }, 3*time.Second, 20*time.Millisecond,
 			"the check's process is stopped")
 	})
+}
+
+// TestHarnessCodexBrokenCheck: a codex that fails its sandbox check for another reason (a
+// config.toml it rejects) gets no sandbox advice (codex review #3).
+func TestHarnessCodexBrokenCheck(t *testing.T) {
+	f := useFakeCodex(t)
+	t.Setenv("FAKE_CODEX_SANDBOX", "broken")
+	_, err := Run(t.Context(), f.request("Write NOTES.md"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "harness codex failed: the check of codex's sandbox (codex "+
+		`--config=sandbox_mode="workspace-write" sandbox -- true) failed (Error loading config.toml: unknown variant `+
+		"`full-auto`, expected one of `read-only`, `workspace-write`), which does not say that the sandbox cannot start: "+
+		"under toolApproval deny AgentRun runs it before the first codex turn; run it yourself as the user that runs "+
+		"pulumi up (it needs no login and calls no model) and fix what it reports")
+	assert.NotContains(t, err.Error(), codexSandboxAdvice)
+	assert.NotContains(t, f.kinds(), "exec")
 }
 
 func TestHarnessCodexVersion(t *testing.T) {
@@ -986,17 +1078,22 @@ func TestHarnessCodexVersion(t *testing.T) {
 		"changes the arguments and events of codex exec often: if codex agents misbehave, install Codex 0.162 or a " +
 		"pulumi-docker-agent release tested with yours"}, res.Warnings)
 
+	// A codex that cannot print its version does not run (a broken install): no sandbox check,
+	// no sandbox advice, no turn (codex review #3).
 	t.Setenv("FAKE_CODEX_VERSION", "")
 	t.Setenv("FAKE_CODEX_VERSION_FAIL", "1")
-	var rec records
-	req := f.request("Write NOTES.md")
-	req.Progress = rec.progress
-	res, err = Run(t.Context(), req)
-	require.NoError(t, err, "an unknown version does not fail the run")
-	assert.Empty(t, res.Warnings)
-	assert.True(t, slices.ContainsFunc(rec.persistent, func(s string) bool {
-		return strings.HasPrefix(s, "codex of unknown version (gpt-6.1-sol), sandbox workspace-write")
-	}), "%v", rec.persistent)
+	before := len(f.entries())
+	_, err = Run(t.Context(), f.request("Write NOTES.md"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "harness codex failed: the codex CLI does not run (error: the version is not known): "+
+		"reinstall Codex (npm i -g @openai/codex, or brew install codex) on the machine that runs pulumi up, or set PATH "+
+		"in env to a codex that runs; codex --version must print its version")
+	assert.NotContains(t, err.Error(), codexSandboxAdvice)
+	var kinds []string
+	for _, e := range f.entries()[before:] {
+		kinds = append(kinds, e.get("kind"))
+	}
+	assert.Equal(t, []string{"version"}, kinds)
 
 	assert.Equal(t, "0.162.1", parseCodexVersion("codex-cli 0.162.1\n"))
 	assert.Equal(t, "", parseCodexVersion("codex-cli\n"))
@@ -1025,7 +1122,7 @@ func TestHarnessCodexInfoLine(t *testing.T) {
 	persistent = run(req)
 	assert.True(t, slices.ContainsFunc(persistent, func(s string) bool {
 		return strings.HasPrefix(s, "codex 0.162.1 (its default model), ") &&
-			strings.Contains(s, ", cost unknown (Codex reports none, and the model is not in the catalog)")
+			strings.Contains(s, ", cost unknown (Codex's default model is not known)")
 	}), "%v", persistent)
 	inv := f.execs(t)
 	assert.NotContains(t, strings.Join(inv[len(inv)-1]["arg"], " "), "--model")
@@ -1037,9 +1134,37 @@ func TestHarnessCodexInfoLine(t *testing.T) {
 		return strings.HasPrefix(s, "codex 0.162.1 (gpt-6.1-sol), ")
 	}), "%v", persistent)
 
+	// A model the catalog does not know.
+	req.YAML = []byte("agents:\n  root:\n    harness:\n      type: codex\n      model: gpt-0-nope\n")
+	persistent = run(req)
+	assert.True(t, slices.ContainsFunc(persistent, func(s string) bool {
+		return strings.Contains(s, ", cost unknown (Codex reports none, and the model is not in the catalog)")
+	}), "%v", persistent)
+
 	req = f.request("Write NOTES.md")
 	req.Logging = LoggingNone
 	assert.Empty(t, run(req))
+}
+
+// TestHarnessCodexPerTokenCost: a login billed per token (CODEX_API_KEY) counts Codex's turns at
+// API prices in usage.cost (codex review #1).
+func TestHarnessCodexPerTokenCost(t *testing.T) {
+	f := useFakeCodex(t)
+	var rec records
+	req := f.request("Write NOTES.md")
+	req.Env = map[string]string{codexAPIKeyVar: fakeCodexAPIKey}
+	req.Progress = rec.progress
+	res, err := Run(t.Context(), req)
+	require.NoError(t, err)
+	cost := (315*2 + 24448*0.1 + 122*10) / 1e6
+	assert.InDelta(t, cost, res.Usage.Cost, 1e-9)
+	assert.True(t, slices.ContainsFunc(rec.persistent, func(s string) bool {
+		return strings.HasPrefix(s, "codex 0.162.1 (gpt-6.1-sol), sandbox workspace-write, auth CODEX_API_KEY (from env)") &&
+			strings.HasSuffix(s, ", cost an API-price estimate")
+	}), "%v", rec.persistent)
+	summary := rec.persistent[len(rec.persistent)-1]
+	assert.Contains(t, summary, fmt.Sprintf("; estimated cost $%.4f", cost))
+	assert.NotContains(t, summary, "billed to")
 }
 
 func TestCodexUsageAndCost(t *testing.T) {
@@ -1365,8 +1490,13 @@ func TestHarnessCodexMixed(t *testing.T) {
 	assert.Contains(t, fc.invocations(t)[0].get("stdin"), "Review NOTES.md", "and claude")
 	assert.True(t, slices.ContainsFunc(rec.persistent, func(s string) bool { return strings.HasPrefix(s, "codex 0.162.1 ") }))
 	assert.True(t, slices.ContainsFunc(rec.persistent, func(s string) bool { return strings.HasPrefix(s, "claude-code 2.1.283 ") }))
-	// The usage of all three: the root's, Codex's and Claude Code's.
+	// The usage of all three: the root's, Codex's and Claude Code's. Each part is counted by its
+	// own billing (codex review #1): the root's model has no price, a ChatGPT plan pays for
+	// Codex, the Claude subscription for Claude Code, and the summary names both plans.
 	assert.GreaterOrEqual(t, res.Usage.InputTokens, int64(24763+15040))
+	assert.Zero(t, res.Usage.Cost)
+	assert.Contains(t, rec.persistent[len(rec.persistent)-1], fmt.Sprintf("; no per-token cost: billed to the ChatGPT "+
+		"plan (API price about $%.4f) and the Claude subscription (API price about $0.0123)", (315*2+24448*0.1+122*10)/1e6))
 
 	// The preview names each harness in its own terms.
 	doc := []byte(agentYAML(srv, body))
@@ -1382,6 +1512,47 @@ func TestHarnessCodexMixed(t *testing.T) {
 	assert.Equal(t, []string{"coding-harness agents (agents.coder.harness: codex, agents.reviewer.harness: claude-code) " +
 		"run only with allowHarnessAgents: true: they start an external coding agent CLI that runs its own tools without " +
 		"docker-agent's tool approval"}, problems)
+}
+
+// TestHarnessCodexFailureHints: the hints about the models' credentials and endpoints concern
+// the agents' own models, not a coding-harness CLI that failed (codex review #5).
+func TestHarnessCodexFailureHints(t *testing.T) {
+	f := useFakeCodex(t)
+	srv := fakeopenai.New(func(fakeopenai.Request) fakeopenai.Reply { return fakeopenai.Reply{Content: "unused"} })
+	defer srv.Close()
+	// The root is Codex; another agent has an in-process model, which the run never calls.
+	body := `agents:
+  root:
+    description: Writes notes with Codex
+    harness:
+      type: codex
+      model: gpt-6.1-sol
+  helper:
+    model: m
+    instruction: You help.
+`
+	t.Setenv("FAKE_CODEX_MODE", "incomplete")
+	t.Setenv("FAKE_CODEX_STDERR", "unexpected status 401 Unauthorized")
+	req := request(srv, body, "Write the notes")
+	req.AllowHarnessAgents, req.InheritEnvironment = true, true
+	_, err := Run(t.Context(), req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "harness codex failed: codex ended without completing its turn: unexpected status "+
+		"401 Unauthorized; "+codexAuthHint, "Codex's own hint")
+	assert.NotContains(t, err.Error(), "the run's models:", "not the credentials of the other agents")
+	assert.NotContains(t, err.Error(), chatgptRaceHint)
+	assert.NotEmpty(t, f.execs(t))
+
+	// The parent's notes about the models' SDK variables (inheritEnvironment false) are left out
+	// when only coding-harness CLIs failed.
+	t.Setenv("OPENAI_ORG_ID", "org-of-the-cli")
+	req.InheritEnvironment = false
+	msg := "the agent run failed: harness codex failed: codex ended without completing its turn: 401 Unauthorized"
+	assert.Contains(t, parentErrorHints(t.Context(), req, msg, nil, false), "OPENAI_ORG_ID is set in the environment of "+
+		"the Pulumi CLI")
+	assert.Equal(t, msg, parentErrorHints(t.Context(), req, msg, nil, true))
+	assert.True(t, endMessage(nil, &runFailure{msg: msg}).HarnessOnly)
+	assert.False(t, endMessage(nil, &runFailure{msg: msg, inProcess: "model failed: 401"}).HarnessOnly)
 }
 
 func TestHarnessCodexAnnounce(t *testing.T) {
