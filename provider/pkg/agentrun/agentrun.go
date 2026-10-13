@@ -9,9 +9,14 @@
 //   - every run gets a private, empty docker-agent data, config and cache directory
 //     (paths.SetRoot), so ~/.cagent, ~/.config/cagent (user settings, aliases, global
 //     providers, the .env file, hook drop-ins, the credential helper) and ~/.cache/cagent
-//     are never read or written. The directory is removed when the run ends;
+//     are never read or written. The directory is removed when the run ends. The one
+//     exception is the ChatGPT login of docker agent setup (chatgpt-auth.json), which a
+//     configuration that names a chatgpt model uses: it is copied in, and a login the run
+//     refreshed is written back (chatgpt.go);
 //   - credentials and ${env.NAME} references resolve from Request.Env and, when
-//     Request.InheritEnvironment is set, the provider process environment only. The model
+//     Request.InheritEnvironment is set, the provider process environment only (and
+//     CHATGPT_OAUTH_TOKEN from that ChatGPT login). DOCKER_AGENT_DEFAULT_MODEL selects model
+//     auto's model, as with docker agent run; a Docker models gateway is never used. The model
 //     SDKs, which read the process environment themselves, see the same: the run child's
 //     environment is Request.Env over the provider's environment, or over a base environment
 //     without credentials (see childenv.go). The processes the configuration starts do not
@@ -143,9 +148,10 @@ type Request struct {
 	// Without it, a configuration with a harness agent fails.
 	AllowHarnessAgents bool
 	// AnnounceHarness reports CheckConfig's warnings about running claude-code agents (no
-	// tool approval, the credentials Claude Code would bill) through Warn when the run
-	// starts. It is for runs whose configuration no preview checked: a `reference`, or a
-	// run when the resource is deleted.
+	// tool approval, the credentials Claude Code would bill) and CheckModels' warnings about
+	// the models (missing credentials, variables of the environment that do or no longer reach
+	// the model SDKs) through Warn when the run starts. It is for runs whose configuration no
+	// preview checked: a `reference`, or a run when the resource is deleted.
 	AnnounceHarness bool
 	// Warn receives warnings while the run is in progress, redacted: those of
 	// AnnounceHarness, and, when the run fails, that Claude Code billed API credentials and
@@ -198,6 +204,9 @@ type Result struct {
 	// OutputContainsSecret reports that Output contains a value of the redaction set
 	// (for example an `env` value the model repeated), so it must be stored as a secret.
 	OutputContainsSecret bool
+
+	// costNote says why Usage.Cost is 0 when it is not the missing pricing (the summary).
+	costNote string
 }
 
 // runSlot serializes runs. Waiting for it honours cancellation.
@@ -257,7 +266,7 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 // runRequest runs the request in the run child (child.go), in the state root and the working
 // directory the parent created. The parent redacts what it returns again, adds its own check
 // whether the answer is secret, and reports the summary. timed is called when the run's
-// timeout starts (once the configuration is loaded).
+// timeout starts (before the configuration is loaded: loading can pull a model).
 func runRequest(ctx context.Context, req Request, stateRoot string, timed func()) (*Result, error) {
 	secrets := redactionSet(req)
 	// docker-agent logs to slog: keep its records (which can quote API errors) off stderr.
@@ -285,7 +294,11 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 		for _, w := range harnessWarnings {
 			warn(w)
 		}
-		return nil, errors.New(redact(names.hide(err.Error()), secrets))
+		msg := redact(names.hide(err.Error()), secrets)
+		if mce, ok := errors.AsType[*MissingCredentialsError](err); ok {
+			return nil, &MissingCredentialsError{Variables: mce.Variables, msg: msg}
+		}
+		return nil, errors.New(msg)
 	}
 	res.Warnings = append(res.Warnings, harnessWarnings...)
 	for i, w := range res.Warnings {
@@ -383,14 +396,6 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	// Remote MCP servers get a token store private to this run.
 	ctx = mcp.WithOAuthTokenStore(ctx, mcp.NewInMemoryTokenStore())
 
-	runConfig := &config.RuntimeConfig{
-		Config:              config.Config{WorkingDir: workingDir},
-		EnvProviderOverride: envProvider(req),
-		// The catalog embedded in docker-agent: model aliases, context windows and
-		// pricing without a network lookup or a cache file.
-		ModelsDevStoreOverride: modelsdev.NewDatabaseStore(modelsdev.EmbeddedSnapshot()),
-	}
-
 	name := req.Name
 	if name == "" {
 		name = "agent"
@@ -401,7 +406,9 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	// the configuration itself are the loader's.
 	harnessEnv := claudeEnv(req, workingDir)
 	rs.harness.setNoKey(harnessEnv.noKeySource())
-	if cfg, err := config.Load(ctx, source); err == nil {
+	// cfg describes the run's models (runinfo.go); nil when the configuration does not load.
+	cfg, err := config.Load(ctx, source)
+	if err == nil {
 		agents := harnessAgentsOf(cfg)
 		if problems := agents.problems(req.AllowHarnessAgents, req.HideNames); len(problems) > 0 {
 			return nil, errors.New(strings.Join(problems, "; "))
@@ -411,7 +418,23 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 				rs.warn(w)
 			}
 		}
+	} else {
+		cfg = nil
 	}
+
+	// A configuration that names a chatgpt model also resolves CHATGPT_OAUTH_TOKEN from the
+	// ChatGPT login the parent copied into the run's config directory (chatgpt.go).
+	env := chatgptEnv(envProvider(req), cfg != nil && namesChatGPT(cfg))
+	runConfig := &config.RuntimeConfig{
+		Config:              config.Config{WorkingDir: workingDir},
+		EnvProviderOverride: env,
+		// The catalog embedded in docker-agent: model aliases, context windows and
+		// pricing without a network lookup or a cache file.
+		ModelsDevStoreOverride: modelsdev.NewDatabaseStore(modelsdev.EmbeddedSnapshot()),
+	}
+	// model auto honours DOCKER_AGENT_DEFAULT_MODEL (or CAGENT_DEFAULT_MODEL) of the run's
+	// environment, as docker agent run does.
+	runConfig.DefaultModel, _ = defaultModel(ctx, env)
 	// Harness agents run through AgentRun's own runner, never through a driver registered
 	// globally with runtime.RegisterHarness.
 	var harnessFactory harness.Factory
@@ -420,10 +443,31 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 			debug: rs.debug})
 	}
 
+	// timeoutSeconds bounds the run from here: loading the configuration (which pulls a missing
+	// Docker Model Runner model and starts MCP servers) and the conversation. Deferred first, the
+	// timeout is canceled only after the toolsets stopped: processes bound to it would be killed.
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	if rs.timed != nil {
+		rs.timed()
+	}
+	pulls := &pullOutput{debug: rs.debug, started: func(model string) {
+		if prog.at(LoggingStatus) {
+			prog.record("pulling the Docker Model Runner model %s (within timeoutSeconds)", prog.name(model, "a model"))
+		}
+	}}
+	runCtx = withModelRunner(runCtx, pulls, rs.debug)
+
 	policy := &approvalPolicy{}
-	loaded, err := teamloader.LoadWithConfig(ctx, source, runConfig, loaderOpts(req, policy)...)
+	loaded, err := teamloader.LoadWithConfig(runCtx, source, runConfig, loaderOpts(req, policy)...)
 	if err != nil {
-		return nil, describeLoadError(err)
+		if errors.Is(runCtx.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
+			if model := pulls.pulling(); model != "" {
+				return nil, pullTimeoutError(model, timeout)
+			}
+			return nil, fmt.Errorf("the agent did not finish within %s (timeoutSeconds)", timeout)
+		}
+		return nil, describeLoadError(err, req)
 	}
 	t := loaded.Team
 	defer stopToolSets(ctx, t)
@@ -447,6 +491,15 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 			} else {
 				res.Warnings = append(res.Warnings, fmt.Sprintf("agent %q: %s", a.Name(), w))
 			}
+		}
+	}
+
+	// The credential line: the models the agents can use and where their credentials come from.
+	var models runModels
+	if cfg != nil {
+		models = newRunModels(ctx, cfg, req, t)
+		if line := models.line(req.HideNames); line != "" && prog.at(LoggingStatus) {
+			prog.record("%s", line)
 		}
 	}
 
@@ -485,12 +538,6 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 		session.WithUserMessage(req.Prompt),
 	)
 
-	runCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	if rs.timed != nil {
-		rs.timed()
-	}
-
 	col := newCollector(sess.ID)
 	for ev := range rt.RunStream(runCtx, sess) {
 		names.observe(ev)
@@ -518,7 +565,12 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 		return nil, fmt.Errorf("the agent run was canceled: %w", err)
 	}
 	if len(col.errors) > 0 {
-		return nil, fmt.Errorf("the agent run failed: %s", strings.Join(slices.Compact(col.errors), "; "))
+		msg := strings.Join(slices.Compact(col.errors), "; ")
+		if line := models.line(req.HideNames); line != "" && isAuthFailure(msg) {
+			// Which credentials the rejected requests carried (never their values).
+			msg += "; the run's " + line
+		}
+		return nil, fmt.Errorf("the agent run failed: %s", msg)
 	}
 	if col.stopReason != "" && col.stopReason != runtime.TurnEndReasonNormal {
 		return nil, fmt.Errorf("the agent stopped without a final answer (%s)", strings.ReplaceAll(col.stopReason, "_", " "))
@@ -538,20 +590,28 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	}
 
 	if a, err := t.Agent(res.AgentName); err == nil && a.StructuredOutput() != nil {
-		answer := strings.TrimSpace(res.Output)
-		if a.HasHarness() {
-			// A harness does not enforce the schema, and Claude Code tends to fence JSON.
-			answer = stripCodeFence(answer)
-		}
+		// One surrounding Markdown code fence is removed for every agent: harnesses, providers
+		// without native structured output (Amazon Bedrock) and servers that ignore the schema
+		// tend to fence JSON. Valid JSON never starts with a backtick, so no answer that decodes
+		// changes. Output stays as the agent wrote it.
+		answer := stripCodeFence(strings.TrimSpace(res.Output))
 		var v any
 		if err := json.Unmarshal([]byte(answer), &v); err != nil {
-			return nil, fmt.Errorf("agent %q declares structured_output but its answer is not valid JSON: %w", res.AgentName, err)
+			hint := ""
+			if !a.HasHarness() && !a.StructuredOutput().ToolMode() {
+				hint = "; set structured_output.mode: tool to have docker-agent enforce the schema"
+			}
+			return nil, fmt.Errorf("agent %q declares structured_output but its answer is not valid JSON: %w%s", res.AgentName,
+				err, hint)
 		}
 		res.StructuredOutput = v
 		res.HasStructuredOutput = true
 	}
 
 	res.Usage = usageOf(sess)
+	if models.chatgptOnly() {
+		res.costNote = "billed to the ChatGPT plan"
+	}
 	res.ToolCalls = col.toolNames()
 	for _, r := range col.rejected {
 		res.RejectedToolCalls = append(res.RejectedToolCalls, r.tool)
@@ -597,7 +657,7 @@ var enabledFeatures = []config.Feature{
 // describeLoadError explains a configuration the loader rejected. Run reports coding-harness
 // agents that cannot run before it loads the configuration (see harnessAgents.problems);
 // this covers what the loader still finds.
-func describeLoadError(err error) error {
+func describeLoadError(err error, req Request) error {
 	var ue *config.UnsupportedError
 	if errors.As(err, &ue) {
 		for _, f := range ue.Features {
@@ -607,9 +667,25 @@ func describeLoadError(err error) error {
 					strings.Join(f.Locations, ", "))
 			}
 		}
+		if len(ue.Providers) > 0 {
+			return fmt.Errorf("loading the agent configuration: %w; %s", err, UserProvidersHint)
+		}
+	}
+	// docker-agent's advice for missing credentials is for its CLI (export, --env-from-file, its
+	// env file), which AgentRun does not read.
+	if e := describeMissingCredentials(err, req.InheritEnvironment); e != nil {
+		return e
+	}
+	if e := describeAutoError(err, req.InheritEnvironment); e != nil {
+		return e
 	}
 	return fmt.Errorf("loading the agent configuration: %w", err)
 }
+
+// UserProvidersHint explains a model provider that is neither docker-agent's nor declared in the
+// configuration.
+const UserProvidersHint = "AgentRun does not use user-level providers (from docker agent setup, or UserSettings " +
+	"providers): declare the provider under `providers` in the configuration"
 
 // safetyPolicy is the session's docker-agent safety mode. `allow` is autonomous (like
 // --yolo). `deny` honours the strict, balanced and restricted modes the configuration

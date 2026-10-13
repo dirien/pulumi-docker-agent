@@ -209,8 +209,11 @@ func (p *progress) summary(res *Result) {
 		calls += fmt.Sprintf(" (%d rejected)", len(res.RejectedToolCalls))
 	}
 	cost := "no cost estimate (no known pricing for the models)"
-	if res.Usage.Cost > 0 {
+	switch {
+	case res.Usage.Cost > 0:
 		cost = fmt.Sprintf("estimated cost $%.4f", res.Usage.Cost)
+	case res.costNote != "":
+		cost = "no cost estimate (" + res.costNote + ")"
 	}
 	took := time.Since(p.started)
 	if took < time.Second {

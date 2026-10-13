@@ -561,8 +561,9 @@ func TestAgentRunSecretDeletePrompt(t *testing.T) {
 	rec.reset()
 	require.NoError(t, s.Delete(p.DeleteRequest{ID: created.ID, Urn: runURN("secret-delete"), Properties: created.Properties}))
 	info := rec.messages("info")
-	require.Len(t, info, 1, "only the summary: %s", rec.all())
-	assert.Contains(t, info[0], "agent run finished")
+	require.Len(t, info, 2, "only the credential line and the summary: %s", rec.all())
+	assert.Equal(t, "models: fake/fake-model (FAKE_API_KEY from env)", info[0])
+	assert.Contains(t, info[1], "agent run finished")
 }
 
 func TestAgentRunDeleteBeforeReplace(t *testing.T) {

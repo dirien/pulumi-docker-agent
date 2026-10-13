@@ -58,12 +58,14 @@ func TestAgentRunProgress(t *testing.T) {
 	assert.Contains(t, status, "root: calling think")
 	assert.Contains(t, status, "root: think approved")
 	info := rec.messages("info")
-	require.Len(t, info, 1, rec.all())
-	assert.Contains(t, info[0], "agent run finished in ")
-	assert.Contains(t, info[0], "root answered after 1 tool calls; 20 input and 10 output tokens; no cost estimate")
+	require.Len(t, info, 2, rec.all())
+	// The credential line: the model and where its credential comes from, never the value.
+	assert.Equal(t, "models: fake/fake-model (FAKE_API_KEY from env)", info[0])
+	assert.Contains(t, info[1], "agent run finished in ")
+	assert.Contains(t, info[1], "root answered after 1 tool calls; 20 input and 10 output tokens; no cost estimate")
 	// The summary is the last message (after the warning that the answer quotes a secret).
 	entries := rec.messages("")
-	assert.Equal(t, info[0], entries[len(entries)-1])
+	assert.Equal(t, info[1], entries[len(entries)-1])
 }
 
 func TestAgentRunLoggingLevels(t *testing.T) {
@@ -87,8 +89,9 @@ func TestAgentRunLoggingLevels(t *testing.T) {
 	t.Run("full with a secret answer", func(t *testing.T) {
 		rec := runLogged(t, map[string]any{"logging": "full", "outputSecret": true}, nil)
 		info := rec.messages("info")
-		require.Len(t, info, 1, "only the summary: %s", rec.all())
-		assert.Contains(t, info[0], "root answered")
+		require.Len(t, info, 2, "only the credential line and the summary: %s", rec.all())
+		assert.Equal(t, "models: fake/fake-model (FAKE_API_KEY from env)", info[0])
+		assert.Contains(t, info[1], "root answered")
 	})
 	t.Run("full with a secret yaml", func(t *testing.T) {
 		rec := runLogged(t, map[string]any{"logging": "full"}, func(in property.Map) property.Map {

@@ -1421,7 +1421,8 @@ func TestCheckConfigWarnings(t *testing.T) {
 		plain := "agents:\n  root:\n    model: openai/gpt-5-mini\n"
 		del := CheckOptions{DeletePrompt: true, ToolApprovalDeny: true}
 		assert.True(t, has(check(plain, del), w7+" and calls that permissions allow, which is rarely enough to clean up; "+
-			"add permissions allow rules, set toolApproval: allow, or use a coding-harness agent"))
+			"add permissions allow rules for the tools the cleanup needs (for example shell or write_file), or set "+
+			"toolApproval: allow"))
 		assert.Empty(t, check(plain, CheckOptions{DeletePrompt: true}), "toolApproval allow")
 		assert.Empty(t, check(plain, CheckOptions{ToolApprovalDeny: true}), "no deletePrompt")
 		withHarness := allowed

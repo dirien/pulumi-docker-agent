@@ -47,7 +47,7 @@ var baseEnvVars = slices.Concat(
 		"SSL_CERT_FILE", "SSL_CERT_DIR",
 	},
 	// The Docker connection: Docker Model Runner, `docker:` MCP servers, OCI sub-agent references.
-	[]string{"DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_CONFIG", "DOCKER_CERT_PATH", "DOCKER_TLS_VERIFY"},
+	[]string{"DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_CONFIG", "DOCKER_CERT_PATH", "DOCKER_TLS_VERIFY", "DOCKER_TLS"},
 	// The provider's policy for docker-agent: tool installation (an opt-out must hold), the
 	// tools directory, the Docker Desktop proxy, the skills kit, telemetry and the sandbox
 	// detection (SQLite journal mode).

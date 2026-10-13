@@ -597,9 +597,12 @@ func TestProviders(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, "Hello from the fake: Say hello", res.Output)
 				assert.Equal(t, "root", res.AgentName)
-				if res.Usage.Cost > 0 {
+				switch {
+				case res.Usage.Cost > 0:
 					assert.Contains(t, summary, "estimated cost $", "the summary shows the cost")
-				} else {
+				case strings.HasPrefix(c.name, "chatgpt/"):
+					assert.Contains(t, summary, "no cost estimate (billed to the ChatGPT plan)")
+				default:
 					assert.Contains(t, summary, "no cost estimate (no known pricing for the models)")
 				}
 				assert.Contains(t, summary, "12 input and 3 output tokens")
@@ -741,8 +744,11 @@ func TestProvidersCredentials(t *testing.T) {
 				require.Error(t, err, "the run succeeded without %s in env and without inheritEnvironment", c.credVar)
 				if c.credVar == "AWS_BEARER_TOKEN_BEDROCK" {
 					// Without a bearer token the AWS SDK tries its default chain, which finds nothing
-					// here. Phase 2 rewrites the error to name the variable.
+					// here; the error names the variable the provider's environment withholds.
 					assert.Contains(t, err.Error(), "get credentials")
+					assert.Contains(t, err.Error(), "AWS_BEARER_TOKEN_BEDROCK is set in the environment of the Pulumi CLI, "+
+						"but with inheritEnvironment: false it no longer reaches")
+					assert.Contains(t, err.Error(), "this machine's AWS default chain")
 					return
 				}
 				assert.Contains(t, err.Error(), c.credVar, "the error names the missing credential")
@@ -1151,10 +1157,10 @@ func TestProvidersAuto(t *testing.T) {
 }
 
 // TestProvidersBedrockNativeStructuredOutput: structured_output in its default (native) mode on
-// Bedrock.
+// Bedrock. docker-agent's Bedrock client never sends the schema (pkg/model/provider/bedrock/client.go
+// does not read ModelOptions.StructuredOutput()), so the preview warns and suggests mode: tool, a
+// fenced JSON answer is accepted, and an answer that is not JSON fails with the same advice (D4).
 func TestProvidersBedrockNativeStructuredOutput(t *testing.T) {
-	t.Skip("phase 2: docker-agent's Bedrock client never sends the schema (pkg/model/provider/bedrock/client.go does " +
-		"not read ModelOptions.StructuredOutput()); AgentRun's preview will warn and suggest structured_output.mode: tool")
 	var bedrock providerCase
 	for _, c := range providerCases() {
 		if c.name == "amazon-bedrock/bearer" {
@@ -1162,19 +1168,28 @@ func TestProvidersBedrockNativeStructuredOutput(t *testing.T) {
 		}
 	}
 	f, req := setupCase(t, bedrock, structuredBlock("native"), "Review this change.")
-	_, runErr := Run(t.Context(), req)
+	warnings, _ := CheckModels(t.Context(), "providers.yaml", req.YAML, CheckOptions{ToolApprovalDeny: true,
+		EnvKeys: map[string]bool{bedrock.credVar: true}})
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], "agents.root.structured_output is not enforced by Amazon Bedrock")
+	assert.Contains(t, warnings[0], "set structured_output.mode: tool to have docker-agent enforce the schema")
+
+	_, err := Run(t.Context(), req)
 	reqs := f.requests()
 	require.NotEmpty(t, reqs)
-	_, warnings := CheckConfig(t.Context(), "providers.yaml", req.YAML, CheckOptions{ToolApprovalDeny: true,
-		EnvKeys: map[string]bool{bedrock.credVar: true}})
-	vr := validate.Validate(t.Context(), "providers.yaml", req.YAML)
-	if reqs[0].Schema == nil && len(warnings) == 0 && len(vr.Warnings) == 0 {
-		t.Errorf("BUG: structured_output (native mode) on amazon-bedrock: the schema is not sent to Bedrock and the "+
-			"preview does not warn, so the run depends on the model answering JSON unprompted (here: %v). Root cause: "+
-			"pkg/model/provider/bedrock/client.go never reads ModelOptions.StructuredOutput() (only openai, anthropic, "+
-			"gemini and dmr do), and AgentRun's CheckConfig (check.go:57) warns about unenforced structured_output only "+
-			"for coding harnesses (W5); `mode: tool` works", runErr)
-	}
+	assert.Nil(t, reqs[0].Schema, "docker-agent sends Bedrock no schema")
+	require.Error(t, err, "the fake answers prose without a schema")
+	assert.Contains(t, err.Error(), "declares structured_output but its answer is not valid JSON")
+	assert.Contains(t, err.Error(), "set structured_output.mode: tool to have docker-agent enforce the schema")
+
+	// A model that answers fenced JSON unprompted.
+	fenced := newFakeModelsTLS(t, func(wireReq) wireReply {
+		return wireReply{Text: "```json\n{\"risk\":\"low\",\"summary\":\"fenced\"}\n```"}
+	})
+	req.YAML = []byte(bedrock.yaml(fenced.URL, structuredBlock("native")))
+	res, err := Run(t.Context(), req)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"risk": "low", "summary": "fenced"}, res.StructuredOutput)
 }
 
 // TestProvidersRoutingCost checks the cost of a routed request: docker-agent's catalog price of

@@ -66,8 +66,8 @@ func CheckConfig(ctx context.Context, name string, yamlDoc []byte, opts CheckOpt
 	if len(agents) == 0 {
 		if opts.DeletePrompt && opts.ToolApprovalDeny {
 			warnings = append(warnings, "deletePrompt runs with toolApproval deny: the agent can only run read-only tools "+
-				"and calls that permissions allow, which is rarely enough to clean up; add permissions allow rules, set "+
-				"toolApproval: allow, or use a coding-harness agent")
+				"and calls that permissions allow, which is rarely enough to clean up; add permissions allow rules for the "+
+				"tools the cleanup needs (for example shell or write_file), or set toolApproval: allow")
 		}
 		return nil, warnings
 	}

@@ -433,12 +433,15 @@ func (*AgentRun) Check(ctx context.Context, req infer.CheckRequest) (infer.Check
 	}
 
 	if y := in.Get("yaml"); hasYAML && !hasRef && y.IsString() {
-		secrets := secretStrings(in)
+		secrets := agentRunSecretStrings(in)
 		doc := []byte(y.AsString())
 		valid := true
 		if !skipValidation(ctx, nil) {
 			res := validate.Validate(ctx, req.Name+".yaml", doc)
 			for _, e := range res.Errors {
+				if strings.HasPrefix(e, "unknown model provider ") {
+					e += "; " + agentrun.UserProvidersHint
+				}
 				failures = append(failures, p.CheckFailure{Property: "yaml",
 					Reason: "invalid docker-agent configuration: " + validate.Redact(e, secrets)})
 			}
@@ -455,6 +458,16 @@ func (*AgentRun) Check(ctx context.Context, req infer.CheckRequest) (infer.Check
 			for _, w := range warnings {
 				userLog(ctx).Warning(validate.Redact(w, secrets))
 			}
+			// The model checks concern a run, so only an operation that runs the agent gets them.
+			if plansRun(req, args) {
+				warnings, infos := agentrun.CheckModels(ctx, req.Name+".yaml", doc, checkOptions(in, args))
+				for _, w := range warnings {
+					userLog(ctx).Warning(validate.Redact(w, secrets))
+				}
+				for _, i := range infos {
+					userLog(ctx).Info(validate.Redact(i, secrets))
+				}
+			}
 		}
 		if a := in.Get("agent"); a.IsString() && a.AsString() != "" {
 			if names := validate.AgentNames(doc); names != nil && !slices.Contains(names, a.AsString()) {
@@ -465,6 +478,29 @@ func (*AgentRun) Check(ctx context.Context, req infer.CheckRequest) (infer.Check
 		}
 	}
 	return infer.CheckResponse[AgentRunArgs]{Inputs: args, Failures: failures}, nil
+}
+
+// stateOnlyInputs are the inputs whose change only updates the state (see Diff); `rerun` is
+// checked on its own.
+var stateOnlyInputs = []string{"updatePrompt", "deletePrompt", "allowHarnessAgents", "timeoutSeconds", "outputSecret",
+	"logging", "rerun"}
+
+// plansRun reports whether the operation whose Check this is runs the agent (U#7): a create (no
+// old inputs), a change of an input that affects the run, `rerun: always` (also an unknown
+// `rerun`), or such an input that is unknown during the preview. A Check of an unchanged
+// AgentRun does not, so a preview without changes reports no model warnings.
+func plansRun(req infer.CheckRequest, args AgentRunArgs) bool {
+	if req.OldInputs.Len() == 0 || req.NewInputs.Get("rerun").IsComputed() {
+		return true
+	}
+	for k, v := range req.NewInputs.All {
+		if v.HasComputed() && !slices.Contains(stateOnlyInputs, k) {
+			return true
+		}
+	}
+	// A context of its own: DefaultCheck would hand its encoder to this Check's caller.
+	olds, _, err := infer.DefaultCheck[AgentRunArgs](context.Background(), req.OldInputs)
+	return err != nil || rerunNeeded(olds, args)
 }
 
 // checkOptions are the inputs agentrun.CheckConfig needs, from the raw and the checked inputs.
@@ -684,11 +720,28 @@ func (*AgentRun) Delete(ctx context.Context, req infer.DeleteRequest[AgentRunSta
 		if skip := (deleteSkipped{}); errors.As(err, &skip) {
 			return skipped(skip.why)
 		}
-		return infer.DeleteResponse{}, fmt.Errorf("deletePrompt failed: %w; to delete without running it, set "+
-			"%s=true for this command (for example `%s=true pulumi destroy`)", err, skipDeletePromptsEnv,
-			skipDeletePromptsEnv)
+		return infer.DeleteResponse{}, fmt.Errorf("deletePrompt failed: %w; %sto delete without running it, set "+
+			"%s=true for this command (for example `%s=true pulumi destroy`)", err, deleteCredentialsHint(err, req.State),
+			skipDeletePromptsEnv, skipDeletePromptsEnv)
 	}
 	return infer.DeleteResponse{}, nil
+}
+
+// deleteCredentialsHint explains a delete prompt that failed for missing credentials, with the
+// `env` and `inheritEnvironment` stored in the state (U#5): since v0.2.0, inheritEnvironment
+// false keeps the environment of the Pulumi CLI also from the model SDKs, and a destroy cannot
+// change the stored inputs.
+func deleteCredentialsHint(err error, state AgentRunState) string {
+	mce, ok := errors.AsType[*agentrun.MissingCredentialsError](err)
+	if !ok {
+		return ""
+	}
+	hint := "the stored inputs do not give the delete prompt " + strings.Join(mce.Variables, ", ")
+	if !inheritEnvironment(state.AgentRunArgs) {
+		hint += " (since v0.2.0, inheritEnvironment: false keeps the environment of the Pulumi CLI from the run, also " +
+			"from the model SDKs)"
+	}
+	return hint + "; run pulumi up with the credentials in env first (that runs the agent again and stores them), or "
 }
 
 // deleteSkipped ends a delete prompt's run before it starts, for deletePromptSkip's reason.
@@ -1062,7 +1115,7 @@ func newRunContext(urn resource.URN, inputs property.Map) *runContext {
 	yaml := inputs.Get("yaml").Secret()
 	return &runContext{
 		name:    urn.Name(),
-		secrets: secretStrings(inputs),
+		secrets: agentRunSecretStrings(inputs),
 		contentSecret: (outputSecret.IsBool() && outputSecret.AsBool()) || outputSecret.Secret() || yaml ||
 			inputs.Get("prompt").Secret() || inputs.Get("updatePrompt").Secret(),
 		namesSecret: yaml || inputs.Get("agent").Secret(),

@@ -179,6 +179,8 @@ type childMessage struct {
 	Message    string `json:"msg,omitempty"`
 	Persistent bool   `json:"persistent,omitempty"`
 	Level      int    `json:"level,omitempty"`
+	// error: the variables a MissingCredentialsError names (the parent adds its hints).
+	Missing []string `json:"missing,omitempty"`
 	// result
 	Result *childResult `json:"result,omitempty"`
 }
@@ -196,6 +198,8 @@ type childResult struct {
 	// OutputContainsSecret: the answer contains a value of the child's redaction set (an env
 	// value or a secret input it saw).
 	OutputContainsSecret bool `json:"outputContainsSecret,omitempty"`
+	// CostNote is Result.costNote.
+	CostNote string `json:"costNote,omitempty"`
 }
 
 // --- the child --------------------------------------------------------------------------------
@@ -266,6 +270,7 @@ func childMain(ctx context.Context, cancel context.CancelCauseFunc, input io.Rea
 		if status, stop := creq.Test.apply(ctx, w); stop {
 			return status
 		}
+		useTestLogin(creq.StateRoot)
 	}
 	// Before docker-agent reads anything.
 	applyRequestEnv(creq.Env, debug)
@@ -294,13 +299,17 @@ func childMain(ctx context.Context, cancel context.CancelCauseFunc, input io.Rea
 	}
 	res, err := runRequest(ctx, req, creq.StateRoot, func() { w.send(childMessage{Type: msgTimed}) })
 	if err != nil {
-		w.send(childMessage{Type: msgError, Message: err.Error()})
+		var missing []string
+		if mce, ok := errors.AsType[*MissingCredentialsError](err); ok {
+			missing = mce.Variables
+		}
+		w.send(childMessage{Type: msgError, Message: err.Error(), Missing: missing})
 		return 0
 	}
 	cr := &childResult{
 		Output: res.Output, HasStructuredOutput: res.HasStructuredOutput, AgentName: res.AgentName, Usage: res.Usage,
 		ToolCalls: res.ToolCalls, RejectedToolCalls: res.RejectedToolCalls, Warnings: res.Warnings,
-		OutputContainsSecret: res.OutputContainsSecret,
+		OutputContainsSecret: res.OutputContainsSecret, CostNote: res.costNote,
 	}
 	if res.HasStructuredOutput {
 		if cr.StructuredOutput, err = json.Marshal(res.StructuredOutput); err != nil {
@@ -402,6 +411,10 @@ type childEvent struct {
 type childOutcome struct {
 	result *childResult
 	err    error
+	// fromChild reports that err is the child's own error, and missing the variables it says
+	// are missing.
+	fromChild bool
+	missing   []string
 	// warnings are the parent's own: what the child left running.
 	warnings []string
 }
@@ -418,6 +431,12 @@ func runInChild(ctx context.Context, req Request, approval ToolApproval, timeout
 		}
 	}
 
+	debug := func(msg string) {
+		if req.Log != nil {
+			req.Log(slog.LevelDebug, redact(names.hide(msg), secrets))
+		}
+	}
+
 	stateRoot, err := os.MkdirTemp("", stateRootPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("creating docker-agent state directory: %w", err)
@@ -428,6 +447,20 @@ func runInChild(ctx context.Context, req Request, approval ToolApproval, timeout
 		return nil, err
 	}
 	defer cleanup()
+	// The model checks a preview did not make (a `reference`, a delete prompt).
+	if req.AnnounceHarness {
+		for _, w := range modelRunWarnings(ctx, req) {
+			warn(w)
+		}
+	}
+	// The ChatGPT login of this machine, for a configuration that names a chatgpt model
+	// (chatgpt.go); its tokens join both redaction sets.
+	login, tokens := prepareChatGPTLogin(ctx, req, stateRoot)
+	if len(tokens) > 0 {
+		secrets = append(slices.Clone(secrets), tokens...)
+		prog.secrets = secrets
+		req.Secrets = append(slices.Clone(req.Secrets), tokens...)
+	}
 
 	creq := childRequest{
 		Protocol: childProtocol, Version: version.Version,
@@ -452,16 +485,26 @@ func runInChild(ctx context.Context, req Request, approval ToolApproval, timeout
 	// The child hid the names in what it sent, as runs in process did; the parent redacts it
 	// again, with the provider's credentials.
 	out := superviseChild(ctx, req, creq, secrets, names)
+	// A login the run refreshed goes back to this machine's login (chatgpt.go).
+	secrets = append(secrets, login.finish(ctx, debug)...)
 	if out.err != nil {
 		for _, w := range out.warnings {
 			warn(w)
 		}
-		return nil, errors.New(redact(out.err.Error(), secrets))
+		msg := out.err.Error()
+		if out.fromChild {
+			msg = parentErrorHints(ctx, req, msg, out.missing, login)
+		}
+		if len(out.missing) > 0 {
+			return nil, &MissingCredentialsError{Variables: out.missing, msg: redact(msg, secrets)}
+		}
+		return nil, errors.New(redact(msg, secrets))
 	}
 	cr := out.result
 	res := &Result{
 		Output: cr.Output, HasStructuredOutput: cr.HasStructuredOutput, AgentName: cr.AgentName, Usage: cr.Usage,
 		ToolCalls: cr.ToolCalls, RejectedToolCalls: cr.RejectedToolCalls, Warnings: append(cr.Warnings, out.warnings...),
+		costNote: cr.CostNote,
 	}
 	if res.ToolCalls == nil {
 		res.ToolCalls = []string{}
@@ -627,11 +670,13 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 		ctxDone   = ctx.Done()
 		exited    = proc.exited()
 		handshake = time.NewTimer(childHandshakeTimeout)
-		// The child enforces timeoutSeconds itself, from when its configuration is loaded; the
-		// backstop ends a child that does not, childGrace later.
+		// The child enforces timeoutSeconds itself, from when it starts to load its configuration;
+		// the backstop ends a child that does not, childGrace later.
 		backstop  *time.Timer
 		backstopC <-chan time.Time
 	)
+	// The variables of a MissingCredentialsError of the child.
+	var childMissing []string
 	defer handshake.Stop()
 	defer func() {
 		if backstop != nil {
@@ -694,7 +739,7 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 				}
 			case msgError:
 				if result == nil && childErr == "" {
-					childErr = m.Message
+					childErr, childMissing = m.Message, m.Missing
 				}
 			}
 		}
@@ -788,7 +833,7 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 	case proc.stoppedForShutdown():
 		out.err = errStoppedForShutdown
 	case childErr != "":
-		out.err = errors.New(childErr)
+		out.err, out.fromChild, out.missing = errors.New(childErr), true, childMissing
 	case protoErr != nil:
 		out.err = protoErr
 	case reason == stopTimeout:

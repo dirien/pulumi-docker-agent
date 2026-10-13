@@ -96,9 +96,10 @@ func TestProgressStatus(t *testing.T) {
 	} {
 		assert.Contains(t, all, want)
 	}
-	require.Len(t, persistent, 1, "status only adds the summary: %v", persistent)
+	require.Len(t, persistent, 2, "status only adds the credential line and the summary: %v", persistent)
+	assert.Equal(t, "models: fake/fake-model (FAKE_API_KEY from env)", persistent[0])
 	assert.Regexp(t, `^agent run finished in [0-9.]+m?s: root answered after 3 tool calls \(1 rejected\); `+
-		`40 input and 20 output tokens; no cost estimate`, persistent[0])
+		`40 input and 20 output tokens; no cost estimate`, persistent[1])
 }
 
 func TestProgressTools(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi/sdk/v3/go/property"
 
+	"github.com/dirien/pulumi-docker-agent/provider/pkg/agentrun"
 	"github.com/dirien/pulumi-docker-agent/provider/pkg/validate"
 )
 
@@ -39,6 +40,27 @@ func secretStrings(m property.Map) []string {
 	}
 	for _, v := range m.All {
 		walk(v, false)
+	}
+	return out
+}
+
+// agentRunSecretStrings is secretStrings for the inputs of an AgentRun, without the values of
+// `env` that are configuration, not credentials (agentrun.NonSecretEnvValue: a region, a project,
+// a flag, a base URL without credentials): the Pulumi SDKs mark the whole `env` map secret, so
+// every value would otherwise be redacted and make an answer that repeats it secret.
+func agentRunSecretStrings(m property.Map) []string {
+	var out []string
+	for k, v := range m.All {
+		if k != "env" || !v.IsMap() {
+			out = append(out, secretStrings(property.NewMap(map[string]property.Value{k: v}))...)
+			continue
+		}
+		for name, e := range v.AsMap().All {
+			if e.IsString() && agentrun.NonSecretEnvValue(name, e.AsString()) {
+				continue
+			}
+			out = append(out, secretStrings(property.NewMap(map[string]property.Value{name: e.WithSecret(e.Secret() || v.Secret())}))...)
+		}
 	}
 	return out
 }
