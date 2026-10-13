@@ -44,13 +44,15 @@ type CheckOptions struct {
 // a user should know before it runs, so that both surface during a preview:
 //
 //   - problems: coding-harness agents without Request.AllowHarnessAgents (H1), of a type
-//     other than claude-code (H2), or on an operating system other than Linux and macOS
-//     (H3). Run enforces them too;
+//     other than claude-code and codex (H2), or on an operating system other than Linux and
+//     macOS (H3), and for codex agents what would keep codex from starting or make it delete
+//     its login (check_codex.go). Run enforces them too;
 //   - warnings: for claude-code agents that may run, that they run without tool approval
 //     (W1), the credentials Claude Code would bill (W2), a provider running as root (W3),
 //     an instruction (W4) or structured_output (W5) the harness does not get, and a model
 //     the harness inherits from the agent (W6), and a CLAUDE_CODE_OAUTH_TOKEN of the Pulumi
-//     CLI that inheritEnvironment: false keeps from the CLI (W8); for configurations without
+//     CLI that inheritEnvironment: false keeps from the CLI (W8); for codex agents the same
+//     kinds of warnings in Codex's terms (check_codex.go); for configurations without
 //     harness agents, a delete prompt that toolApproval deny can hardly carry out (W7).
 //
 // A configuration that does not load is reported by the validator, not here.
@@ -91,12 +93,16 @@ func CheckConfig(ctx context.Context, name string, yamlDoc []byte, opts CheckOpt
 	if opts.EnvUnknown {
 		ce.withheldToken = false // env may set the token
 	}
+	codexProblems, codexWarnings := codexChecks(agents, opts)
+	if len(codexProblems) > 0 {
+		return codexProblems, nil
+	}
 	warnings = agents.runWarnings(ce, opts.HideNames)
-	if geteuid() == 0 && !ce.sandboxed() {
+	if geteuid() == 0 && !ce.sandboxed() && len(agents.claudeCode()) > 0 {
 		warnings = append(warnings, "the provider runs as root, and Claude Code refuses --dangerously-skip-permissions as "+
 			"root: run pulumi up as a non-root user, or, in an isolated container, set IS_SANDBOX=1 in env")
 	}
-	for _, a := range agents {
+	for _, a := range agents.claudeCode() {
 		if a.instruction {
 			warnings = append(warnings, agentRef(a.name, "instruction", opts.HideNames)+" is not sent to the coding harness: "+
 				"docker-agent sends only the prompt (to a sub-agent: its task); put the instructions into the prompt or into "+
@@ -116,7 +122,7 @@ func CheckConfig(ctx context.Context, name string, yamlDoc []byte, opts CheckOpt
 				"--model; set harness.model (for example sonnet)", agentRef(a.name, "harness", opts.HideNames), model))
 		}
 	}
-	return nil, warnings
+	return nil, append(warnings, codexWarnings...)
 }
 
 // harnessAgent is an agent of a configuration that delegates to a coding harness.
@@ -124,8 +130,11 @@ type harnessAgent struct {
 	name, typ, model string
 	instruction      bool
 	structuredOutput bool
-	// inheritsModel reports that harness.model is empty and the agent's model is not a
-	// Claude model ID: a key of `models:`, another provider's model or several models.
+	// strict reports structured_output.strict.
+	strict bool
+	// inheritsModel reports that harness.model is empty and the agent's model is not a model
+	// ID of the harness: a key of `models:`, several models, or (for claude-code) another
+	// provider's model, (for codex) any provider-qualified model.
 	inheritsModel bool
 }
 
@@ -145,11 +154,13 @@ func harnessAgentsOf(cfg *latest.Config) harnessAgents {
 			name: a.Name, typ: a.Harness.Type, model: a.Model,
 			instruction:      strings.TrimSpace(a.Instruction) != "",
 			structuredOutput: a.StructuredOutput != nil,
+			strict:           a.StructuredOutput != nil && a.StructuredOutput.Strict,
 		}
 		if a.Harness.Model == "" && a.Model != "" {
 			_, isKey := cfg.Models[a.Model]
 			prefix, _, qualified := strings.Cut(a.Model, "/")
-			h.inheritsModel = isKey || strings.Contains(a.Model, ",") || qualified && prefix != "anthropic"
+			h.inheritsModel = isKey || strings.Contains(a.Model, ",") ||
+				qualified && (prefix != "anthropic" || a.Harness.Type == codingharness.TypeCodex)
 		}
 		out = append(out, h)
 	}
@@ -162,28 +173,27 @@ func (h harnessAgents) claudeCode() harnessAgents {
 }
 
 // problems returns the reasons the agents cannot run: H2 for every unsupported harness type,
-// then for claude-code agents H3 on an unsupported operating system or else H1 without the
-// opt-in.
+// then for claude-code and codex agents H3 on an unsupported operating system or else H1
+// without the opt-in.
 func (h harnessAgents) problems(allowed, hideNames bool) []string {
 	byType := map[string][]string{}
 	for _, a := range h {
-		if a.typ != codingharness.TypeClaudeCode {
+		if !isHarnessSupported(a.typ) {
 			byType[a.typ] = append(byType[a.typ], agentRef(a.name, "harness", hideNames))
 		}
 	}
 	var out []string
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
-		out = append(out, fmt.Sprintf("%s harness agents (%s) are not supported by AgentRun yet: only %s is; run them "+
-			"with docker agent run", typ, strings.Join(slices.Compact(byType[typ]), ", "), codingharness.TypeClaudeCode))
+		out = append(out, unsupportedHarnessMessage(typ, strings.Join(slices.Compact(byType[typ]), ", ")))
 	}
-	if claude := h.claudeCode(); len(claude) > 0 {
+	if supported := h.supported(); len(supported) > 0 {
 		switch {
 		case !harnessOSSupported():
 			out = append(out, harnessOSMessage())
 		case !allowed:
 			out = append(out, fmt.Sprintf("coding-harness agents (%s) run only with allowHarnessAgents: true: they start "+
 				"an external coding agent CLI that runs its own tools without docker-agent's tool approval",
-				claude.list(hideNames)))
+				supported.list(hideNames)))
 		}
 	}
 	return out

@@ -379,11 +379,6 @@ func describeAutoError(err error, inherit bool) error {
 		"or name the model in the configuration")
 }
 
-func firstLine(s string) string {
-	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
-	return line
-}
-
 // parentErrorHints adds to the error of a run child what only the parent knows: the environment
 // of the Pulumi CLI (a missing variable it sets but inheritEnvironment: false keeps from the
 // run, the model SDK variables that no longer reach the models since v0.2.0 when a request was

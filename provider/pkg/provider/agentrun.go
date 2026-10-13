@@ -513,8 +513,10 @@ func checkOptions(in property.Map, args AgentRunArgs) agentrun.CheckOptions {
 		// warnings about inherited credentials apply, and none claims that it is false.
 		InheritEnvironment: in.Get("inheritEnvironment").IsComputed() || inheritEnvironment(args),
 		DeletePrompt:       isSet(in.Get("deletePrompt")),
-		ToolApprovalDeny:   toolApproval(args) == ToolApprovalDeny,
-		HideNames:          in.Get("yaml").Secret() || in.Get("agent").Secret(),
+		// A toolApproval that is unknown during a preview may be allow, which turns off Codex's
+		// sandbox: the warnings assume it.
+		ToolApprovalDeny: !in.Get("toolApproval").IsComputed() && toolApproval(args) == ToolApprovalDeny,
+		HideNames:        in.Get("yaml").Secret() || in.Get("agent").Secret(),
 	}
 	if env := in.Get("env"); env.IsComputed() {
 		opts.EnvUnknown = true

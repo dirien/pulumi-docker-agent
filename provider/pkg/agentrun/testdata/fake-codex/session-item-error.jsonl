@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"__THREAD__"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"unknown configuration key `foo` in config.toml"}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_1","type":"error","message":"model rerouted: gpt-6.1-sol -> gpt-6-sol (HighDemand)"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Done: NOTES.md lists the changes."}}
+{"type":"turn.completed","usage":{"input_tokens":900,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":15,"reasoning_output_tokens":0}}

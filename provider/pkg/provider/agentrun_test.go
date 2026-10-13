@@ -190,8 +190,10 @@ func TestAgentRunCheck(t *testing.T) {
 			"coding-harness agents (agents.root.harness: claude-code) run only with allowHarnessAgents: true"},
 		{"harness opt-out", runInputs(srv, "    harness:\n      type: claude-code\n", map[string]any{"allowHarnessAgents": false}),
 			"run only with allowHarnessAgents: true"},
-		{"unsupported harness", runInputs(srv, "    harness:\n      type: codex\n", map[string]any{"allowHarnessAgents": true}),
-			"codex harness agents (agents.root.harness) are not supported by AgentRun yet"},
+		{"unsupported harness", runInputs(srv, "    harness:\n      type: pi\n", map[string]any{"allowHarnessAgents": true}),
+			"pi harness agents (agents.root.harness) are not supported by AgentRun yet: only claude-code and codex are"},
+		{"codex harness opt-out", runInputs(srv, "    harness:\n      type: codex\n", nil),
+			"coding-harness agents (agents.root.harness: codex) run only with allowHarnessAgents: true"},
 		{"blank updatePrompt", runInputs(srv, "", map[string]any{"updatePrompt": " "}),
 			"updatePrompt: `updatePrompt` must not be empty; omit it to rerun with `prompt`"},
 		{"blank deletePrompt", runInputs(srv, "", map[string]any{"deletePrompt": ""}), "deletePrompt: `deletePrompt` must not be empty"},
@@ -204,6 +206,16 @@ func TestAgentRunCheck(t *testing.T) {
 			assert.Contains(t, runFailures(resp.Failures), c.expect)
 		})
 	}
+
+	// A codex agent whose CODEX_HOME does not exist would not start (the path is an env value,
+	// so it is redacted).
+	codexHome := runInputs(srv, "    harness:\n      type: codex\n      model: gpt-6.1-sol\n",
+		map[string]any{"allowHarnessAgents": true}).Set("env", property.New(property.NewMap(map[string]property.Value{
+		"FAKE_API_KEY": property.New(runKey), "CODEX_HOME": property.New(t.TempDir() + "/nope"),
+	})).WithSecret(true))
+	codexResp := runCheck(t, s, codexHome)
+	assert.Contains(t, runFailures(codexResp.Failures), "yaml: CODEX_HOME points to [secret], which does not exist, so "+
+		"codex would not start")
 
 	// An unknown yaml (an output of another resource during preview) is not validated.
 	unknown := runInputs(srv, "", nil).Set("yaml", property.New(property.Computed))

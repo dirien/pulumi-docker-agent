@@ -22,11 +22,14 @@ import (
 
 // childTest is what the tests change in a run child.
 type childTest struct {
-	HarnessGrace       time.Duration `json:"harnessGrace"`
-	PostExitGrace      time.Duration `json:"postExitGrace"`
-	HarnessDrain       time.Duration `json:"harnessDrain"`
-	SignalGrace        time.Duration `json:"signalGrace"`
-	HarnessOS          string        `json:"harnessOS"`
+	HarnessGrace  time.Duration `json:"harnessGrace"`
+	PostExitGrace time.Duration `json:"postExitGrace"`
+	HarnessDrain  time.Duration `json:"harnessDrain"`
+	SignalGrace   time.Duration `json:"signalGrace"`
+	HarnessOS     string        `json:"harnessOS"`
+	// The codex runner's durations (harness_codex.go).
+	InterruptGrace     time.Duration `json:"interruptGrace"`
+	CodexProbeTimeout  time.Duration `json:"codexProbeTimeout"`
 	ProcPollInterval   time.Duration `json:"procPollInterval"`
 	CookieSweepTimeout time.Duration `json:"cookieSweepTimeout"`
 	MaxProcTable       int           `json:"maxProcTable"`
@@ -77,7 +80,8 @@ func snapshotChildTest(f *childFaults) *childTest {
 	t := &childTest{
 		HarnessGrace: harnessGrace, PostExitGrace: postExitGrace, HarnessDrain: harnessDrain, SignalGrace: signalGrace,
 		HarnessOS: harnessOS, ProcTableError: testFaults.procTableError, NoProcs: testFaults.noProcs,
-		RootCAs: testFaults.rootCAs,
+		RootCAs:        testFaults.rootCAs,
+		InterruptGrace: interruptGrace, CodexProbeTimeout: codexProbeTimeout,
 	}
 	snapshotProcLimits(t)
 	if f != nil {
@@ -90,6 +94,7 @@ func snapshotChildTest(f *childFaults) *childTest {
 // the exit status when the child must not run the request.
 func (t *childTest) apply(ctx context.Context, w *childWriter) (status int, stop bool) {
 	harnessGrace, postExitGrace, harnessDrain, signalGrace = t.HarnessGrace, t.PostExitGrace, t.HarnessDrain, t.SignalGrace
+	interruptGrace, codexProbeTimeout = t.InterruptGrace, t.CodexProbeTimeout
 	harnessOS = t.HarnessOS
 	applyProcLimits(t)
 	if len(t.RootCAs) > 0 {

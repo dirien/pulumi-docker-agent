@@ -27,9 +27,9 @@
 //   - tool calls are approved by docker-agent's own rules for unattended runs
 //     (see ToolApproval), without hook approvals unless allowed (see policy.go);
 //   - errors, warnings and logs are redacted (see secrets.go);
-//   - coding-harness agents run only with Request.AllowHarnessAgents, and only claude-code:
-//     AgentRun runs the Claude Code CLI itself, in the run's working directory and
-//     environment (see harness.go).
+//   - coding-harness agents run only with Request.AllowHarnessAgents, and only claude-code
+//     and codex: AgentRun runs the Claude Code or Codex CLI itself, in the run's working
+//     directory and environment (see harness.go and harness_codex.go).
 //
 // Runs of one provider process are serialized.
 package agentrun
@@ -143,9 +143,10 @@ type Request struct {
 	// and results out of the progress messages.
 	HideNames bool
 	// AllowHarnessAgents lets the configuration's coding-harness agents run: agents with
-	// `harness: {type: claude-code}`, on Linux and macOS. They start the Claude Code CLI,
-	// which runs its own tools without docker-agent's tool approval (see harness.go).
-	// Without it, a configuration with a harness agent fails.
+	// `harness: {type: claude-code}` or `harness: {type: codex}`, on Linux and macOS. They
+	// start the Claude Code or Codex CLI, which runs its own tools without docker-agent's tool
+	// approval (see harness.go; for codex, ToolApproval selects Codex's sandbox, see
+	// harness_codex.go). Without it, a configuration with a harness agent fails.
 	AllowHarnessAgents bool
 	// AnnounceHarness reports CheckConfig's warnings about running claude-code agents (no
 	// tool approval, the credentials Claude Code would bill) and CheckModels' warnings about
@@ -282,6 +283,7 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 	}
 	prog := newProgress(req, secrets, names)
 	info := &harnessInfo{}
+	prog.extra = info.extraSecrets
 	debug := func(msg string) {
 		if req.Log != nil {
 			req.Log(slog.LevelDebug, redact(names.hide(msg), secrets))
@@ -289,6 +291,8 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 	}
 	res, err := run(ctx, req, runSetup{req.ToolApproval, req.Timeout, req.WorkingDir, secrets, info, warn, debug, timed},
 		prog)
+	// The secrets found during the run (the tokens of a codex login) are secrets of its result.
+	secrets = append(secrets, info.extraSecrets()...)
 	harnessWarnings := reportHarness(info, prog)
 	if err != nil {
 		for _, w := range harnessWarnings {
@@ -309,7 +313,13 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 	return res, nil
 }
 
-// reportHarness reports what the Claude Code CLI of a run said about itself, as a progress
+// reportHarness reports what the coding-harness CLIs of a run said about themselves, as
+// progress records, and returns the warnings (reportClaude, reportCodex).
+func reportHarness(info *harnessInfo, prog *progress) []string {
+	return append(reportClaude(info, prog), reportCodex(info, prog)...)
+}
+
+// reportClaude reports what the Claude Code CLI of a run said about itself, as a progress
 // record, and returns the warnings: that it billed something other than a Claude
 // subscription, that its answer replaced an empty result, and that it left processes
 // running, which the runner stopped.
@@ -318,7 +328,7 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 // names what the CLI's environment selects instead: a cloud provider (Bedrock, Vertex AI,
 // Foundry), ANTHROPIC_AUTH_TOKEN, or a Claude login, and whether a gateway
 // (ANTHROPIC_BASE_URL) got the requests.
-func reportHarness(info *harnessInfo, prog *progress) []string {
+func reportClaude(info *harnessInfo, prog *progress) []string {
 	r := info.get()
 	var warnings []string
 	if r.leftRunning > 0 {
@@ -368,13 +378,16 @@ func reportHarness(info *harnessInfo, prog *progress) []string {
 
 // leftRunningWarning says that the Claude Code CLIs of a run left n processes running when
 // they exited. It names no command: a command line can contain a secret.
-func leftRunningWarning(n int) string {
+func leftRunningWarning(n int) string { return leftRunningWarningOf(codingharness.TypeClaudeCode, n) }
+
+// leftRunningWarningOf says that the CLIs of a harness type left n processes running.
+func leftRunningWarningOf(typ string, n int) string {
 	what, them := "1 process", "it"
 	if n > 1 {
 		what, them = fmt.Sprintf("%d processes", n), "them"
 	}
 	return fmt.Sprintf("%s left %s running when it exited (for example a command it ran in the background); "+
-		"AgentRun stopped %s", codingharness.TypeClaudeCode, what, them)
+		"AgentRun stopped %s", typ, what, them)
 }
 
 // runSetup is what Run prepared for run.
@@ -406,6 +419,7 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	// the configuration itself are the loader's.
 	harnessEnv := claudeEnv(req, workingDir)
 	rs.harness.setNoKey(harnessEnv.noKeySource())
+	var codex *codexRun
 	// cfg describes the run's models (runinfo.go); nil when the configuration does not load.
 	cfg, err := config.Load(ctx, source)
 	if err == nil {
@@ -413,8 +427,18 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 		if problems := agents.problems(req.AllowHarnessAgents, req.HideNames); len(problems) > 0 {
 			return nil, errors.New(strings.Join(problems, "; "))
 		}
+		if len(agents.codex()) > 0 {
+			codex = newCodexRun(req, workingDir, approval, rs.harness, rs.debug)
+			if problems := codexProblems(codex.auth, false); len(problems) > 0 {
+				return nil, errors.New(strings.Join(problems, "; "))
+			}
+		}
 		if req.AnnounceHarness {
-			for _, w := range agents.runWarnings(harnessEnv, req.HideNames) {
+			warnings := agents.runWarnings(harnessEnv, req.HideNames)
+			if codex != nil {
+				warnings = append(warnings, agents.codexRunWarnings(codex.env, codex.auth, codex.deny, false, req.HideNames)...)
+			}
+			for _, w := range warnings {
 				rs.warn(w)
 			}
 		}
@@ -440,7 +464,7 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	var harnessFactory harness.Factory
 	if req.AllowHarnessAgents {
 		harnessFactory = newHarnessFactory(harnessRun{dir: workingDir, env: harnessEnv, secrets: rs.secrets, info: rs.harness,
-			debug: rs.debug})
+			debug: rs.debug, codex: codex})
 	}
 
 	// timeoutSeconds bounds the run from here: loading the configuration (which pulls a missing
@@ -471,6 +495,7 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	}
 	t := loaded.Team
 	defer stopToolSets(ctx, t)
+	codex.bind(t)
 
 	selected, err := t.AgentOrDefault(req.Agent)
 	if err != nil {
@@ -609,6 +634,8 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	}
 
 	res.Usage = usageOf(sess)
+	// Codex reports no cost: its turns add an estimate at API prices (harness_codex.go).
+	res.Usage.Cost += rs.harness.codexCost()
 	if models.chatgptOnly() {
 		res.costNote = "billed to the ChatGPT plan"
 	}
