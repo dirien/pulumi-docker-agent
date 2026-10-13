@@ -7,6 +7,7 @@ package agentrun
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -116,6 +117,10 @@ func startRunHelper(t *testing.T, env ...string) (cmd *exec.Cmd, dir string, std
 // and the run ends with the shutdown's error before the provider exits; no run starts after.
 func TestChildShutdown(t *testing.T) {
 	cmd, dir, stderr, child := startRunHelper(t, runHelperLateEnv+"=1")
+	e, ok := readProc(child)
+	require.True(t, ok)
+	assert.Equal(t, child, e.sid, "the run child leads a session of its own")
+	assert.Equal(t, child, e.pgid, "and a process group of its own")
 	start := time.Now()
 	require.NoError(t, cmd.Process.Signal(syscall.SIGINT))
 	require.NoError(t, waitHelper(t, cmd), "the provider shuts down as the SDK makes it, with exit status 0: %s", stderr)
@@ -287,6 +292,63 @@ func TestChildBackstopStopsWhatToolsLeftRunning(t *testing.T) {
 			assert.Equal(t, []string{childLeftRunningWarning(1)}, res.Warnings)
 		})
 	}
+}
+
+// hideEnvironments makes the provider's tracker see every environment as hidden, as macOS
+// hides the environment of platform binaries such as /bin/sleep (KERN_PROCARGS2 without it):
+// the cookie then finds nothing.
+func hideEnvironments(t *testing.T) {
+	t.Helper()
+	prev := readCookie
+	readCookie = func(*procEntry, string, []byte) (bool, bool) { return false, true }
+	t.Cleanup(func() { readCookie = prev })
+}
+
+// TestChildBackstopFindsWhatItsSessionHolds: the macOS case of `sleep 619 &` (the 0.2.0-rc.1
+// check). docker-agent's shell tool runs the command in a process group of its own, the shell
+// exits before a poll of the process table saw it, and the environment of the sleep does not
+// show the cookie. The sleep is still in the run child's session, which the run child leads:
+// it is stopped when the run ends, with the warning.
+func TestChildBackstopFindsWhatItsSessionHolds(t *testing.T) {
+	noPolls(t)
+	hideEnvironments(t)
+	dir := t.TempDir()
+	pidfile := filepath.Join(dir, "pid")
+	srv := fakeopenai.New(callOnce("shell", fmt.Sprintf(`{"cmd":"sleep 300 >/dev/null 2>&1 & echo $! > %s"}`,
+		pidfile)))
+	defer srv.Close()
+	req := request(srv, shellAgent(""), "go")
+	req.ToolApproval = ToolApprovalAllow
+	res, err := Run(t.Context(), req)
+	require.NoError(t, err)
+	pid := waitPID(t, pidfile)
+	killAtCleanup(t, pid)
+	assertGone(t, []int{pid}, "the command is gone when Run returns")
+	assert.Equal(t, []string{childLeftRunningWarning(1)}, res.Warnings)
+}
+
+// TestChildBackstopLeavesWhatLeftTheSession documents the narrower limit: a command that left
+// the run child's session too (setsid), was orphaned before a poll saw it, and whose
+// environment does not show the cookie keeps running. The shell waits until the command left
+// the session (it writes its PID after setsid), so that the run does not end before.
+func TestChildBackstopLeavesWhatLeftTheSession(t *testing.T) {
+	noPolls(t)
+	hideEnvironments(t)
+	pidfile := filepath.Join(t.TempDir(), "pid")
+	cmd := fmt.Sprintf(`sh -c '%s' sh sh -c 'echo $$ > %s; exec sleep 300' >/dev/null 2>&1 </dev/null & `+
+		`while [ ! -s %s ]; do sleep 0.01; done`, insessionShell, pidfile, pidfile)
+	args, err := json.Marshal(map[string]string{"cmd": cmd})
+	require.NoError(t, err)
+	srv := fakeopenai.New(callOnce("shell", string(args)))
+	defer srv.Close()
+	req := request(srv, shellAgent(""), "go")
+	req.ToolApproval = ToolApprovalAllow
+	res, err := Run(t.Context(), req)
+	require.NoError(t, err)
+	pid := waitPID(t, pidfile)
+	killAtCleanup(t, pid)
+	assert.False(t, gone(pid), "a process out of the session, the tree's and the cookie's reach keeps running")
+	assert.Empty(t, res.Warnings)
 }
 
 // TestChildTrackingProblemsAreLogged: the tracker of a run child says what it tracks.

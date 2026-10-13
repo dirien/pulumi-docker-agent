@@ -409,9 +409,10 @@ const (
 // controls always keep them (procenv.go), so that the supervisors find what they start.
 func isCookieVar(name string) bool { return name == runCookieVar || name == childCookieVar }
 
-// supervision describes a process that the runner supervises in a process group of its own,
-// with the processes started under it (harness_unix.go, descendants.go): the Claude Code CLI
-// of a harness agent, or a run child (child.go).
+// supervision describes a process that the runner supervises in a process group of its own
+// (a run child: in a session of its own), with the processes started under it
+// (harness_unix.go, descendants.go): the Claude Code CLI of a harness agent, or a run child
+// (child.go).
 type supervision struct {
 	// name names the process in messages: "claude" or "the agent run".
 	name string
@@ -432,6 +433,12 @@ type supervision struct {
 	// session (Codex's stdio MCP servers): what runs in such a group of a direct child does not
 	// count as left running when the CLI exited, it is only stopped (descendants.go).
 	ownGroups bool
+	// ownSession is set for a process that runs in a session of its own (a run child, with
+	// backstop): it starts with setsid instead of setpgid, and once it exited, the processes
+	// of the provider's user that are still in its session and started after it are stopped
+	// and counted with the rest (descendants.go). Unlike the environment cookie, this does
+	// not depend on whether the system shows a process's environment.
+	ownSession bool
 	// debug receives tracking problems; nil drops them.
 	debug func(string)
 }

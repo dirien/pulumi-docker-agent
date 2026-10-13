@@ -816,3 +816,123 @@ func TestHarnessCookieWalksBelowWhatItFinds(t *testing.T) {
 	assertGone(t, pids, "the cookie's process and its child without the cookie are gone")
 	assert.Equal(t, []string{leftRunningWarning(2)}, res.Warnings)
 }
+
+// runChildSupervision is the supervision of a run child (child_unix.go), for the tests of its
+// session.
+func runChildSupervision(debug func(string)) supervision {
+	return supervision{name: "the agent run", kind: "agent run", cookieVar: childCookieVar, backstop: true,
+		ownSession: true, debug: debug}
+}
+
+// TestProcTreeSessionSweep: once a run child exited, the processes of the provider's user that
+// are still in its session and started after it are recorded and counted as left running, and
+// nothing else: not while it runs, not another user's processes, not one that started before
+// it (a reused PID), not zombies or kernel threads, never the provider, not its own group
+// (its group signal reaches those), not one that left the session; and nothing at all once the
+// session was closed (the root's PID with another process, or a read without members).
+func TestProcTreeSessionSweep(t *testing.T) {
+	root := startSleep(t, &syscall.SysProcAttr{Setsid: true})
+	rootEntry, ok := readProc(root.Process.Pid)
+	require.True(t, ok)
+	sid, uid, start := root.Process.Pid, os.Geteuid(), rootEntry.start
+	require.Equal(t, sid, rootEntry.sid, "the root leads a session of its own")
+	proc := func(pid, pgid, session int, started uint64) procEntry {
+		return procEntry{procKey: procKey{pid: pid, start: started}, ppid: 1, pgid: pgid, sid: session, uid: uid}
+	}
+	// `sleep &` of a shell that exited: its group outlives the shell.
+	left := proc(999940, 999939, sid, start+1)
+	// A group leader that started in the root's clock tick.
+	leader := proc(999941, 999941, sid, start)
+	otherUser := proc(999942, 999942, sid, start+1)
+	otherUser.uid = uid + 1
+	older := proc(999943, 999943, sid, start-1)
+	zombie := proc(999944, 999939, sid, start+1)
+	zombie.zombie = true
+	kthread := proc(999945, 999945, sid, start+1)
+	kthread.kthread = true
+	inRootGroup := proc(999946, sid, sid, start+1)
+	escaped := proc(999947, 999947, 999947, start+1) // setsid
+	inProviderGroup := proc(999948, unix.Getpgrp(), sid, start+1)
+	self, ok := readProc(os.Getpid())
+	require.True(t, ok)
+	self.sid, self.start = sid, start+1
+	members := []procEntry{left, leader, otherUser, older, zombie, kthread, inRootGroup, escaped, inProviderGroup, self}
+
+	exited := rootEntry
+	exited.zombie = true
+	reused := rootEntry
+	reused.start++
+	var mu sync.Mutex
+	var table []procEntry
+	setTable := func(entries ...procEntry) {
+		mu.Lock()
+		defer mu.Unlock()
+		table = entries
+	}
+	prev := readProcTable
+	readProcTable = func(uint64) ([]procEntry, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(table), nil
+	}
+	t.Cleanup(func() { readProcTable = prev })
+	newTree := func() *procTree {
+		t.Helper()
+		setTable(append([]procEntry{rootEntry}, members...)...)
+		tree := newProcTreeOf(root.Process.Pid, runChildSupervision(nil), "")
+		require.NotNil(t, tree)
+		tree.stopPolling()
+		require.Equal(t, sid, tree.session)
+		return tree
+	}
+
+	tree := newTree()
+	tg := tree.scan()
+	assert.Empty(t, procKeys(tg), "nothing while the root runs: it stops its own processes")
+
+	// The root exited (Linux: not reaped yet; macOS: reaped).
+	for _, rootLeft := range [][]procEntry{{exited}, nil} {
+		tree := newTree()
+		setTable(append(rootLeft, members...)...)
+		tg := tree.scan()
+		assert.ElementsMatch(t, []procKey{left.procKey, leader.procKey}, procKeys(tg))
+		assert.Equal(t, []int{leader.pid}, groupIDs(tg), "the group a found process leads")
+		assert.Equal(t, 2, tg.outside, "both count as left running")
+
+		got := make(chan os.Signal, 1)
+		signal.Notify(got, syscall.SIGWINCH)
+		tree.send(tg, false, syscall.SIGWINCH)
+		select {
+		case <-got:
+			t.Fatal("the session sweep signalled the provider")
+		case <-time.After(100 * time.Millisecond):
+		}
+		signal.Stop(got)
+	}
+
+	// The root's PID belongs to another process: the session is closed for good.
+	tree = newTree()
+	late := proc(999949, 999949, sid, start+5)
+	setTable(reused, late)
+	assert.Empty(t, procKeys(tree.scan()), "a session whose root's PID was reused")
+	setTable(exited, late)
+	assert.Empty(t, procKeys(tree.scan()), "a closed session stays closed")
+
+	// A read without members (the root reaped, nothing left in the session): its ID may be
+	// reused, also by a session whose leader is already gone.
+	tree = newTree()
+	setTable(escaped)
+	assert.Empty(t, procKeys(tree.scan()))
+	setTable(escaped, late)
+	assert.Empty(t, procKeys(tree.scan()), "a session seen without members stays closed")
+
+	// A root that is not in a session of its own has none to sweep.
+	cli := startSleep(t, &syscall.SysProcAttr{Setpgid: true})
+	var debug debugLog
+	setTable()
+	noSession := newProcTreeOf(cli.Process.Pid, runChildSupervision(func(m string) { debug.log(slog.LevelDebug, m) }), "")
+	require.NotNil(t, noSession)
+	noSession.stopPolling()
+	assert.Zero(t, noSession.session)
+	assert.Contains(t, debug.String(), "is not in a session of its own")
+}

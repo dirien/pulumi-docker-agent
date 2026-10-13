@@ -19,12 +19,19 @@ import (
 )
 
 // On Linux and macOS a run child is supervised like a Claude Code CLI (harness_unix.go), as a
-// backstop: it runs in a process group of its own, gets SIGTERM from the kernel when the
-// provider dies (Linux), and carries childCookieVar, which every process it starts inherits.
-// A cancellation sends it SIGTERM and a shutdown SIGINT; it stops its own CLIs and tools, and
-// is killed after childGrace (signalGrace for a shutdown). After it exited, the rest of its
-// group and the processes started under it get SIGTERM, and SIGKILL after postExitGrace: what
-// its tools left running (a command in the background), which the run reports.
+// backstop: it runs in a session of its own (and so in a process group of its own), gets
+// SIGTERM from the kernel when the provider dies (Linux; on macOS it stops when its stdin
+// closes), and carries childCookieVar, which every process it starts inherits. A cancellation
+// sends it SIGTERM and a shutdown SIGINT; it stops its own CLIs and tools, and is killed after
+// childGrace (signalGrace for a shutdown). After it exited, the rest of its group, the
+// processes started under it and the processes of the provider's user still in its session
+// get SIGTERM, and SIGKILL after postExitGrace: what its tools left running (a command in the
+// background), which the run reports. The session finds what the process table's polls and
+// the cookie miss: docker-agent's shell tool runs each command in a process group of its own
+// (in the child's session), and `sleep 600 &` of a shell that exits at once is orphaned before
+// a poll sees it, while macOS hides the environment of platform binaries such as /bin/sleep.
+// What escapes is a process that left the session too (setsid), was orphaned before a poll
+// saw it, and whose environment does not show the cookie (hidden, or cleared with env -i).
 
 // unixRunChild is a run child on Linux and macOS.
 type unixRunChild struct{ p *harnessProcess }
@@ -33,7 +40,7 @@ type unixRunChild struct{ p *harnessProcess }
 // a cancellation is a signal.
 func startRunChild(cmd *exec.Cmd, _ func(), debug func(string)) (runChildProcess, error) {
 	p, err := startSupervised(cmd, supervision{name: "the agent run", kind: "agent run", cookieVar: childCookieVar,
-		backstop: true, debug: debug})
+		backstop: true, ownSession: true, debug: debug})
 	if err != nil {
 		return nil, err
 	}

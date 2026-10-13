@@ -19,9 +19,10 @@ import (
 // A Claude Code CLI runs in a process group of its own, and the processes started under it
 // are found by procTree (descendants.go): recorded while it runs, and found by the run's
 // cookie at each cleanup step. A run child (child.go) is supervised the same way, by the
-// provider, as a backstop (supervision.backstop): it stops its own CLIs and tools, and only
-// what it left gets the signals below after it exited (child_unix.go). What follows is about
-// the CLI.
+// provider, as a backstop (supervision.backstop), in a session of its own
+// (supervision.ownSession), so that what is still in its session after it exited is found
+// too: it stops its own CLIs and tools, and only what it left gets the signals below after it
+// exited (child_unix.go). What follows is about the CLI.
 //
 // Claude Code runs every shell command in a session of its own, out of the group's reach, and
 // leaves the ones it ran in the background running when it exits. Whatever the CLI does with
@@ -74,11 +75,23 @@ func startHarness(cmd *exec.Cmd, debug func(string)) (*harnessProcess, error) {
 	return startSupervised(cmd, claudeSupervision(debug))
 }
 
-// startSupervised starts a process as s describes, in a process group of its own, records
+// startSupervised starts a process as s describes, in a process group of its own (with
+// s.ownSession in a session of its own, which it leads with a group of the same ID), records
 // the processes started under it, and watches it until it exited and its group and those
 // processes were stopped. It fails with errShuttingDown after a SIGINT.
+//
+// Nothing relies on a run child sharing the provider's session: Pulumi runs the provider in a
+// process group of its own and stops it with SIGINT to that group, and a terminal's Ctrl-C
+// and hangup reach its foreground group only, so a run child, in a group of its own either
+// way, gets them only from WatchShutdownSignals. In a session of its own it has no
+// controlling terminal: a tool that opens /dev/tty (a password prompt) fails at once, where
+// it would have been stopped (SIGTTIN) in the background group of the terminal's session.
 func startSupervised(cmd *exec.Cmd, s supervision) (*harnessProcess, error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if s.ownSession {
+		// setsid makes it the leader of a new group too (setpgid would fail for it).
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	}
 	setPdeathsig(cmd.SysProcAttr)
 	// Every process it starts inherits the cookie, unless it clears its environment.
 	cookie := newRunCookie()
@@ -152,7 +165,8 @@ func (p *harnessProcess) signalSelfLocked(sig syscall.Signal) {
 
 // termAfterExit ends the recording when the CLI exited, and sends SIGTERM and SIGCONT to the
 // rest of its group and to the processes started under it that still run (what a stop did
-// not signal already), which it returns. When the CLI exited on its own, it counts them.
+// not signal already; for a run child also what is left in its session), which it returns.
+// When the CLI exited on its own, it counts them.
 func (p *harnessProcess) termAfterExit() procTargets {
 	p.tree.stopPolling()
 	left := p.tree.scan()
