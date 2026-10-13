@@ -40,6 +40,12 @@ with structured output answers a prompt, and the program exports its `risk` and 
 any OpenAI-compatible endpoint (`baseUrl` stack setting, default OpenAI) and the API key is the secret `apiKey`
 setting. `make test_examples` runs it against a fake OpenAI-compatible server, so it needs no API key and no registry.
 
+[`agent-run-ollama-yaml/`](agent-run-ollama-yaml) runs an agent on an [Ollama](https://ollama.com) model with the
+`ollama` provider: a local model, or an Ollama Cloud model (for example `gpt-oss:120b-cloud`) through a local Ollama
+that is signed in with `ollama signin`. The model and the endpoint are stack settings, and the run needs no key.
+`make test_examples` runs it against the fake OpenAI-compatible server, and checks that an `OPENAI_API_KEY` of the
+environment does not reach Ollama.
+
 [`agent-run-claude-code-ts/`](agent-run-claude-code-ts) runs Claude Code during `pulumi up` on the Claude subscription
 of the machine (no API key): an `AgentConfig` with a `claude-code` harness, and two `AgentRun`s of it with
 `allowHarnessAgents: true`. The first maintains `NOTES.md` in `workspace/` with a create, an update and a delete

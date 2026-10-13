@@ -1,0 +1,67 @@
+name: docker-agent-agent-run-ollama
+runtime: yaml
+description: Runs a Docker Agent on an Ollama model (local, or Ollama Cloud through the local Ollama) during `pulumi up`.
+plugins:
+  # Use the provider binary built by `make provider` in this repository. When you copy the
+  # example elsewhere, remove this block and install the released plugin with
+  # `pulumi plugin install resource docker-agent --server github://api.github.com/dirien/pulumi-docker-agent`.
+  providers:
+    - name: docker-agent
+      path: ../../bin
+
+config:
+  # An Ollama model: a local one that `ollama pull` downloaded (for example llama3.2 or
+  # qwen3:8b), or an Ollama Cloud model by its cloud tag (for example gpt-oss:120b-cloud), which
+  # the local Ollama serves once it is signed in with `ollama signin`.
+  model:
+    type: string
+    default: llama3.2
+  # The OpenAI-compatible API of the Ollama server. docker-agent does not read OLLAMA_HOST, so
+  # set this for an Ollama on another host. The end-to-end test points it at a fake server.
+  ollamaUrl:
+    type: string
+    default: http://localhost:11434/v1
+  # Any input change runs the agent again; bump the revision to ask again without other changes.
+  revision:
+    type: string
+    default: "1"
+
+resources:
+  # The agent: one Ollama model and a root agent without tools. The `ollama` provider needs no key.
+  writer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      models:
+        ollama:
+          provider: ollama
+          model: ${model}
+          baseUrl: ${ollamaUrl}
+      agents:
+        - name: root
+          model: ollama
+          description: Writes release notes
+          instruction: >-
+            You write release notes for infrastructure changes: a title line, then at most three
+            short bullet points. Answer with the release notes only.
+
+  # Runs the agent in a child process of the provider during `pulumi up` (never during a preview).
+  # With `inheritEnvironment: false`, the run gets no variables of the Pulumi CLI's environment,
+  # so an OPENAI_API_KEY exported for other tools is not sent to the Ollama server.
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${writer.yaml}
+      prompt: >-
+        Write the release notes for this change: the production PostgreSQL cluster moves from
+        version 15 to 17 during the Sunday maintenance window, with a read-only phase of ten minutes.
+      inheritEnvironment: false
+      # Local models on a CPU are slow; a cloud model answers in seconds.
+      timeoutSeconds: 600
+      triggers:
+        - ${revision}
+
+outputs:
+  releaseNotes: ${notes.output}
+  agentName: ${notes.agentName}
+  # Tokens as Ollama reports them; the cost is 0, Ollama has no catalog pricing.
+  usage: ${notes.usage}

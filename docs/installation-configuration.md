@@ -292,9 +292,9 @@ environment:
 ```
 
 - **Registry credentials.** The values under `pulumiConfig` become stack configuration, so `docker-agent:registryAuth` configures the default provider exactly like the `pulumi config set --path` commands above. Values wrapped in `fn::secret`, and values that interpolate them such as `${ghcrToken}`, arrive as Pulumi secrets. A key that is also set in `Pulumi.<stack>.yaml` keeps the stack's value.
-- **Model keys for `AgentRun`, through `env`.** Read the key from configuration (`anthropicApiKey` above) as a secret and pass it to `env` as described in [AgentRun credentials](#agentrun-credentials), preferably with `inheritEnvironment: false`. The key is stored encrypted in the state, and credentials and `${env.NAME}` references resolve only from `env`.
+- **Model keys for `AgentRun`, through `env`.** Read the key from configuration (`anthropicApiKey` above) as a secret and pass it to `env` as described in [AgentRun credentials](#agentrun-credentials), preferably with `inheritEnvironment: false`. The key is stored encrypted in the state, and credentials, `${env.NAME}` references and the variables the model SDKs read resolve only from `env`.
 - **Model keys for `AgentRun`, through the environment.** `pulumi preview`, `pulumi up` and the other stack commands export the environment's `environmentVariables` to the Pulumi CLI and the plugins it starts. With the default `inheritEnvironment: true`, `AgentRun` resolves `ANTHROPIC_API_KEY` from there without an `env` input, and nothing about the key is stored in the state. The processes the configuration starts (tools, hooks, MCP and LSP servers) inherit every exported variable too.
-- **Amazon Bedrock without static keys.** `fn::open::aws-login` exchanges an OpenID Connect token of Pulumi Cloud for temporary credentials of an IAM role that may call `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` (see [Configuring OpenID Connect for AWS](https://www.pulumi.com/docs/esc/guides/configuring-oidc/aws/)). Export them as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`, with `AWS_REGION`, for `amazon-bedrock` models. docker-agent signs Bedrock requests with the AWS SDK's default credential chain, which reads the environment of the provider process (and the shared AWS configuration files) whatever `inheritEnvironment` is set to, so these credentials come from `environmentVariables`, not from `env`. A Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK` can be passed in `env` instead.
+- **Amazon Bedrock without static keys.** `fn::open::aws-login` exchanges an OpenID Connect token of Pulumi Cloud for temporary credentials of an IAM role that may call `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` (see [Configuring OpenID Connect for AWS](https://www.pulumi.com/docs/esc/guides/configuring-oidc/aws/)). Export them as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`, with `AWS_REGION`, for `amazon-bedrock` models, and use the default `inheritEnvironment: true`; or put them into `pulumiConfig` as secrets and pass them to `env`, which works with `inheritEnvironment: false` too. Before v0.2.0, the AWS SDK read them only from the environment of the provider process, also with `inheritEnvironment: false`; a stack that relied on that now needs them in `env` (see [AgentRun credentials](#agentrun-credentials)). A Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK` works in `env` as well. Google Vertex AI through ESC's `gcp-login` is not supported: it provides an access token, and the Google SDK reads application default credentials (`GOOGLE_APPLICATION_CREDENTIALS`, a key file) instead.
 - **Running a published agent.** `pulumi env run` opens the environment and runs a command with its `environmentVariables`. `docker agent run` starts an interactive terminal UI, which needs `-i` (that also turns off the masking of secret values in the command's output); `--exec` runs one prompt without it:
 
   ```bash
@@ -448,46 +448,206 @@ The same converter imports shared agents: `pulumi import --from docker-agent <re
 
 ## Runtime credentials for agents
 
-Rendering, validating and publishing configurations needs no model API keys, and validation runs offline. Model credentials are read where the agent runs: from the environment of whoever runs it with `docker agent run`, `docker agent serve api` or a container based on `docker/docker-agent`, or, for `AgentRun`, by the provider during `pulumi up` (see [AgentRun credentials](#agentrun-credentials)). A Claude Code agent (`harness: {type: claude-code}`) needs no model key: its CLI uses its own login (see [Claude Code credentials](#claude-code-credentials)).
+Rendering, validating and publishing configurations needs no model API keys, and validation runs offline. Model credentials are read where the agent runs: from the environment of whoever runs it with `docker agent run`, `docker agent serve api` or a container based on `docker/docker-agent`, or, for `AgentRun`, by a child process of the provider during `pulumi up` (see [AgentRun credentials](#agentrun-credentials)). Coding-harness agents need no model key: the Claude Code and Codex CLIs use their own logins (see [Claude Code credentials](#claude-code-credentials) and [Codex credentials](#codex-credentials)).
 
-The `requiredEnvVars` output of `AgentConfig` and `validateAgentConfig` lists the variables a configuration needs, on a best-effort basis. The default variables per provider are:
+The `requiredEnvVars` output of `AgentConfig` and `validateAgentConfig` lists the variables a configuration needs, on a best-effort basis (a model with a `baseUrl` requires none there, even when its provider still needs its key when it runs). These are the model providers of docker-agent v1.150.0, the version this provider pins, with the variables they read. `tokenKey` on a model or a custom provider replaces the key variable by another name.
 
-| Model provider | Environment variables |
-|---|---|
-| `openai` | `OPENAI_API_KEY` |
-| `anthropic` | `ANTHROPIC_API_KEY` |
-| `google` | `GOOGLE_API_KEY` or `GEMINI_API_KEY` (or Vertex AI with `GOOGLE_GENAI_USE_VERTEXAI`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`) |
-| `amazon-bedrock` | `AWS_BEARER_TOKEN_BEDROCK`, or standard AWS credentials (`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, `AWS_PROFILE`, `AWS_ROLE_ARN`) plus `AWS_REGION` |
-| `dmr` (Docker Model Runner) | none |
-| `mistral` | `MISTRAL_API_KEY` |
-| `openrouter` | `OPENROUTER_API_KEY` |
-| `github-copilot` | `GITHUB_TOKEN` or `GH_TOKEN` |
-| `xai` | `XAI_API_KEY` |
-| `groq` | `GROQ_API_KEY` |
-| `deepseek` | `DEEPSEEK_API_KEY` |
-| `huggingface` | `HF_TOKEN` |
+| Provider | Protocol and default endpoint | Credentials | Other variables it reads |
+|---|---|---|---|
+| `openai` | OpenAI Chat Completions or Responses (chosen per model), `https://api.openai.com/v1` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` (the endpoint of a model without `baseUrl`); `OPENAI_ORG_ID`, `OPENAI_PROJECT_ID` and `OPENAI_CUSTOM_HEADERS`, which the OpenAI SDK adds to every OpenAI-protocol model, including the aliases below |
+| `anthropic` | Anthropic Messages, `https://api.anthropic.com` | `ANTHROPIC_API_KEY`, or workload identity federation (the model's `auth`) | `ANTHROPIC_BASE_URL`; `ANTHROPIC_AUTH_TOKEN`, which the Anthropic SDK sends as a bearer token next to the key when the environment has no `ANTHROPIC_API_KEY` (a key in another `tokenKey`); `ANTHROPIC_CUSTOM_HEADERS`, applied only when the environment has neither variable |
+| `google` (Gemini API) | Gemini, `https://generativelanguage.googleapis.com` | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | `GOOGLE_GEMINI_BASE_URL` |
+| `google` on Vertex AI (`providerOpts.project` and `providerOpts.location`, or `GOOGLE_GENAI_USE_VERTEXAI=true` with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`; also Model Garden models with `providerOpts.publisher`) | Vertex AI, the endpoint of the location | Google application default credentials: `GOOGLE_APPLICATION_CREDENTIALS` (the path of a service account key file), otherwise the gcloud login of the machine (`gcloud auth application-default login`) or the metadata server of a Google Cloud machine | `GOOGLE_VERTEX_BASE_URL`, `GOOGLE_CLOUD_REGION` |
+| `amazon-bedrock` | Bedrock Converse, the endpoint of the region | `AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key), otherwise the AWS SDK's default chain: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`, `AWS_PROFILE`, `AWS_ROLE_ARN` with `AWS_WEB_IDENTITY_TOKEN_FILE`, the shared files (`~/.aws/credentials`, `~/.aws/config`, SSO), container credentials and the instance metadata service | `AWS_REGION` or `AWS_DEFAULT_REGION` (or `providerOpts.region`), `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` (or `providerOpts.endpoint_url`); `providerOpts.profile` and `providerOpts.role_arn` |
+| `dmr` (Docker Model Runner) | OpenAI Chat Completions to the Model Runner | none | `MODEL_RUNNER_HOST`, otherwise the endpoint that `docker model status` reports through the Docker CLI's connection (`DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_CONFIG`, `DOCKER_CERT_PATH`, `DOCKER_TLS_VERIFY`, `DOCKER_TLS`) |
+| `chatgpt` (ChatGPT subscription) | OpenAI Responses, `https://chatgpt.com/backend-api/codex` | the ChatGPT login of `docker agent setup` (`~/.config/cagent/chatgpt-auth.json`), or a ChatGPT access token in `CHATGPT_OAUTH_TOKEN` | |
+| `github-copilot` | OpenAI Chat Completions or Responses, `https://api.githubcopilot.com` | `GITHUB_TOKEN`, otherwise `GH_TOKEN` | |
+| `azure` (Azure OpenAI) | OpenAI Chat Completions, the deployment's `baseUrl` (required) | `AZURE_API_KEY` | `providerOpts.api_version` |
+| `ollama` | OpenAI Chat Completions, `http://localhost:11434/v1` | none; `OPENAI_API_KEY` of the environment is sent when it is set | `OLLAMA_HOST` is not read: set `baseUrl` for another host |
+| `cloudflare-workers-ai` | OpenAI Chat Completions, `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1` | `CLOUDFLARE_API_TOKEN` | `CLOUDFLARE_ACCOUNT_ID` |
+| `cloudflare-ai-gateway` | OpenAI Chat Completions, `https://gateway.ai.cloudflare.com/v1/${CLOUDFLARE_ACCOUNT_ID}/${CLOUDFLARE_GATEWAY_ID}/compat` | `CLOUDFLARE_API_TOKEN` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID` |
+| A custom provider (`providers` with `apiType: openai_chatcompletions` or `openai_responses` and a `baseUrl`) | the configured protocol and `baseUrl` | the `tokenKey` variable; without `tokenKey`, no key is sent | A custom provider with `provider: <type>` gets the rules of that type instead. An `openai` model with a `baseUrl` and no `tokenKey` sends `OPENAI_API_KEY` of the environment, like `ollama`. |
 
-Other OpenAI-compatible aliases follow the same pattern (for example `NVIDIA_API_KEY`, `TOGETHER_API_KEY`, `CEREBRAS_API_KEY`, `FIREWORKS_API_KEY`). The [Docker Agent model provider documentation](https://docs.docker.com/ai/docker-agent/) has the full list.
+The other aliases are OpenAI-compatible services with a fixed endpoint and one key, all over OpenAI Chat Completions (`opencode` uses Responses for GPT models):
+
+| Provider | Default endpoint | Credentials |
+|---|---|---|
+| `baseten` | `https://inference.baseten.co/v1` | `BASETEN_API_KEY` |
+| `cerebras` | `https://api.cerebras.ai/v1` | `CEREBRAS_API_KEY` |
+| `daoxe` | `https://api.daoxe.com/v1` | `DAOXE_API_KEY` |
+| `deepseek` | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` |
+| `fireworks-ai` | `https://api.fireworks.ai/inference/v1` | `FIREWORKS_API_KEY` |
+| `groq` | `https://api.groq.com/openai/v1` | `GROQ_API_KEY` |
+| `huggingface` | `https://router.huggingface.co/v1` | `HF_TOKEN` |
+| `minimax` | `https://api.minimax.io/v1` | `MINIMAX_API_KEY` |
+| `mistral` | `https://api.mistral.ai/v1` | `MISTRAL_API_KEY` |
+| `moonshotai` | `https://api.moonshot.ai/v1` | `MOONSHOT_API_KEY` |
+| `nebius` | `https://api.studio.nebius.com/v1` | `NEBIUS_API_KEY` |
+| `nvidia` | `https://integrate.api.nvidia.com/v1` | `NVIDIA_API_KEY` |
+| `opencode` | `https://opencode.ai/zen/v1` | `OPENCODE_API_KEY` |
+| `opencode-go` | `https://opencode.ai/zen/go/v1` | `OPENCODE_API_KEY` |
+| `openrouter` | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
+| `ovhcloud` | `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1` | `OVH_AI_ENDPOINTS_ACCESS_TOKEN` |
+| `requesty` | `https://router.requesty.ai/v1` | `REQUESTY_API_KEY` |
+| `togetherai` | `https://api.together.xyz/v1` | `TOGETHER_API_KEY` |
+| `vercel` | `https://ai-gateway.vercel.sh/v1` | `AI_GATEWAY_API_KEY` |
+| `xai` | `https://api.x.ai/v1` | `XAI_API_KEY` |
+
+A model or custom provider with a `baseUrl` sends the requests of an alias to another endpoint; `OPENAI_BASE_URL` does not apply to aliases. The [Docker Agent model provider documentation](https://docs.docker.com/ai/docker-agent/) describes each provider.
 
 Never put a secret into an agent configuration: it ends up in the published artifact. Instead:
 
 - Set `tokenKey` on a model or custom provider to the **name** of the environment variable that holds the key, for example `tokenKey: MY_OPENAI_KEY`.
 - Use `${env.VAR}` placeholders in toolset `env` and `headers` values. docker-agent expands them when the agent runs.
 
-`docker agent doctor <reference>` checks that every required variable is set before you run an agent.
+`docker agent doctor <reference>` checks that every required variable is set before you run an agent with the CLI.
 
 ### AgentRun credentials
 
-`AgentRun` runs the agent inside the provider process on the machine that runs `pulumi up`, so it needs the same variables. It resolves them, and every `${env.NAME}` reference of the configuration, from:
+`AgentRun` runs each agent in a child process of the provider on the machine that runs `pulumi up`: the provider binary, started again for the run. The model SDKs read their variables (keys, base URLs, headers, AWS and Google credentials) from that process's environment, so `AgentRun` makes the child's environment exactly what the run may use:
 
-1. its `env` input, a map of variable names to values that is always stored as a secret. Set the values from secret config, for example `env: { OPENAI_API_KEY: config.requireSecret("openaiApiKey") }`;
-2. unless `inheritEnvironment` is `false`, the environment of the Pulumi CLI, for example an `OPENAI_API_KEY` exported in the shell or set as a CI secret.
+1. its `env` input, a map of variable names to values that is always stored as a secret. Set the values from secret config, for example `env: { OPENAI_API_KEY: config.requireSecret("openaiApiKey") }`. `env` wins over everything else;
+2. with `inheritEnvironment: true` (the default), the environment of the Pulumi CLI, for example an `OPENAI_API_KEY` exported in the shell, set as a CI secret or exported by a Pulumi ESC environment;
+3. with `inheritEnvironment: false`, instead of that environment, only the base environment below, which holds no credentials.
 
-docker-agent's other credential sources are never used: its `~/.config/cagent/.env` file, the credential helper of the user settings, Docker Desktop secrets and `op://` 1Password references. With `inheritEnvironment: false`, a run depends on nothing but its inputs. `OPENAI_BASE_URL` (and the other base-URL variables the model SDKs read) also comes from the environment of the Pulumi CLI; prefer a custom provider with `baseUrl` in the configuration. Likewise, `amazon-bedrock` models sign their requests with the AWS SDK's default credential chain, which reads the standard AWS variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`, ...) of the Pulumi CLI and the shared AWS configuration files whatever `inheritEnvironment` is set to. Only a Bedrock API key (`AWS_BEARER_TOKEN_BEDROCK` or the model's `tokenKey`) and `AWS_REGION` follow `env` and `inheritEnvironment` like other credentials.
+Credentials, `${env.NAME}` references of the configuration and the SDKs' own variables all resolve from this environment, so every variable in the tables above works in `env`, `tokenKey` variables included. The child receives `env` over a pipe and sets it in its own environment: the values never appear in its command line or its initial environment, which other processes of the same user can read (`/proc/<pid>/environ` on Linux, the process table on macOS), and on Linux the child cannot be inspected by other processes. Before v0.2.0, runs were in the provider process, where the SDKs read the provider's whole environment whatever `inheritEnvironment` said and ignored their variables in `env`; the [CHANGELOG](https://github.com/dirien/pulumi-docker-agent/blob/main/CHANGELOG.md) lists what that changes for existing stacks.
 
-The processes a configuration starts (command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers) inherit the environment of the Pulumi CLI by default, and command hooks also receive `env`. With `inheritEnvironment: false`, AgentRun starts them with the system variables only (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their toolset's own `env`, and command hooks with the system variables plus `env`. A toolset passes a credential to its process explicitly, for example `env: {GITHUB_TOKEN: "${env.GITHUB_TOKEN}"}`. `docker:` MCP servers (the Docker MCP Gateway), filesystem `post_edit` commands, the `open_url` launcher and docker-agent's on-demand tool installation always inherit the whole environment. [Where tools run](https://www.pulumi.com/registry/packages/docker-agent/#where-tools-run) on the overview page has the details.
+The base environment of a run with `inheritEnvironment: false`, when the environment of the Pulumi CLI sets these variables:
 
-An invalid key fails the update with the model's error message. The provider redacts the values of `env`, of secret inputs, of credential-named variables of the environment (names containing `API_KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `CREDENTIAL`, `ACCESS_KEY`, ...) and of the variables the configuration names as `token_key` from errors, warnings and logs. When the agent's answer contains one of these values, its `output` and `structuredOutput` are stored as secrets.
+| Group | Variables |
+|---|---|
+| System | `PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `LANG`, `LANGUAGE`, `LC_ALL`, `LC_CTYPE`, `LC_MESSAGES`, `TERM`, `TMPDIR`, `TEMP`, `TMP`, `TZ`, and on Windows `SYSTEMROOT`, `SYSTEMDRIVE`, `COMSPEC`, `PATHEXT`, `WINDIR`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `PROGRAMDATA`, `PROGRAMFILES` |
+| Claude Code and Codex configuration (they select the CLI's login) | `CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`, `IS_SANDBOX`, `CODEX_HOME`, `CODEX_CA_CERTIFICATE` |
+| Network | `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `ALL_PROXY` (also in lower case), `SSL_CERT_FILE`, `SSL_CERT_DIR` |
+| Docker connection (Docker Model Runner, `docker:` MCP servers, OCI references) | `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_CONFIG`, `DOCKER_CERT_PATH`, `DOCKER_TLS_VERIFY`, `DOCKER_TLS` |
+| docker-agent settings | `DOCKER_AGENT_AUTO_INSTALL`, `DOCKER_AGENT_TOOLS_DIR`, `DOCKER_AGENT_DISABLE_DESKTOP_PROXY`, `DOCKER_AGENT_KIT_DIR`, `TELEMETRY_ENABLED`, `TELEMETRY_TAGS`, `SANDBOX_VM_ID` |
+| Go runtime | `GODEBUG`, `GOMAXPROCS`, `GOMEMLIMIT`, `GOGC` |
+| Go modules (docker-agent's tool installation runs `go install`) | `GOPROXY`, `GOFLAGS`, `GONOSUMDB`, `GONOPROXY`, `GOPRIVATE`, `GOSUMDB`, `GOINSECURE`, `GOTOOLCHAIN`, `GOENV`, `GOPATH`, `GOMODCACHE`, `GOCACHE`, `GOROOT`, `GOAUTH`, `GOVCS`, `GOTMPDIR` |
+| Desktop session (Docker credential helpers, the Linux keyring) | `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR` |
+
+`GITHUB_TOKEN` and `GH_TOKEN`, which docker-agent's tool installation uses for GitHub's API (60 unauthenticated requests per hour), are credentials: pass them in `env` when the run installs tools.
+
+**What reaches the processes of the configuration.** The base environment and `env` are the run child's environment. The processes the configuration starts get what [Where tools run](https://www.pulumi.com/registry/packages/docker-agent/#where-tools-run) on the overview page describes, built from the environment of the Pulumi CLI, not from the child's: command hooks and the Claude Code and Codex CLIs get `env`; `shell`, `script` and `background_jobs` tools, LSP servers and MCP servers started with `command` get only their toolset's own `env`, which can pass a value on explicitly, for example `env: {GITHUB_TOKEN: "${env.GITHUB_TOKEN}"}`. With `inheritEnvironment: false` they get the system variables instead of the environment of the Pulumi CLI (the other variables of the base environment are set to an empty value for them). A variable that only `env` sets is unset for `shell`, `script` and `background_jobs`, and empty for LSP servers, for a `shell` toolset with `sudo_askpass` and for a `background_jobs` toolset with `recall`. `docker:` MCP servers (the Docker MCP Gateway), filesystem `post_edit` commands, the `open_url` launcher, docker-agent's on-demand tool installation and docker-agent's own helper commands inherit the child's environment, `env` included: docker-agent starts them without letting `AgentRun` change their environment.
+
+**Machine logins and SDK chains.** Some credentials are not environment variables, and the SDKs and CLIs find them on the machine whatever `inheritEnvironment` says:
+
+| Source | Used by | Instead, in `env` |
+|---|---|---|
+| The `claude` login (macOS keychain, `~/.claude/.credentials.json`) | Claude Code agents | `CLAUDE_CODE_OAUTH_TOKEN` |
+| The Codex login of `$CODEX_HOME` (default `~/.codex`) | Codex agents | `CODEX_HOME` of its own, `CODEX_API_KEY` or `CODEX_ACCESS_TOKEN` |
+| The ChatGPT login of `docker agent setup` (`~/.config/cagent/chatgpt-auth.json`) | `chatgpt` models | `CHATGPT_OAUTH_TOKEN` |
+| The AWS shared files (`~/.aws/credentials`, `~/.aws/config`, SSO), container credentials and the instance metadata service | `amazon-bedrock` models without credentials in `env` | `AWS_BEARER_TOKEN_BEDROCK`, or `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (and `AWS_SESSION_TOKEN`); `AWS_EC2_METADATA_DISABLED: "true"`, `AWS_SHARED_CREDENTIALS_FILE: /dev/null` and `AWS_CONFIG_FILE: /dev/null` switch the machine sources off |
+| The gcloud login (`~/.config/gcloud/application_default_credentials.json`) and the metadata server of a Google Cloud machine | Vertex AI models without `GOOGLE_APPLICATION_CREDENTIALS` | `GOOGLE_APPLICATION_CREDENTIALS`, the path of a service account key file, which wins over both |
+| The Docker CLI's configuration and contexts (`~/.docker`) | Docker Model Runner, `docker:` MCP servers, `reference` | `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_CONFIG` |
+
+The preview warns when a Bedrock or Vertex AI model gets no credentials from `env` under `inheritEnvironment: false` and would use the machine's AWS or Google credentials, which may belong to another account. For a run that depends on nothing but its inputs, pass every credential in `env`, with the AWS switches above for Bedrock.
+
+docker-agent's other credential sources are never used: its `~/.config/cagent/.env` file (the API keys `docker agent setup` stores), `/run/secrets`, the credential helper of the user settings, Docker Desktop secrets, the Docker models gateway and `op://` 1Password references. When a missing variable is in `~/.config/cagent/.env`, the error says so (it reads the names in the file, never the values).
+
+**Redaction and secrets.** An invalid key fails the update with the model's error message, followed by the run's credential line. The provider redacts the values of `env`, of secret inputs, of credential-named variables of the environment (names containing `API_KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `CREDENTIAL`, `ACCESS_KEY`, ...), of the variables the configuration names as `token_key`, and of the tokens of the ChatGPT and Codex logins a run uses, from errors, warnings and logs. When the agent's answer contains one of these values, its `output` and `structuredOutput` are stored as secrets. `env` values that are configuration rather than credentials are neither redacted nor make an answer secret: `AWS_REGION`, `AWS_DEFAULT_REGION`, `AWS_PROFILE`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_CLOUD_REGION`, `GOOGLE_GENAI_USE_VERTEXAI`, `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_USE_FOUNDRY`, `DOCKER_AGENT_DEFAULT_MODEL`, `CAGENT_DEFAULT_MODEL`, booleans (`true`, `false`, `yes`, `no`, `on`, `off`) and the base URLs `OPENAI_BASE_URL`, `ANTHROPIC_BASE_URL`, `GOOGLE_GEMINI_BASE_URL`, `GOOGLE_VERTEX_BASE_URL`, `MODEL_RUNNER_HOST` and `OLLAMA_HOST` when they are http(s) URLs without user info, query or fragment. A credential-named variable is always secret.
+
+### Preview checks and the credential line
+
+For a `yaml` configuration that is known during the preview, `AgentRun` checks the credentials of its models, and only when the operation runs the agent: a create, a change of an input that affects the run, `rerun: always`, or such an input that is unknown during the preview. Unchanged resources and changes that only update the state stay quiet; `pulumi up` checks twice (in its preview and its update), so a warning can show twice. A configuration pulled by `reference` is checked when it runs: the warnings appear at the start of the run, also of a delete prompt. The checks never call a model, a registry or the network, and never show a value.
+
+| Preview message | What it means |
+|---|---|
+| "the configuration needs `<VAR>`, which env does not set ..." | A model, a `${env.NAME}` reference or a toolset needs the variable, and neither `env` nor (with `inheritEnvironment: true`) the environment of the Pulumi CLI sets it. The run would fail. Set it in `env`. The message adds when the variable is in the environment of the Pulumi CLI but not inherited, or in `~/.config/cagent/.env`, which `AgentRun` does not read. |
+| "no first_available candidate has its credentials ..." | None of the candidates of a `first_available` model can run. Set the credentials of one of them. |
+| "`<VAR>` is set in the environment of the Pulumi CLI, but with inheritEnvironment: false it no longer reaches `<model>` since v0.2.0: ..." | Before v0.2.0, the SDK used the variable despite `inheritEnvironment: false`. The message says what changes, for example "its requests go to https://api.openai.com/v1" for `OPENAI_BASE_URL`. Set it in `env`, or set the model's `baseUrl`, `tokenKey` or `providerOpts.endpoint_url`. |
+| "`<VAR>` (inherited from the environment of the Pulumi CLI) ... as with docker agent run" | With `inheritEnvironment: true`, an SDK variable of your shell sends the model's requests, its key or a header elsewhere: `OPENAI_BASE_URL`, `ANTHROPIC_BASE_URL`, `GOOGLE_GEMINI_BASE_URL` or `GOOGLE_VERTEX_BASE_URL` for a model without `baseUrl`, `OPENAI_API_KEY` for a non-loopback `baseUrl` without `tokenKey` (for example Ollama Cloud), `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_CUSTOM_HEADERS`, and `OPENAI_ORG_ID`, `OPENAI_PROJECT_ID` and `OPENAI_CUSTOM_HEADERS` for a non-OpenAI endpoint. `docker agent run` does the same. Set `inheritEnvironment: false`, `tokenKey` or `baseUrl`, or blank the variable in `env` as the message says. |
+| "... gets no AWS credentials from env, so it uses this machine's AWS default chain ..." and "... gets no GOOGLE_APPLICATION_CREDENTIALS from env, so it uses this machine's Google application default credentials ..." | With `inheritEnvironment: false`, a Bedrock or Vertex AI model falls back to the machine sources of the table above. Pass the credentials in `env` if they may belong to another account. |
+| "`<model>` uses a ChatGPT subscription, but this machine has no ChatGPT login and env does not set CHATGPT_OAUTH_TOKEN ..." | Sign in with `docker agent setup` on the machine that runs `pulumi up` (see [ChatGPT subscription](#chatgpt-subscription)). |
+| "agents.`<a>`.structured_output is not enforced by Amazon Bedrock ..." | docker-agent sends Bedrock models no schema, so the answer may not be JSON and the run then fails. Set `structuredOutput.mode: tool`. |
+| "AgentRun does not use a Docker models gateway ..." and "bypass_models_gateway ... has no effect" | `DOCKER_AGENT_MODELS_GATEWAY` (or `CAGENT_MODELS_GATEWAY`) and `bypass_models_gateway` change nothing: the models call their providers directly, with their own credentials. |
+| "agents.`<a>`.model auto resolves to `<provider>/<model>` (...)" (info) | What `model: auto` will use, and why (see [model auto](#model-auto-and-docker_agent_default_model)). |
+| "`<model>` uses the ChatGPT login of docker agent setup on this machine (...)" (info) | The run uses, and may refresh, that login. |
+
+The preview fails for a provider that is not declared in the configuration, with "AgentRun does not use user-level providers (from docker agent setup, or UserSettings providers): declare the provider under `providers` in the configuration".
+
+**The credential line.** At the start of each run, unless `logging` is `none`, `pulumi up` shows the models the run can use and where each one's credential comes from, for example:
+
+```
+models: openai/gpt-5-mini (OPENAI_API_KEY from env); fallback anthropic/claude-haiku-4-5 (ANTHROPIC_API_KEY from the environment of the Pulumi CLI)
+```
+
+Models chosen by `model: auto` or `first_available` say so (`auto: anthropic/claude-sonnet-5 (...)`), and fallbacks, routing targets and compaction models are listed too. The sources include the SDKs' own fallbacks: "no key" for a custom provider without `tokenKey`, "no key: Docker Model Runner", "the ChatGPT login of docker agent setup, billed to the ChatGPT plan", ", and ANTHROPIC_AUTH_TOKEN from the environment of the Pulumi CLI as a bearer token", "this machine's AWS default credential chain (shared files, SSO, container or instance metadata)", "this machine's Google application default credentials (the gcloud login, or the metadata server)", and "`<VAR>` (not set)". The line names variables, never values; with a secret `yaml` or `agent`, it says "a model" instead of the model. An error for a rejected request (401, 403) repeats it, and with `inheritEnvironment: false` adds the SDK variables of the Pulumi CLI's environment that no longer reach the models. Coding-harness agents have their own line after the run (see [Claude Code credentials](#claude-code-credentials) and [Codex credentials](#codex-credentials)).
+
+### Costs
+
+`usage.cost` is the cost of the run in US dollars as docker-agent computes it from the [models.dev](https://models.dev) catalog bundled with the provider (a snapshot of 2026-10-07), or from a model's own `cost` table, for models billed per token. It is `0` for models without known pricing (custom providers without `cost`, `dmr`, `ollama`, models newer than the snapshot) and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login. The run summary then says why there is no estimate, for example "no cost estimate (billed to the ChatGPT plan)". A Claude Code agent that bills API usage reports the cost Claude Code reports, and a Codex agent that bills API usage (`CODEX_API_KEY`, an API-key login) an estimate at the catalog's API prices. The cost of a request that a rule-based router sends to another model is computed with the price of the router's own model ([docker/docker-agent#4576](https://github.com/docker/docker-agent/issues/4576)).
+
+### ChatGPT subscription
+
+A ChatGPT plan (Plus, Pro, Business) runs docker-agent's own runtime through the `chatgpt` provider: `model: chatgpt/gpt-5.6` (docker-agent's default ChatGPT model), or a `models` entry with `provider: chatgpt`. The ChatGPT backend serves the GPT-5 model family over the Responses API. Unlike a coding harness, the agent keeps everything `AgentRun` does for docker-agent agents: `toolApproval`, `permissions`, hooks and redaction.
+
+1. Sign in once with `docker agent setup` (choose ChatGPT) as the user that runs `pulumi up`, on the machine that runs it. It opens a browser and stores the login in `~/.config/cagent/chatgpt-auth.json`.
+2. Run the agent with `inheritEnvironment` `true` or `false`: the login is not an environment variable. The [`AgentRun` API docs](https://www.pulumi.com/registry/packages/docker-agent/api-docs/agentrun/) have an example.
+
+`AgentRun` uses the login for a configuration that names a chatgpt model (as a model, fallback, routing target, `first_available` candidate or compaction model) and whose run's environment does not set `CHATGPT_OAUTH_TOKEN` (or the model's `tokenKey`). `model: auto` alone never selects it; `DOCKER_AGENT_DEFAULT_MODEL: chatgpt/<model>` does. For each such run, `AgentRun`:
+
+- takes a lock, `chatgpt-auth.json.lock` next to the login, which other `AgentRun` runs on the machine respect (the `docker agent` CLI does not);
+- refreshes the login when its access token expires within 5 minutes, and saves it;
+- copies the login into the run's private config directory (mode `0600`, deleted after the run);
+- after the run, writes a login that the run refreshed back to `~/.config/cagent/chatgpt-auth.json`, atomically, and only when the file did not change meanwhile; otherwise it keeps the file.
+
+This is the only file of `~/.config/cagent` that `AgentRun` reads or writes. Its tokens are redacted like credentials. When another docker agent process (the `docker agent` CLI, or another Pulumi provider) refreshes the login at the same time, one of the refreshes fails; the error says so: run the command again, and sign in again with `docker agent setup` if it fails again.
+
+The run's credential line reads `chatgpt/gpt-5.6 (the ChatGPT login of docker agent setup, billed to the ChatGPT plan)`, `usage.cost` is `0` and the summary says "no cost estimate (billed to the ChatGPT plan)". Runs count toward the plan's usage limits.
+
+The login needs a browser sign-in on the machine, so it does not work in CI or Pulumi Deployments. `CHATGPT_OAUTH_TOKEN` in `env` takes a ChatGPT access token instead, which is short-lived and never refreshed; for unattended runs, prefer an API key provider such as `openai`.
+
+### Ollama and Ollama Cloud
+
+The `ollama` provider talks to an [Ollama](https://ollama.com) server over its OpenAI-compatible API, by default `http://localhost:11434/v1`, without a key. [`examples/agent-run-ollama-yaml`](https://github.com/dirien/pulumi-docker-agent/tree/main/examples/agent-run-ollama-yaml) runs an agent on it.
+
+- **Local models.** Pull the model first (`ollama pull llama3.2`) and use `model: ollama/llama3.2`. For an Ollama server on another host, set the model's `baseUrl` (for example `http://gpu-box:11434/v1`): docker-agent does not read `OLLAMA_HOST`. Local models are slow on a CPU, so raise `timeoutSeconds`, and their context window is small by default: set `OLLAMA_CONTEXT_LENGTH` on the Ollama server for long instructions or many tools. If a model ignores the schema of `structuredOutput`, set `mode: tool`.
+- **Ollama Cloud through the local Ollama.** Sign the local Ollama in to your ollama.com account (`ollama signin`, or the app), then use a cloud model by its cloud tag, for example `model: ollama/gpt-oss:120b-cloud`. Cloud models need no download: the local Ollama forwards the requests to Ollama Cloud with its account, so `AgentRun` needs no key, and the model runs where the local Ollama does.
+- **The Ollama Cloud API directly**, without a local Ollama (for example in CI): declare a custom provider for `https://ollama.com/v1` with the key variable `OLLAMA_API_KEY`, create a key at [ollama.com/settings/keys](https://ollama.com/settings/keys) and pass it in `env`. Model names there have no cloud suffix (`gpt-oss:120b`; `https://ollama.com/api/tags` lists them):
+
+  ```yaml
+  resources:
+    assistant:
+      type: docker-agent:index:AgentConfig
+      properties:
+        providers:
+          ollama-cloud:
+            apiType: openai_chatcompletions
+            baseUrl: https://ollama.com/v1
+            tokenKey: OLLAMA_API_KEY
+        agents:
+          - name: root
+            model: ollama-cloud/gpt-oss:120b
+    answer:
+      type: docker-agent:index:AgentRun
+      properties:
+        yaml: ${assistant.yaml}
+        prompt: Summarise the release notes in three bullet points.
+        inheritEnvironment: false
+        env:
+          OLLAMA_API_KEY: ${ollamaApiKey}
+  ```
+
+  Keep `tokenKey`: an `ollama` or `openai` model with a `baseUrl` and no `tokenKey` would send `OPENAI_API_KEY` of the run's environment there, and the preview warns about that with `inheritEnvironment: true`.
+
+`usage.cost` is `0` for Ollama models, local or cloud, and the credential line says "no key" (or `OLLAMA_API_KEY from env`). With `inheritEnvironment: true` and an `OPENAI_API_KEY` in your shell, an `ollama` model sends that key to its endpoint, harmless for `localhost`; `inheritEnvironment: false` keeps it away.
+
+### Amazon Bedrock and Google Vertex AI
+
+- **Amazon Bedrock.** Pass a Bedrock API key as `AWS_BEARER_TOKEN_BEDROCK` (or the model's `tokenKey`), or AWS access keys as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`, with `AWS_REGION`, in `env`; `AWS_PROFILE` and `AWS_ROLE_ARN` with `AWS_WEB_IDENTITY_TOKEN_FILE` work too. Without credentials in `env` (and with `inheritEnvironment: false`, without them in the environment of the Pulumi CLI), the AWS SDK uses the machine's shared files, SSO, container credentials or instance metadata; the preview warns, and `AWS_EC2_METADATA_DISABLED: "true"`, `AWS_SHARED_CREDENTIALS_FILE: /dev/null` and `AWS_CONFIG_FILE: /dev/null` in `env` switch them off. A bearer token needs HTTPS, also for `providerOpts.endpoint_url`. docker-agent does not enforce `structuredOutput` on Bedrock, so set `mode: tool` (the preview warns).
+- **Google Vertex AI.** Select Vertex AI with `providerOpts.project` and `providerOpts.location` on a `google` model, or with `GOOGLE_GENAI_USE_VERTEXAI: "true"`, `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION` in `env`. Pass the path of a service account key file as `GOOGLE_APPLICATION_CREDENTIALS` in `env`; without it, the SDK uses the gcloud login of the machine (`gcloud auth application-default login`) or, on a Google Cloud machine, its metadata server, and the preview warns. A Pulumi ESC `gcp-login` provides an access token, which application default credentials do not read: Vertex AI through ESC's OpenID Connect is not supported.
+
+### Docker Model Runner
+
+A `dmr/<model>` model (for example `dmr/ai/qwen3`) needs no key. `AgentRun` connects to Docker Model Runner like `docker agent run`: through the Docker CLI's connection (the current context, or `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_CONFIG` and the TLS variables), with `docker model status` finding the endpoint, so the machine that runs `pulumi up` needs the `docker` CLI with the Model Runner. `MODEL_RUNNER_HOST` in `env`, or the model's `baseUrl`, sets the endpoint instead. A model that is not on the machine yet is pulled without asking: `pulumi up` shows "pulling the Docker Model Runner model ai/qwen3 (within timeoutSeconds)", the pull's output goes to the debug log, and the pull counts toward `timeoutSeconds`, so pull large models first (`docker model pull ai/qwen3`) or raise `timeoutSeconds`. `usage.cost` is `0`.
+
+### model auto and DOCKER_AGENT_DEFAULT_MODEL
+
+`model: auto` picks the first provider whose credential the run's environment (`env`, and with `inheritEnvironment: true` the environment of the Pulumi CLI) sets, in docker-agent's order: `anthropic`, `openai`, `chatgpt` (when the run's environment sets `CHATGPT_OAUTH_TOKEN`, or the configuration also names a chatgpt model, so that the ChatGPT login is used), `github-copilot`, `google`, `mistral`, `openrouter`, `baseten`, `ovhcloud`, `daoxe`, `groq`, `fireworks-ai`, `deepseek`, `cerebras`, `togetherai`, `huggingface`, `moonshotai`, `vercel`, `amazon-bedrock`, `opencode`, `opencode-go`, and otherwise Docker Model Runner (`dmr/ai/qwen3:latest`, or a model the machine already has, pulled within `timeoutSeconds` when it is missing). `DOCKER_AGENT_DEFAULT_MODEL` (or `CAGENT_DEFAULT_MODEL`) in `env`, or in the inherited environment, selects `provider/model` instead, as with `docker agent run`. The preview logs what `auto` resolves to. In CI, an inherited `GITHUB_TOKEN` makes `auto` choose `github-copilot` when no other key is set: use `inheritEnvironment: false`, `DOCKER_AGENT_DEFAULT_MODEL` or a named model there. A failed `auto` says what it looked for.
+
+### UserSettings and AgentRun
+
+`UserSettings` manages `~/.config/cagent/config.yaml` for the `docker agent` CLI. `AgentRun` reads none of it: each run gets private docker-agent config, data and cache directories, so the user settings, aliases, global `providers`, the default model, the models gateway and the credential helper, as well as the API keys that `docker agent setup` stores in `~/.config/cagent/.env`, do not apply. The ChatGPT login is the one exception (see [ChatGPT subscription](#chatgpt-subscription)). Declare custom providers under `providers` in the configuration (`AgentConfig.providers`), and pass keys in `env`.
 
 ### Claude Code credentials
 
@@ -502,15 +662,40 @@ In non-interactive mode, an `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` in the
 - With `inheritEnvironment: false`, the CLI gets only the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...), the Claude configuration locations `CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME`, `IS_SANDBOX`, and `env`. The configuration locations are kept because they decide which keychain entry and credentials file Claude Code reads. Pass proxy and CA variables (`HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY`, `NODE_EXTRA_CA_CERTS`) through `env`. This also keeps a `CLAUDE_CODE_OAUTH_TOKEN` exported in your shell from the CLI, which then uses the login of the machine: pass the token in `env` instead. The preview warns about that when `env` does not set the token (`env: { CLAUDE_CODE_OAUTH_TOKEN: "" }` keeps the login and silences the warning), and the line after the run and an authentication or login-refresh error say it too.
 - The preview warns when the CLI would get one of the variables above that bill API usage or send the requests elsewhere (for a `yaml` configuration; a configuration pulled by `reference` gets the warning when it runs). The warning names the variable and where it comes from, never its value. After each run, unless `logging` is `none`, `pulumi up` shows `claude-code <version> (<model>), apiKeySource <source>`, the credential source that Claude Code reported. Any source other than `none` and `unknown` (`ANTHROPIC_API_KEY`, `apiKeyHelper`, `/login managed key`) bills API usage and adds a warning, also with `logging: none`. `none` only means that Claude Code used no API key, so the line adds what the CLI's environment selects instead, for example `apiKeySource none (the Claude login of this machine)`, `none (CLAUDE_CODE_OAUTH_TOKEN)`, `none (ANTHROPIC_AUTH_TOKEN)` or `none (Amazon Bedrock, CLAUDE_CODE_USE_BEDROCK)`, with `, through ANTHROPIC_BASE_URL` for a gateway. `ANTHROPIC_AUTH_TOKEN` and the cloud providers also add a warning.
 
-Claude Code refuses `--dangerously-skip-permissions`, which docker-agent's harness driver passes, when it runs as root, as it often does in CI containers. Run `pulumi up` as a non-root user, or, in an isolated container, set `IS_SANDBOX=1` in `env`. The preview warns when the provider runs as root without it (for a `yaml` configuration known during the preview). [Coding-harness agents (Claude Code)](https://www.pulumi.com/registry/packages/docker-agent/#coding-harness-agents-claude-code) on the overview page describes what the CLI runs and where.
+Claude Code refuses `--dangerously-skip-permissions`, which docker-agent's harness driver passes, when it runs as root, as it often does in CI containers. Run `pulumi up` as a non-root user, or, in an isolated container, set `IS_SANDBOX=1` in `env`. The preview warns when the provider runs as root without it (for a `yaml` configuration known during the preview). [Coding-harness agents (Claude Code and Codex)](https://www.pulumi.com/registry/packages/docker-agent/#coding-harness-agents-claude-code-and-codex) on the overview page describes what the CLI runs and where.
+
+### Codex credentials
+
+A Codex agent (`harness: {type: codex}`, run with `allowHarnessAgents: true`) does not use docker-agent's model credentials either: `AgentRun` starts the `codex` CLI (tested with Codex 0.162; install it with `npm i -g @openai/codex` or `brew install codex`), which reads its login and `config.toml` from `CODEX_HOME` (default `~/.codex`). To run it on a ChatGPT plan without an API key:
+
+- **A Codex home of its own (recommended).** Log in once into a directory that only `AgentRun` uses, as the user that runs `pulumi up`, and pass it in `env`:
+
+  ```bash
+  mkdir ~/.codex-agentrun
+  CODEX_HOME=~/.codex-agentrun codex login        # codex login --device-auth without a browser
+  CODEX_HOME=~/.codex-agentrun codex login status
+  ```
+
+  then `env: { CODEX_HOME: "/Users/<you>/.codex-agentrun" }` (an absolute path outside the temporary directory). This login is its own token family, so your interactive Codex and `AgentRun` never refresh the same login at once, and the runs do not pick up the MCP servers, hooks, profiles and trusted projects of your `~/.codex/config.toml`, and do not appear in your `codex resume` list. Never copy `auth.json` from another `CODEX_HOME`: both copies would rotate the same refresh token. A `CODEX_HOME` that does not exist, or is no directory, fails the preview.
+- **The login of the machine.** Without `CODEX_HOME`, codex uses `~/.codex/auth.json` of the user that runs `pulumi up`, or the OS keyring when `cli_auth_credentials_store` in `config.toml` says so (locked in SSH sessions on macOS). A run can fail when your interactive Codex refreshes that login at the same time; the error then says to retry and recommends a Codex home of its own.
+
+Codex picks its credential in this order: `CODEX_API_KEY` (bills API usage to that key; `OPENAI_ORGANIZATION` and `OPENAI_PROJECT` select the organization and project), `CODEX_ACCESS_TOKEN` (an access token of a ChatGPT Business or Enterprise workspace), workload identity (`OPENAI_IDENTITY_TOKEN_FILE`), then the stored login: a ChatGPT login (the plan), an API key stored by `codex login --with-api-key`, or Amazon Bedrock credentials. `OPENAI_API_KEY` is not used by Codex's built-in provider, so a key exported for docker-agent's own `openai` models does not switch Codex to API billing. A `model_provider` in `config.toml` decides the login and billing instead. `env: { CODEX_API_KEY: "" }` blanks an inherited key, and an inherited `CODEX_API_KEY` is not passed to codex when `env` sets `CODEX_ACCESS_TOKEN`. The preview warns when codex would bill API usage or a cloud account, and when it finds no login (`codex login`, `codex login --device-auth` on a machine without a browser).
+
+When `forced_login_method` in Codex's `config.toml` (also `/etc/codex/config.toml` or `managed_config.toml`) does not allow the credential that codex would get, codex logs out: it deletes `auth.json` and the keyring entry, and exits. `AgentRun` refuses to start it instead, and the preview fails with "codex would delete the stored login of its CODEX_HOME (...)". Log in again with the method `config.toml` requires, remove `forced_login_method`, or give `AgentRun` a `CODEX_HOME` of its own.
+
+With `inheritEnvironment: false`, codex gets the system variables, `CODEX_HOME`, `CODEX_CA_CERTIFICATE`, the proxy variables, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR` and `env`. Codex itself also loads `$CODEX_HOME/.env` (every variable but `CODEX_*`), which `inheritEnvironment` does not affect. In both cases, the markers of a parent Codex session (`CODEX_THREAD_ID`, `CODEX_SANDBOX`, ...) and an inherited `RUST_LOG` (at trace level Codex logs every command's environment) are removed, and `PWD` is the working directory. Codex passes its environment, `env` included, to the commands it runs, and the model sees what they print; the output is redacted in logs.
+
+After each run, unless `logging` is `none`, `pulumi up` shows a line like `codex 0.162.1 (gpt-6.1-sol), sandbox workspace-write, auth the ChatGPT login of this machine (/Users/<you>/.codex-agentrun/auth.json, plan plus), CODEX_HOME /Users/<you>/.codex-agentrun, thread <id>`, and warns when the run billed API usage (`CODEX_API_KEY`, an API-key or Bedrock login, a `model_provider`) or when the installed Codex is not the tested release. Codex keeps a transcript of every turn, with every command's output, unredacted in `$CODEX_HOME/sessions/`, where `codex resume` shows it: another reason for a Codex home of its own.
 
 ### AgentRun progress and time limits
 
-`logging` controls what `pulumi up` shows while an `AgentRun` runs. `status` (the default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, and why, a model that fell back to the next one) and ends with one summary line: duration, tool calls, input and output tokens and the estimated cost. `tools` also logs every tool call with its arguments, and `full` also logs the agents' messages and the tools' results. `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credential-named environment variables and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing `logging` updates the state without running the agent again. For a Claude Code agent, the progress shows the tools that Claude Code reports it ran as "run by the harness" (or "run by the harness, failed") instead of approved or rejected.
+`logging` controls what `pulumi up` shows while an `AgentRun` runs. `status` (the default) shows the run's progress as status messages that the next one replaces (an agent started, a task was transferred or the conversation handed off, each tool call and whether it was approved or rejected, and why, a model that fell back to the next one), the credential line, and ends with one summary line: duration, tool calls, input and output tokens and the estimated cost (or why there is none). `tools` also logs every tool call with its arguments, and `full` also logs the agents' messages and the tools' results. `none` shows nothing. Messages are redacted like errors (`env` values, secret inputs, credential-named environment variables and `tokenKey` variables). When the answer is secret (`outputSecret`, or a secret `prompt`, `updatePrompt` or `yaml`), `tools` and `full` log no arguments, messages or results, and with a secret `yaml` or `agent` the messages name no agents, tools or models. Changing `logging` updates the state without running the agent again. For a coding-harness agent, the progress shows the tools that Claude Code or Codex reports it ran as "run by the harness" (or "run by the harness, failed") instead of approved or rejected.
 
-`AgentRun` has two time limits. `timeoutSeconds` (default 300) limits the agent run itself: when it runs out, the run is cancelled and the create, update or delete fails with "the agent did not finish within ... (timeoutSeconds)". The [`customTimeouts`](https://www.pulumi.com/docs/iac/concepts/resources/options/customtimeouts/) resource option (`create`, `update`, `delete`) limits the whole provider operation, including pulling a `reference` and waiting for another `AgentRun` of the same provider process to finish (runs execute one at a time); when it runs out, Pulumi cancels the operation and the run fails with "the operation's time limit (customTimeouts) ran out before the agent finished". A cancelled operation, for example after Ctrl-C, fails with "the agent run was canceled". The shorter limit wins. Use `customTimeouts` to bound the deployment step as a whole and keep `timeoutSeconds` as the per-run safety limit. Changing `timeoutSeconds` alone does not run the agent again.
+`AgentRun` has two time limits. `timeoutSeconds` (default 300) limits the agent run itself, from loading the configuration (starting MCP servers, pulling a Docker Model Runner model) to the final answer: when it runs out, the run is cancelled and the create, update or delete fails with "the agent did not finish within ... (timeoutSeconds)". The [`customTimeouts`](https://www.pulumi.com/docs/iac/concepts/resources/options/customtimeouts/) resource option (`create`, `update`, `delete`) limits the whole provider operation, including pulling a `reference` and waiting for another `AgentRun` of the same provider process to finish (runs execute one at a time); when it runs out, Pulumi cancels the operation and the run fails with "the operation's time limit (customTimeouts) ran out before the agent finished". A cancelled operation, for example after Ctrl-C, fails with "the agent run was canceled", and when Pulumi stops the provider (SIGINT), the run stops within about 2 seconds with "the agent run was stopped because Pulumi is stopping the provider (SIGINT)". The shorter limit wins. Use `customTimeouts` to bound the deployment step as a whole and keep `timeoutSeconds` as the per-run safety limit. Changing `timeoutSeconds` alone does not run the agent again.
 
-A Claude Code agent works longer than a single model answer: allow 900 to 1800 seconds for coding tasks. While the `claude` CLI runs, `AgentRun` records the processes started under it, also the shell commands that Claude Code runs in sessions of their own, and the CLI gets a random value in `DOCKER_AGENT_RUN_COOKIE`, which these processes inherit, so that `AgentRun` also finds the ones whose parent exited before it saw them. When a limit runs out or the operation is cancelled, `AgentRun` sends SIGTERM to the CLI's process group and to those processes, keeps reading the CLI's output while it shuts down, and sends SIGKILL to what is left 10 seconds later, or 1 second after the CLI exited if that comes first. After the CLI exited, what it left running (for example a command it ran in the background) gets SIGTERM and, 1 second later, SIGKILL, and `pulumi up` warns how many processes outside the CLI's process group were stopped; the output is read for at most 2 more seconds. A process that left the CLI's process group and session, whose parent exited before the process table was read (about every 0.2 seconds), and whose environment does not show that value (started with `env -i`, or, on macOS, a program whose environment the system does not show to other processes, as for some signed programs under System Integrity Protection) can outlive the run, and so can everything when the provider itself is killed.
+When a run ends, `AgentRun` stops every process it left running, for example a server that a `shell` tool started in the background, and warns: "the agent run left 1 process running when it ended (for example a command a tool ran in the background); AgentRun stopped it". It finds them by the run child's process group and by a random value in `DOCKER_AGENT_AGENTRUN_COOKIE` that every process of the run inherits.
+
+A coding-harness agent works longer than a single model answer: allow 900 to 1800 seconds for coding tasks. While the `claude` or `codex` CLI runs, `AgentRun` records the processes started under it, also the shell commands that the CLI runs in sessions of their own, and the CLI gets a random value in `DOCKER_AGENT_RUN_COOKIE`, which these processes inherit, so that `AgentRun` also finds the ones whose parent exited before it saw them. When a limit runs out or the operation is cancelled, `AgentRun` stops the CLI (Codex first gets SIGINT, which ends its turn cleanly, and 2 seconds later SIGTERM), sends SIGTERM to the CLI's process group and to those processes, keeps reading the CLI's output while it shuts down, and sends SIGKILL to what is left 10 seconds later, or 1 second after the CLI exited if that comes first. After the CLI exited, what it left running (for example a command it ran in the background) gets SIGTERM and, 1 second later, SIGKILL, and `pulumi up` warns how many processes outside the CLI's process group were stopped (MCP servers that the CLI was still shutting down are stopped without a warning); the output is read for at most 2 more seconds. A process that left the CLI's process group and session, whose parent exited before the process table was read (about every 0.2 seconds), and whose environment does not show that value (started with `env -i`, or, on macOS, a program whose environment the system does not show to other processes, as for some signed programs under System Integrity Protection) can outlive the run, and so can everything when the provider itself is killed.
 
 ## Validation errors
 

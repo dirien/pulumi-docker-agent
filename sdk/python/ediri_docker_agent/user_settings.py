@@ -269,6 +269,10 @@ class UserSettings(pulumi.CustomResource):
         `/settings` dialog, `docker agent sandbox allow`) show up as drift and are reverted by the next
         `pulumi up --refresh`, so manage those settings here instead.
 
+        The file configures the `docker agent` CLI. `AgentRun` reads none of it: each run uses private docker-agent
+        directories, so its aliases, global providers, default model, models gateway and credential helper do not apply there.
+        Declare providers in the agent configuration and pass keys in the `env` input of `AgentRun` instead.
+
         ## Example Usage
         ### Write the user configuration
         ```python
@@ -404,6 +408,10 @@ class UserSettings(pulumi.CustomResource):
         The resource owns the whole file. Changes docker-agent makes itself (`docker agent alias add`, the TUI's
         `/settings` dialog, `docker agent sandbox allow`) show up as drift and are reverted by the next
         `pulumi up --refresh`, so manage those settings here instead.
+
+        The file configures the `docker agent` CLI. `AgentRun` reads none of it: each run uses private docker-agent
+        directories, so its aliases, global providers, default model, models gateway and credential helper do not apply there.
+        Declare providers in the agent configuration and pass keys in the `env` input of `AgentRun` instead.
 
         ## Example Usage
         ### Write the user configuration
