@@ -419,6 +419,15 @@ func TestCheckModelsChatGPT(t *testing.T) {
 	warnings, infos = checkModels(t, doc, map[string]string{"CHATGPT_OAUTH_TOKEN": "fake-access"}, false)
 	assert.Empty(t, warnings)
 	assert.Empty(t, infos)
+	// model auto resolves to docker-agent's default ChatGPT model, which not every plan offers
+	// (the 0.2.0-rc.1 check: a Plus plan refuses it).
+	warnings, infos = checkModels(t, agentWith("auto"), map[string]string{"CHATGPT_OAUTH_TOKEN": "fake-access"}, false)
+	assert.Empty(t, warnings)
+	assert.Equal(t, []string{"agents.root.model auto resolves to chatgpt/" + config.DefaultModels["chatgpt"] +
+		" (CHATGPT_OAUTH_TOKEN from env), docker-agent's default ChatGPT model, which not every ChatGPT plan offers: " +
+		"when the run fails with \"model is not supported when using Codex with a ChatGPT account\", select one the " +
+		"plan offers with DOCKER_AGENT_DEFAULT_MODEL: chatgpt/<model> in env (the models codex lists for this account: " +
+		"run codex, then /model)"}, infos)
 
 	path := fakeChatGPTLogin(t, "fake-chatgpt-access-token-0123456789")
 	warnings, infos = checkModels(t, doc, nil, false)

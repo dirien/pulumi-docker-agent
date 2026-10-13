@@ -330,6 +330,10 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 		} else if rf.inProcess != "" {
 			text = joinHints(text, nonEmpty(login.errorHint(rf.inProcess, rf.chatgpt)))
 		}
+		// A chatgpt model that the plan does not offer, whichever credential the run used.
+		if failed && chatgptModelRefused(rf.chatgpt) {
+			text = joinHints(text, []string{chatgptModelHint})
+		}
 		msg := names.hide(redact(text, secrets))
 		switch mce, ok := errors.AsType[*MissingCredentialsError](err); {
 		case ok:

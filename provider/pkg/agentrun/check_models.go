@@ -678,6 +678,13 @@ func autoChecks(ctx context.Context, cfg *latest.Config, v envView, prov environ
 			infos = append(infos, fmt.Sprintf("%s finds no provider credential in the run's environment and resolves to Docker "+
 				"Model Runner (%s, or a model this machine already pulled; a missing model is pulled within "+
 				"timeoutSeconds)", where, model))
+		case u.isChatGPT():
+			// docker-agent's default ChatGPT model, which the Codex backend does not serve to
+			// every plan.
+			infos = append(infos, fmt.Sprintf("%s resolves to %s (%s), docker-agent's default ChatGPT model, which not "+
+				"every ChatGPT plan offers: when the run fails with \"model is not supported when using Codex with a "+
+				"ChatGPT account\", select one the plan offers with DOCKER_AGENT_DEFAULT_MODEL: chatgpt/<model> in env (the "+
+				"models codex lists for this account: run codex, then /model)", where, model, credentialSource(u, v)))
 		default:
 			infos = append(infos, fmt.Sprintf("%s resolves to %s (%s)", where, model, credentialSource(u, v)))
 		}

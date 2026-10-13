@@ -427,6 +427,20 @@ func (s *chatgptSource) unusedWarning(line string) string {
 // chatgpt401 matches an HTTP 401 status in an error.
 var chatgpt401 = regexp.MustCompile(`\b401\b`)
 
+// chatgptModelHint explains why the Codex backend refused a chatgpt model: the account's
+// ChatGPT plan does not offer it there (HTTP 400 {"detail":"The 'gpt-5.6' model is not
+// supported when using Codex with a ChatGPT account."}), for example docker-agent's default
+// ChatGPT model on a Plus plan.
+const chatgptModelHint = "the ChatGPT plan of this account does not offer this model through the Codex backend that " +
+	"chatgpt models use: pick a model the plan offers, one of those that codex lists for this account (run codex, " +
+	"then /model), for example Codex's default model, and set it as chatgpt/<model>"
+
+// chatgptModelRefused recognizes that refusal in the errors of the agents whose models are
+// chatgpt models.
+func chatgptModelRefused(chatgptErr string) bool {
+	return strings.Contains(chatgptErr, "model is not supported when using Codex with a ChatGPT account")
+}
+
 // refusedRefresh recognizes a refresh of the ChatGPT login that the token endpoint refused
 // (chatgpt/token.go: the session is no longer valid, a refresh token that was used already).
 func refusedRefresh(text string) bool {

@@ -1068,9 +1068,11 @@ import * as docker_agent from "@ediri/pulumi-docker-agent";
 
 // A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
 // `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+// The models available depend on the plan: use one that `codex` lists for your account
+// (run `codex`, then /model).
 const reviewer = new docker_agent.AgentConfig("reviewer", {agents: [{
     name: "root",
-    model: "chatgpt/gpt-5.6",
+    model: "chatgpt/gpt-5.5",
     instruction: "You review Pulumi programs for security issues. Answer in at most five bullet points.",
     toolsets: [{
         type: "filesystem",
@@ -1095,9 +1097,11 @@ import ediri_docker_agent as docker_agent
 
 # A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
 # `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+# The models available depend on the plan: use one that `codex` lists for your account
+# (run `codex`, then /model).
 reviewer = docker_agent.AgentConfig("reviewer", agents=[{
     "name": "root",
-    "model": "chatgpt/gpt-5.6",
+    "model": "chatgpt/gpt-5.5",
     "instruction": "You review Pulumi programs for security issues. Answer in at most five bullet points.",
     "toolsets": [{
         "type": "filesystem",
@@ -1127,11 +1131,13 @@ func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
 		// `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+		// The models available depend on the plan: use one that `codex` lists for your account
+		// (run `codex`, then /model).
 		reviewer, err := dockeragent.NewAgentConfig(ctx, "reviewer", &dockeragent.AgentConfigArgs{
 			Agents: dockeragent.AgentArray{
 				&dockeragent.AgentArgs{
 					Name:        pulumi.String("root"),
-					Model:       pulumi.String("chatgpt/gpt-5.6"),
+					Model:       pulumi.String("chatgpt/gpt-5.5"),
 					Instruction: pulumi.String("You review Pulumi programs for security issues. Answer in at most five bullet points."),
 					Toolsets: dockeragent.ToolsetArray{
 						&dockeragent.ToolsetArgs{
@@ -1173,6 +1179,8 @@ return await Deployment.RunAsync(() =>
 {
     // A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
     // `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+    // The models available depend on the plan: use one that `codex` lists for your account
+    // (run `codex`, then /model).
     var reviewer = new DockerAgent.AgentConfig("reviewer", new()
     {
         Agents = new[]
@@ -1180,7 +1188,7 @@ return await Deployment.RunAsync(() =>
             new DockerAgent.Inputs.AgentArgs
             {
                 Name = "root",
-                Model = "chatgpt/gpt-5.6",
+                Model = "chatgpt/gpt-5.5",
                 Instruction = "You review Pulumi programs for security issues. Answer in at most five bullet points.",
                 Toolsets = new[]
                 {
@@ -1238,10 +1246,12 @@ public class App {
     public static void stack(Context ctx) {
         // A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
         // `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+        // The models available depend on the plan: use one that `codex` lists for your account
+        // (run `codex`, then /model).
         var reviewer = new AgentConfig("reviewer", AgentConfigArgs.builder()
             .agents(AgentArgs.builder()
                 .name("root")
-                .model("chatgpt/gpt-5.6")
+                .model("chatgpt/gpt-5.5")
                 .instruction("You review Pulumi programs for security issues. Answer in at most five bullet points.")
                 .toolsets(ToolsetArgs.builder()
                     .type("filesystem")
@@ -1270,12 +1280,14 @@ runtime: yaml
 resources:
   # A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
   # `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+  # The models available depend on the plan: use one that `codex` lists for your account
+  # (run `codex`, then /model).
   reviewer:
     type: docker-agent:index:AgentConfig
     properties:
       agents:
         - name: root
-          model: chatgpt/gpt-5.6
+          model: chatgpt/gpt-5.5
           instruction: You review Pulumi programs for security issues. Answer in at most five bullet points.
           toolsets:
             - type: filesystem
@@ -1305,10 +1317,12 @@ terraform {
 
 # A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
 # `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+# The models available depend on the plan: use one that `codex` lists for your account
+# (run `codex`, then /model).
 resource "docker-agent_agent_config" "reviewer" {
   agents {
     name        = "root"
-    model       = "chatgpt/gpt-5.6"
+    model       = "chatgpt/gpt-5.5"
     instruction = "You review Pulumi programs for security issues. Answer in at most five bullet points."
     toolsets {
       type = "filesystem"

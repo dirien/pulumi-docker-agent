@@ -355,6 +355,8 @@ namespace ediri.DockerAgent
     /// {
     ///     // A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
     ///     // `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+    ///     // The models available depend on the plan: use one that `codex` lists for your account
+    ///     // (run `codex`, then /model).
     ///     var reviewer = new DockerAgent.AgentConfig("reviewer", new()
     ///     {
     ///         Agents = new[]
@@ -362,7 +364,7 @@ namespace ediri.DockerAgent
     ///             new DockerAgent.Inputs.AgentArgs
     ///             {
     ///                 Name = "root",
-    ///                 Model = "chatgpt/gpt-5.6",
+    ///                 Model = "chatgpt/gpt-5.5",
     ///                 Instruction = "You review Pulumi programs for security issues. Answer in at most five bullet points.",
     ///                 Toolsets = new[]
     ///                 {

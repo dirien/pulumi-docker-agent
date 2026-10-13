@@ -94,7 +94,7 @@ resources:
       models:
         plan:
           provider: chatgpt
-          model: gpt-5.6
+          model: gpt-5.5
           baseUrl: ${backendUrl}
       agents:
         - name: root
@@ -153,7 +153,7 @@ func TestExampleAgentRunChatGPTLogin(t *testing.T) {
 	assert.Equal(t, "Hello from the fake ChatGPT backend.", stringOutput(t, up.Outputs, "answer"))
 	assert.Equal(t, map[string]any{"inputTokens": 10.0, "outputTokens": 5.0, "cost": 0.0}, outputValue(t, up.Outputs, "usage"))
 	assert.Contains(t, up.StdOut,
-		"models: chatgpt/gpt-5.6 (the ChatGPT login of docker agent setup, billed to the ChatGPT plan)")
+		"models: chatgpt/gpt-5.5 (the ChatGPT login of docker agent setup, billed to the ChatGPT plan)")
 	assert.Contains(t, up.StdOut, "no per-token cost: billed to the ChatGPT plan")
 	assert.NotContains(t, up.StdOut+up.StdErr, accessToken)
 	assert.NotContains(t, up.StdOut+up.StdErr, refreshToken)
@@ -161,7 +161,7 @@ func TestExampleAgentRunChatGPTLogin(t *testing.T) {
 	reqs := backend.received()
 	require.Len(t, reqs, 1, "up runs the agent once")
 	assert.Equal(t, "Bearer "+accessToken, reqs[0].Authorization, "the run uses the login's access token")
-	assert.Equal(t, "gpt-5.6", reqs[0].Model)
+	assert.Equal(t, "gpt-5.5", reqs[0].Model)
 	assert.Equal(t, "/backend-api/codex/responses", reqs[0].Path)
 	assert.Contains(t, reqs[0].Instructions, "You answer in one sentence.")
 

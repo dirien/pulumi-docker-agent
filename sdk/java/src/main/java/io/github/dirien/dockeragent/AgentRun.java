@@ -402,10 +402,12 @@ import javax.annotation.Nullable;
  *     public static void stack(Context ctx) {
  *         // A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
  *         // `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+ *         // The models available depend on the plan: use one that `codex` lists for your account
+ *         // (run `codex`, then /model).
  *         var reviewer = new AgentConfig("reviewer", AgentConfigArgs.builder()
  *             .agents(AgentArgs.builder()
  *                 .name("root")
- *                 .model("chatgpt/gpt-5.6")
+ *                 .model("chatgpt/gpt-5.5")
  *                 .instruction("You review Pulumi programs for security issues. Answer in at most five bullet points.")
  *                 .toolsets(ToolsetArgs.builder()
  *                     .type("filesystem")

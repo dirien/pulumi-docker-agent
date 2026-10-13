@@ -229,6 +229,26 @@ func TestChatGPTLogin(t *testing.T) {
 		_, err := Run(t.Context(), req)
 		require.Error(t, err)
 		assert.NotContains(t, err.Error(), chatgptRaceHint, "only a refused refresh or a 401 of the Codex backend")
+		assert.NotContains(t, err.Error(), chatgptModelHint)
+	})
+
+	// The 0.2.0-rc.1 check: docker-agent's default ChatGPT model on a Plus plan.
+	t.Run("a model the plan does not offer gets the model hint", func(t *testing.T) {
+		const refused = `{"detail":"The 'gpt-5.5' model is not supported when using Codex with a ChatGPT account."}`
+		for _, withToken := range []bool{false, true} {
+			_, req, _, _ := chatgptRun(t, func(wireReq) wireReply { return wireReply{Status: 400, Err: refused} })
+			if withToken {
+				req.Env["CHATGPT_OAUTH_TOKEN"] = "fake-env-chatgpt-token-0123456789"
+			}
+			_, err := Run(t.Context(), req)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "model is not supported when using Codex with a ChatGPT account")
+			assert.True(t, strings.HasSuffix(err.Error(), "; "+chatgptModelHint), "with the login or a token: %s", err)
+			assert.NotContains(t, err.Error(), chatgptRaceHint)
+		}
+		assert.Equal(t, "the ChatGPT plan of this account does not offer this model through the Codex backend that chatgpt "+
+			"models use: pick a model the plan offers, one of those that codex lists for this account (run codex, then "+
+			"/model), for example Codex's default model, and set it as chatgpt/<model>", chatgptModelHint)
 	})
 
 	t.Run("an expiring login is refreshed under the lock and written back at once", func(t *testing.T) {

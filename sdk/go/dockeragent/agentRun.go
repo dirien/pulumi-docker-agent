@@ -364,11 +364,13 @@ import (
 //		pulumi.Run(func(ctx *pulumi.Context) error {
 //			// A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
 //			// `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+//			// The models available depend on the plan: use one that `codex` lists for your account
+//			// (run `codex`, then /model).
 //			reviewer, err := dockeragent.NewAgentConfig(ctx, "reviewer", &dockeragent.AgentConfigArgs{
 //				Agents: dockeragent.AgentArray{
 //					&dockeragent.AgentArgs{
 //						Name:        pulumi.String("root"),
-//						Model:       pulumi.String("chatgpt/gpt-5.6"),
+//						Model:       pulumi.String("chatgpt/gpt-5.5"),
 //						Instruction: pulumi.String("You review Pulumi programs for security issues. Answer in at most five bullet points."),
 //						Toolsets: dockeragent.ToolsetArray{
 //							&dockeragent.ToolsetArgs{
