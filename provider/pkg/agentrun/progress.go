@@ -94,10 +94,11 @@ func (p *progress) record(format string, args ...any) {
 	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secrets), Persistent: true})
 }
 
-// quote returns s, without hidden names, redacted, on one line and shortened to n runes.
-// Redacting first keeps a secret that the shortening would cut from slipping through.
+// quote returns s, redacted, without hidden names, on one line and shortened to n runes.
+// Redacting first keeps a secret that the shortening would cut, or a hidden name inside it
+// would split, from slipping through.
 func (p *progress) quote(s string, n int) string {
-	return truncate(redact(p.names.hide(s), p.secrets), n)
+	return truncate(p.names.hide(redact(s, p.secrets)), n)
 }
 
 // name returns a name of the configuration, or what it stands for ("an agent") when names are

@@ -634,8 +634,8 @@ func TestRunLogsAreRedacted(t *testing.T) {
 	logs := strings.Join(runLogs, "\n")
 	mu.Unlock()
 	assert.Contains(t, logs, "ERROR Non-retryable error from model")
-	assert.Contains(t, logs, "[secret]")
-	assert.NotContains(t, logs, fakeKey)
+	assert.Contains(t, logs, "Incorrect API key provided: [secret]", "the record quotes the API error, redacted")
+	assert.NotContains(t, logs, fakeKey[:8], "no part of the key")
 	assert.NotContains(t, logs, "Model selected", "records below WARN are dropped")
 }
 

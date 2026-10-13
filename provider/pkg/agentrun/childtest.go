@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -26,6 +27,7 @@ type childTest struct {
 	PostExitGrace      time.Duration `json:"postExitGrace"`
 	HarnessDrain       time.Duration `json:"harnessDrain"`
 	SignalGrace        time.Duration `json:"signalGrace"`
+	ToolsetStopTimeout time.Duration `json:"toolsetStopTimeout"`
 	HarnessOS          string        `json:"harnessOS"`
 	ProcPollInterval   time.Duration `json:"procPollInterval"`
 	CookieSweepTimeout time.Duration `json:"cookieSweepTimeout"`
@@ -62,6 +64,15 @@ type childFaults struct {
 	EnvFile string `json:"envFile,omitempty"`
 	// SkipHello makes the child send no handshake (as a different program would not).
 	SkipHello bool `json:"skipHello,omitempty"`
+	// SlowTeardown makes the child wait this long after it sent its result or error, before it
+	// stops the runtime and the toolsets.
+	SlowTeardown time.Duration `json:"slowTeardown,omitempty"`
+	// BrokenAfterEnd makes the child close its writer after it sent its result or error, and
+	// write a broken message to the protocol.
+	BrokenAfterEnd bool `json:"brokenAfterEnd,omitempty"`
+	// ProtocolFile is where the child writes what its protocol and request descriptors are
+	// (Linux: their /proc/self/fd targets), before the run.
+	ProtocolFile string `json:"protocolFile,omitempty"`
 }
 
 // testFaults are faults that tests inject into this process (the process table) and that a
@@ -76,8 +87,8 @@ var testFaults struct {
 func snapshotChildTest(f *childFaults) *childTest {
 	t := &childTest{
 		HarnessGrace: harnessGrace, PostExitGrace: postExitGrace, HarnessDrain: harnessDrain, SignalGrace: signalGrace,
-		HarnessOS: harnessOS, ProcTableError: testFaults.procTableError, NoProcs: testFaults.noProcs,
-		RootCAs: testFaults.rootCAs,
+		ToolsetStopTimeout: toolsetStopTimeout, HarnessOS: harnessOS, ProcTableError: testFaults.procTableError,
+		NoProcs: testFaults.noProcs, RootCAs: testFaults.rootCAs,
 	}
 	snapshotProcLimits(t)
 	if f != nil {
@@ -87,9 +98,10 @@ func snapshotChildTest(f *childFaults) *childTest {
 }
 
 // apply sets the tests' values in the run child and injects the faults. It returns stop and
-// the exit status when the child must not run the request.
-func (t *childTest) apply(ctx context.Context, w *childWriter) (status int, stop bool) {
+// the exit status when the child must not run the request (input is the request's stream).
+func (t *childTest) apply(ctx context.Context, w *childWriter, input io.Reader) (status int, stop bool) {
 	harnessGrace, postExitGrace, harnessDrain, signalGrace = t.HarnessGrace, t.PostExitGrace, t.HarnessDrain, t.SignalGrace
+	toolsetStopTimeout = t.ToolsetStopTimeout
 	harnessOS = t.HarnessOS
 	applyProcLimits(t)
 	if len(t.RootCAs) > 0 {
@@ -102,6 +114,9 @@ func (t *childTest) apply(ctx context.Context, w *childWriter) (status int, stop
 		}
 	}
 	f := t.childFaults
+	if f.ProtocolFile != "" {
+		_ = os.WriteFile(f.ProtocolFile, []byte("protocol "+fdTarget(w.out)+"\nrequest "+fdTarget(input)+"\n"), 0o600)
+	}
 	if f.Stray != "" && !f.Hang {
 		writeStray(f.Stray)
 	}
@@ -129,6 +144,17 @@ func (t *childTest) apply(ctx context.Context, w *childWriter) (status int, stop
 		return 0, true
 	}
 	return 0, false
+}
+
+// afterEnd runs after the child sent its result or error, before its teardown.
+func (t *childTest) afterEnd(w *childWriter) {
+	if t.BrokenAfterEnd {
+		w.close()
+		_, _ = w.out.Write([]byte(childMagic + "{broken\n"))
+	}
+	if t.SlowTeardown > 0 {
+		time.Sleep(t.SlowTeardown)
+	}
 }
 
 // writeStray writes s, on a line of its own, to os.Stdout, to file descriptor 1 and to stderr.

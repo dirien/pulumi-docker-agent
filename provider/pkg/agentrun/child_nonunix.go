@@ -137,6 +137,16 @@ func (c *stdinRunChild) kill() {
 	}
 }
 
+// expire kills the child without marking it as stopping, so that what it left running in its
+// job is still counted.
+func (c *stdinRunChild) expire() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.finished {
+		_ = c.cmd.Process.Kill()
+	}
+}
+
 func (c *stdinRunChild) exited() <-chan struct{} { return c.exitedCh }
 func (c *stdinRunChild) done() <-chan struct{}   { return c.doneCh }
 
@@ -188,16 +198,19 @@ func WatchShutdownSignals() {
 }
 
 // takeChildStdio takes the protocol (stdout) and the request (stdin) away from the standard
-// streams of a run child: os.Stdout becomes os.Stderr and os.Stdin the null device, and the
-// process's standard handles follow (child_windows.go).
+// streams of a run child: the protocol gets a handle of its own and os.Stdout and the
+// process's standard output become stderr (takeProtocolStdout, child_windows.go); os.Stdin
+// and the process's standard input become the null device.
 func takeChildStdio() (proto, input *os.File, err error) {
-	proto, input = os.Stdout, os.Stdin
+	if proto, err = takeProtocolStdout(); err != nil {
+		return nil, nil, err
+	}
 	null, err := os.Open(os.DevNull)
 	if err != nil {
 		return nil, nil, err
 	}
-	os.Stdout, os.Stdin = os.Stderr, null
-	redirectStdHandles(null)
+	input, os.Stdin = os.Stdin, null
+	redirectStdin(null)
 	return proto, input, nil
 }
 
@@ -227,14 +240,20 @@ func watchChildSignals(cancel context.CancelCauseFunc) func() {
 	}
 }
 
-// childExecutable is the provider's own executable for a run child.
-func childExecutable() (string, error) { return os.Executable() }
+// childExecutables are the provider's own executable for a run child.
+func childExecutables() ([]string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	return []string{exe}, nil
+}
 
 // protectChild does nothing on this system.
 func protectChild() {}
 
-// writeFD1 writes to the standard output the process started with (a test's stray output).
-func writeFD1(s string) { _, _ = syscall.Write(syscall.Stdout, []byte(s)) }
+// fdTarget says nothing on this system (a test's fault).
+func fdTarget(any) string { return "" }
 
 // snapshotProcLimits and applyProcLimits do nothing: no process table is read on this system.
 func snapshotProcLimits(*childTest) {}

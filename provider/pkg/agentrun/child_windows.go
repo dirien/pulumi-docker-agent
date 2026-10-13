@@ -4,6 +4,7 @@
 package agentrun
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"syscall"
@@ -95,11 +96,55 @@ func (j *childJob) close() {
 	}
 }
 
-// redirectStdHandles makes the process's standard output handle stderr and its standard
-// input the null device, for code that reads the handles instead of os.Stdout.
-func redirectStdHandles(null *os.File) {
-	_ = windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(os.Stderr.Fd()))
+// takeProtocolStdout gives the protocol a handle of its own to the standard output the child
+// started with, and makes stderr the process's standard output. Windows has no dup2, so:
+//
+//   - the protocol gets a duplicate of the original handle that no process inherits (the
+//     original is inheritable): no process the child starts can hold the protocol's pipe or
+//     write to it, and its end follows the child's exit;
+//   - SetStdHandle makes stderr what GetStdHandle(STD_OUTPUT_HANDLE) returns from now on (code
+//     that reads the handle, and processes that inherit the standard handles), and os.Stdout
+//     and syscall.Stdout become stderr;
+//   - the original handle is closed through its os.File: whatever captured os.Stdout before
+//     (a package-level writer set up at init) then fails with os.ErrClosed instead of writing
+//     between the protocol's messages, or into a handle that reuses its value.
+//
+// The child's writer (childWriter) is then the only writer of the duplicate, from one
+// goroutine, so a message larger than one WriteFile is never interleaved with another write.
+func takeProtocolStdout() (*os.File, error) {
+	orig := os.Stdout
+	if orig == nil {
+		return nil, errors.New("the agent run process has no standard output")
+	}
+	self := windows.CurrentProcess()
+	var dup windows.Handle
+	if err := windows.DuplicateHandle(self, windows.Handle(orig.Fd()), self, &dup, 0, false,
+		windows.DUPLICATE_SAME_ACCESS); err != nil {
+		return nil, fmt.Errorf("duplicating the standard output: %w", err)
+	}
+	if err := windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(os.Stderr.Fd())); err != nil {
+		_ = windows.CloseHandle(dup)
+		return nil, fmt.Errorf("redirecting the standard output: %w", err)
+	}
+	os.Stdout = os.Stderr
+	syscall.Stdout = syscall.Stderr
+	_ = orig.Close()
+	return os.NewFile(uintptr(dup), "agent-run-protocol"), nil
+}
+
+// redirectStdin makes the null device the process's standard input, for code that reads the
+// handle instead of os.Stdin.
+func redirectStdin(null *os.File) {
 	_ = windows.SetStdHandle(windows.STD_INPUT_HANDLE, windows.Handle(null.Fd()))
+}
+
+// writeFD1 writes to the process's standard output handle (a test's stray output): stderr
+// once takeProtocolStdout ran.
+func writeFD1(s string) {
+	if h, err := windows.GetStdHandle(windows.STD_OUTPUT_HANDLE); err == nil {
+		var n uint32
+		_ = windows.WriteFile(h, []byte(s), &n, nil)
+	}
 }
 
 // logDebug sends a formatted debug message.

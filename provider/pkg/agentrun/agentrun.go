@@ -264,10 +264,12 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 }
 
 // runRequest runs the request in the run child (child.go), in the state root and the working
-// directory the parent created. The parent redacts what it returns again, adds its own check
-// whether the answer is secret, and reports the summary. timed is called when the run's
-// timeout starts (before the configuration is loaded: loading can pull a model).
-func runRequest(ctx context.Context, req Request, stateRoot string, timed func()) (*Result, error) {
+// directory the parent created. It calls ended with the result or the error as soon as the
+// conversation ended, and returns once the runtime and the toolsets were stopped. The parent
+// redacts what ended gets again, adds its own check whether the answer is secret, and reports
+// the summary. timed is called when the run's timeout starts (before the configuration is
+// loaded: loading can pull a model).
+func runRequest(ctx context.Context, req Request, stateRoot string, timed func(), ended func(*Result, error)) {
 	secrets := redactionSet(req)
 	// docker-agent logs to slog: keep its records (which can quote API errors) off stderr.
 	names := newNameHider(req)
@@ -275,30 +277,37 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 	defer stopLog()
 	paths.SetRoot(stateRoot)
 
+	// Redacted first, then without the names: hiding a name inside a secret would split it.
 	warn := func(msg string) {
 		if req.Warn != nil {
-			req.Warn(redact(names.hide(msg), secrets))
+			req.Warn(names.hide(redact(msg, secrets)))
 		}
 	}
 	prog := newProgress(req, secrets, names)
 	info := &harnessInfo{}
 	debug := func(msg string) {
 		if req.Log != nil {
-			req.Log(slog.LevelDebug, redact(names.hide(msg), secrets))
+			req.Log(slog.LevelDebug, names.hide(redact(msg, secrets)))
 		}
 	}
-	res, err := run(ctx, req, runSetup{req.ToolApproval, req.Timeout, req.WorkingDir, secrets, info, warn, debug, timed},
-		prog)
+	// What run started is stopped after ended (and before stopLog: the teardown's records still
+	// reach the run's log).
+	var td teardown
+	defer td.run()
+	res, err := run(ctx, req, runSetup{req.ToolApproval, req.Timeout, req.WorkingDir, secrets, info, warn, debug, timed,
+		&td}, prog)
 	harnessWarnings := reportHarness(info, prog)
 	if err != nil {
 		for _, w := range harnessWarnings {
 			warn(w)
 		}
-		msg := redact(names.hide(err.Error()), secrets)
+		msg := names.hide(redact(err.Error(), secrets))
 		if mce, ok := errors.AsType[*MissingCredentialsError](err); ok {
-			return nil, &MissingCredentialsError{Variables: mce.Variables, msg: msg}
+			ended(nil, &MissingCredentialsError{Variables: mce.Variables, msg: msg})
+			return
 		}
-		return nil, errors.New(msg)
+		ended(nil, errors.New(msg))
+		return
 	}
 	res.Warnings = append(res.Warnings, harnessWarnings...)
 	for i, w := range res.Warnings {
@@ -306,7 +315,7 @@ func runRequest(ctx context.Context, req Request, stateRoot string, timed func()
 	}
 	// The parent adds its own finding (the provider's credentials) and the warning.
 	res.OutputContainsSecret = containsSecret(res.Output, secrets)
-	return res, nil
+	ended(res, nil)
 }
 
 // reportHarness reports what the Claude Code CLI of a run said about itself, as a progress
@@ -389,10 +398,29 @@ type runSetup struct {
 	debug func(string)
 	// timed is called when the timeout starts; nil does nothing.
 	timed func()
+	// teardown gets what run stops after the conversation; nil stops it when run returns.
+	teardown *teardown
+}
+
+// teardown is what a run stops after its conversation, in the reverse order of add: the
+// runtime, the toolsets, the run's timeout. A run child sends its result before it.
+type teardown struct{ steps []func() }
+
+func (t *teardown) add(step func()) { t.steps = append(t.steps, step) }
+
+func (t *teardown) run() {
+	for i := len(t.steps) - 1; i >= 0; i-- {
+		t.steps[i]()
+	}
+	t.steps = nil
 }
 
 func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result, error) {
 	approval, timeout, workingDir := rs.approval, rs.timeout, rs.workingDir
+	if rs.teardown == nil {
+		rs.teardown = &teardown{}
+		defer rs.teardown.run()
+	}
 	// Remote MCP servers get a token store private to this run.
 	ctx = mcp.WithOAuthTokenStore(ctx, mcp.NewInMemoryTokenStore())
 
@@ -444,10 +472,10 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	}
 
 	// timeoutSeconds bounds the run from here: loading the configuration (which pulls a missing
-	// Docker Model Runner model and starts MCP servers) and the conversation. Deferred first, the
+	// Docker Model Runner model and starts MCP servers) and the conversation. Torn down last, the
 	// timeout is canceled only after the toolsets stopped: processes bound to it would be killed.
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	rs.teardown.add(cancel)
 	if rs.timed != nil {
 		rs.timed()
 	}
@@ -470,7 +498,7 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 		return nil, describeLoadError(err, req)
 	}
 	t := loaded.Team
-	defer stopToolSets(ctx, t)
+	rs.teardown.add(func() { stopToolSets(ctx, t) })
 
 	selected, err := t.AgentOrDefault(req.Agent)
 	if err != nil {
@@ -520,7 +548,7 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	if err != nil {
 		return nil, fmt.Errorf("creating the docker-agent runtime: %w", err)
 	}
-	defer func() { _ = rt.Close() }()
+	rs.teardown.add(func() { _ = rt.Close() })
 
 	sess := session.New(
 		session.WithTitle("Pulumi AgentRun"),
@@ -728,8 +756,12 @@ func teamAgents(t *team.Team) []*agent.Agent {
 	return out
 }
 
+// toolsetStopTimeout bounds stopping a run's toolsets; a variable, so that tests can shorten
+// it.
+var toolsetStopTimeout = 30 * time.Second
+
 func stopToolSets(ctx context.Context, t *team.Team) {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), toolsetStopTimeout)
 	defer cancel()
 	_ = t.StopToolSets(ctx)
 }

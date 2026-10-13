@@ -5,6 +5,7 @@ package agentrun
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -18,7 +19,9 @@ import (
 	"github.com/docker/docker-agent/pkg/teamloader/toolsets"
 	"github.com/docker/docker-agent/pkg/toolinstall"
 	"github.com/docker/docker-agent/pkg/tools"
+	"github.com/docker/docker-agent/pkg/tools/builtin/backgroundjobs"
 	"github.com/docker/docker-agent/pkg/tools/builtin/lsp"
+	"github.com/docker/docker-agent/pkg/tools/builtin/shell"
 	"github.com/docker/docker-agent/pkg/tools/lifecycle"
 	"github.com/docker/docker-agent/pkg/tools/mcp"
 	"github.com/docker/docker-agent/pkg/tools/workingdir"
@@ -32,11 +35,18 @@ import (
 // `env`, and Request.Env for command hooks):
 //
 //   - command hooks: runtime.WithEnv, with Request.Env;
-//   - `shell`, `script` and `background_jobs` toolsets: docker-agent appends the toolset's
-//     `env` after os.Environ() and the last value wins, so each variable of Request.Env is
-//     overridden with the provider's value or an empty value;
+//   - `shell`, `script` and `background_jobs` toolsets: with Request.InheritEnvironment,
+//     AgentRun builds them as docker-agent does, with the provider's environment in place of
+//     os.Environ() (inheritedToolset), so a variable that only Request.Env sets is unset for
+//     their processes, as it was in process. Otherwise, and for the options only docker-agent's
+//     constructor can set (shell's sudo_askpass, background_jobs' recall), docker-agent
+//     appends the toolset's `env` after os.Environ() and the last value wins: each variable of
+//     Request.Env is overridden with the provider's value or an empty value;
 //   - stdio MCP servers (`command`): started with exactly the environment AgentRun builds;
-//   - LSP servers (`command`): like `shell`.
+//   - LSP servers (`command`): docker-agent puts os.Environ() first when it starts the server,
+//     so a variable can only be overridden, as for `shell` without Request.InheritEnvironment:
+//     a variable that only Request.Env sets is empty, not unset. Empty is the safe choice: its
+//     value must not reach the server.
 //
 // With Request.InheritEnvironment they get the provider's environment. Without it, only the
 // system variables below: every other variable is overridden with an empty value, or not
@@ -379,7 +389,7 @@ func toolsetCreators(req Request, policy *approvalPolicy) map[string]teamloader.
 	creators := toolsets.DefaultToolsetCreators()
 	for _, typ := range []string{"shell", "script", "background_jobs"} {
 		if c, ok := creators[typ]; ok {
-			creators[typ] = withToolEnv(c, req)
+			creators[typ] = withToolEnv(c, req, typ)
 		}
 	}
 	if c, ok := creators["mcp"]; ok {
@@ -424,10 +434,17 @@ func toolEnvOverrides(req Request) map[string]string {
 	return env
 }
 
-// withToolEnv overrides variables through the toolset's own `env`, which docker-agent appends
-// after os.Environ() (see toolEnvOverrides). The toolset's `env` still wins.
-func withToolEnv(create teamloader.ToolsetCreator, req Request) teamloader.ToolsetCreator {
+// withToolEnv builds a `shell`, `script` or `background_jobs` toolset (typ) with the
+// provider's environment when Request.InheritEnvironment is set (inheritedToolset). Otherwise
+// it overrides variables through the toolset's own `env`, which docker-agent appends after
+// os.Environ() (see toolEnvOverrides). The toolset's `env` still wins.
+func withToolEnv(create teamloader.ToolsetCreator, req Request, typ string) teamloader.ToolsetCreator {
 	return func(ctx context.Context, ts latest.Toolset, parentDir string, rc *config.RuntimeConfig, name string) (tools.ToolSet, error) {
+		if req.InheritEnvironment {
+			if set, ok, err := inheritedToolset(ctx, typ, ts, rc); ok {
+				return set, err
+			}
+		}
 		env := toolEnvOverrides(req)
 		if len(env) == 0 {
 			return create(ctx, ts, parentDir, rc, name)
@@ -436,6 +453,45 @@ func withToolEnv(create teamloader.ToolsetCreator, req Request) teamloader.Tools
 		ts.Env = env
 		return create(ctx, ts, parentDir, rc, name)
 	}
+}
+
+// inheritedToolset builds a `shell`, `script` or `background_jobs` toolset as docker-agent's
+// CreateToolSet and CreateScriptToolSet do (keep them in step when docker-agent is upgraded),
+// with providerEnviron() in place of os.Environ(): Request.Env then reaches none of its
+// processes, and a variable that only Request.Env sets is unset for them, not empty. ok is
+// false for an option that only docker-agent's constructor can set (shell's sudo_askpass,
+// background_jobs' recall): the caller then overrides the variables instead.
+func inheritedToolset(ctx context.Context, typ string, ts latest.Toolset, rc *config.RuntimeConfig,
+) (set tools.ToolSet, ok bool, err error) {
+	what := "toolset's"
+	switch {
+	case typ == "shell" && (ts.SudoAskpass == nil || !*ts.SudoAskpass):
+	case typ == "background_jobs" && (ts.Recall == nil || !*ts.Recall):
+	case typ == "script":
+		if len(ts.Shell) == 0 {
+			return nil, true, errors.New("shell is required for script toolset")
+		}
+		what = "tool's"
+	default:
+		return nil, false, nil
+	}
+	env, err := environment.ExpandAll(ctx, environment.ToValues(ts.Env), rc.EnvProvider())
+	if err != nil {
+		return nil, true, fmt.Errorf("failed to expand the %s environment variables: %w", what, err)
+	}
+	// The toolset's `env` wins on a key collision, as in docker-agent (exec.Cmd keeps the last).
+	env = append(providerEnviron(), env...)
+	switch typ {
+	case "shell":
+		return shell.New(env, rc), true, nil
+	case "background_jobs":
+		return backgroundjobs.New(env, rc), true, nil
+	}
+	script, err := shell.NewScript(ts.Shell, env)
+	if err != nil {
+		return nil, true, err
+	}
+	return script, true, nil
 }
 
 // mcpWithEnv starts stdio MCP servers with the environment docker-agent's mcp.CreateToolSet

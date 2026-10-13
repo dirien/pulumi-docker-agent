@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -19,10 +20,12 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
 	version "github.com/dirien/pulumi-docker-agent/provider"
+	"github.com/dirien/pulumi-docker-agent/provider/pkg/validate"
 )
 
 // Every agent run runs in a run child: the provider's own executable, started again with the
@@ -41,18 +44,25 @@ import (
 //     overrides). stdin stays open for the whole run: its end means the parent is gone;
 //   - child to parent, on the child's stdout: one JSON message per line after childMagic
 //     (childMessage), from one writer goroutine; a version handshake first (once the child
-//     read the request), then progress, logs and warnings, and a result or an error last. The child moves everything else away
-//     from the protocol: os.Stdout is os.Stderr, and on Linux and macOS file descriptor 1 is
-//     a copy of stderr. The parent logs lines without childMagic and the child's stderr
-//     (panics included) at debug level, redacted;
+//     read the request), then progress, logs and warnings, and a result or an error as soon
+//     as the conversation ended. Then the child stops the runtime and its toolsets, whose
+//     logs still follow, and exits. The child moves everything else away from the protocol:
+//     os.Stdout is os.Stderr, on Linux and macOS file descriptor 1 is a copy of stderr, and
+//     on Windows the standard output handle is stderr. The protocol has a descriptor (handle)
+//     of its own that no process the child starts inherits, so its end follows the child's
+//     exit, and the parent reads it to the end. The parent logs lines without childMagic and
+//     the child's stderr (panics included) at debug level, redacted;
 //   - the child redacts what it sends with its own redaction set (it never gets the
 //     credentials of the provider's environment it does not inherit), and the parent redacts
 //     everything again with the provider's full set, decides whether the answer is secret,
 //     and reports the summary;
 //   - the parent owns the end of the run: it calls the Request callbacks from Run's goroutine,
 //     supervises the child (child_unix.go, child_windows.go) and writes the error of a run that
-//     was canceled, timed out, stopped for a shutdown, or whose child ended without a result.
-//     The child gets the parent's deadline, so its own errors for those cases read the same.
+//     was canceled, timed out, stopped for a shutdown, or whose child ended without a result
+//     (childEnd.outcome). The child gets the parent's deadline, so its own errors for those
+//     cases read the same. As in process, the run is judged by the end of the conversation:
+//     once the result or the error arrived, customTimeouts and timeoutSeconds no longer
+//     count, and the teardown gets childTeardownGrace before the child is killed.
 //
 // The child cancels its run on SIGTERM (a cancellation), SIGINT (Pulumi stops the provider),
 // the end of stdin and a broken stdout (the parent is gone); it ignores SIGPIPE, so that it
@@ -73,10 +83,9 @@ const (
 	maxChildMessage = 64 << 20
 	// childGraceMargin is added to the time a canceled child may take to stop its CLIs.
 	childGraceMargin = 2 * time.Second
-	// childQueue is the length of the child's message queue; logs are dropped when it is full.
+	// childQueue is the length of the child's message queue; DEBUG and INFO records are
+	// dropped when it is full.
 	childQueue = 256
-	// childFlushTimeout bounds the time the child waits for its last messages to be written.
-	childFlushTimeout = 30 * time.Second
 )
 
 // childHandshakeTimeout bounds the time a child takes to start and send its handshake; a
@@ -86,6 +95,11 @@ var childHandshakeTimeout = 30 * time.Second
 // childGrace is how long a canceled run child may take to stop (its Claude Code CLIs get
 // harnessGrace, their output harnessDrain) before it is killed.
 func childGrace() time.Duration { return harnessGrace + harnessDrain + childGraceMargin }
+
+// childTeardownGrace is how long a run child may take, once it sent its result or error, to
+// stop the runtime and its toolsets (stopToolSets gives them toolsetStopTimeout) and to send
+// its last messages before it is killed.
+func childTeardownGrace() time.Duration { return toolsetStopTimeout + childGrace() }
 
 var (
 	// childEntry is set when MaybeRunChild ran in a process that is no run child: only such
@@ -213,6 +227,7 @@ var (
 
 // runChild is the run child's main function. It returns the exit status.
 func runChild() int {
+	// Before anything else: nothing may write to the protocol but the child's writer.
 	proto, input, err := takeChildStdio()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "agent run:", err)
@@ -267,7 +282,7 @@ func childMain(ctx context.Context, cancel context.CancelCauseFunc, input io.Rea
 		defer stop()
 	}
 	if creq.Test != nil && testing.Testing() {
-		if status, stop := creq.Test.apply(ctx, w); stop {
+		if status, stop := creq.Test.apply(ctx, w, input); stop {
 			return status
 		}
 		useTestLogin(creq.StateRoot)
@@ -297,14 +312,26 @@ func childMain(ctx context.Context, cancel context.CancelCauseFunc, input io.Rea
 	if creq.Warn {
 		req.Warn = func(msg string) { w.send(childMessage{Type: msgWarn, Message: msg}) }
 	}
-	res, err := runRequest(ctx, req, creq.StateRoot, func() { w.send(childMessage{Type: msgTimed}) })
+	// The result or the error goes out as soon as the conversation ended, before the runtime and
+	// the toolsets are stopped: the parent judges the run by it, and gives the teardown its own
+	// time (childTeardownGrace).
+	runRequest(ctx, req, creq.StateRoot, func() { w.send(childMessage{Type: msgTimed}) }, func(res *Result, err error) {
+		w.send(endMessage(res, err))
+		if creq.Test != nil && testing.Testing() {
+			creq.Test.afterEnd(w)
+		}
+	})
+	return 0
+}
+
+// endMessage is the message that ends a run: its result, or its error.
+func endMessage(res *Result, err error) childMessage {
 	if err != nil {
 		var missing []string
 		if mce, ok := errors.AsType[*MissingCredentialsError](err); ok {
 			missing = mce.Variables
 		}
-		w.send(childMessage{Type: msgError, Message: err.Error(), Missing: missing})
-		return 0
+		return childMessage{Type: msgError, Message: err.Error(), Missing: missing}
 	}
 	cr := &childResult{
 		Output: res.Output, HasStructuredOutput: res.HasStructuredOutput, AgentName: res.AgentName, Usage: res.Usage,
@@ -312,26 +339,29 @@ func childMain(ctx context.Context, cancel context.CancelCauseFunc, input io.Rea
 		OutputContainsSecret: res.OutputContainsSecret, CostNote: res.costNote,
 	}
 	if res.HasStructuredOutput {
-		if cr.StructuredOutput, err = json.Marshal(res.StructuredOutput); err != nil {
-			w.send(childMessage{Type: msgError, Message: "encoding the structured output: " + err.Error()})
-			return 0
+		b, err := json.Marshal(res.StructuredOutput)
+		if err != nil {
+			return childMessage{Type: msgError, Message: "encoding the structured output: " + err.Error()}
 		}
+		cr.StructuredOutput = b
 	}
-	w.send(childMessage{Type: msgResult, Result: cr})
-	return 0
+	return childMessage{Type: msgResult, Result: cr}
 }
 
-// childWriter writes a run child's messages from one goroutine. send waits for room in the
-// queue; log drops the record when the queue is full, so that logging never holds up the run.
-// When a write fails (the parent is gone), broken is called once and later messages are
-// dropped.
+// childWriter writes a run child's messages from one goroutine, the only writer of the
+// protocol. send waits for room in the queue, and so does log for a WARN or ERROR record (the
+// provider makes some of them Pulumi warnings); log drops a DEBUG or INFO record when the
+// queue is full, so that debug logging never holds up the run, and close reports how many it
+// dropped. When a write fails (the parent is gone), broken is called once and later messages
+// are dropped.
 type childWriter struct {
-	out    io.Writer
-	queue  chan childMessage
-	done   chan struct{}
-	broken func()
-	closed atomic.Bool
-	mu     sync.RWMutex // held for reading while sending, for writing while closing
+	out     io.Writer
+	queue   chan childMessage
+	done    chan struct{}
+	broken  func()
+	closed  atomic.Bool
+	dropped atomic.Int64
+	mu      sync.RWMutex // held for reading while sending, for writing while closing
 }
 
 func newChildWriter(out io.Writer, broken func()) *childWriter {
@@ -369,29 +399,42 @@ func (w *childWriter) send(m childMessage) {
 	}
 }
 
-// log queues a log record unless the queue is full.
+// log queues a log record: a WARN or ERROR record like send, a DEBUG or INFO record unless
+// the queue is full.
 func (w *childWriter) log(level slog.Level, msg string) {
+	m := childMessage{Type: msgLog, Level: int(level), Message: msg}
+	if level >= slog.LevelWarn {
+		w.send(m)
+		return
+	}
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	if w.closed.Load() {
 		return
 	}
 	select {
-	case w.queue <- childMessage{Type: msgLog, Level: int(level), Message: msg}:
+	case w.queue <- m:
 	default:
+		w.dropped.Add(1)
 	}
 }
 
-// close writes what is queued, waiting at most childFlushTimeout.
+// close writes everything queued and returns once it was written or a write failed: nothing
+// is dropped, not even under pressure. The parent reads the protocol to its end, and kills a
+// child that takes too long.
 func (w *childWriter) close() {
-	w.closed.Store(true)
+	if w.closed.Swap(true) {
+		<-w.done
+		return
+	}
 	w.mu.Lock()
+	if n := w.dropped.Load(); n > 0 {
+		w.queue <- childMessage{Type: msgLog, Level: int(slog.LevelDebug), Message: fmt.Sprintf("the agent run process "+
+			"dropped %d debug records: the provider read its messages too slowly", n)}
+	}
 	close(w.queue)
 	w.mu.Unlock()
-	select {
-	case <-w.done:
-	case <-time.After(childFlushTimeout):
-	}
+	<-w.done
 }
 
 // --- the parent -------------------------------------------------------------------------------
@@ -399,11 +442,13 @@ func (w *childWriter) close() {
 // errStoppedForShutdown is the error of a run that a SIGINT to the provider stopped.
 var errStoppedForShutdown = errors.New("the agent run was stopped because Pulumi is stopping the provider (SIGINT)")
 
-// childEvent is what the parent reads from a run child: a message, a line of other output, or
-// a protocol error.
+// childEvent is what the parent reads from a run child: a message, a line of other output
+// (raw, at most maxStreamLine bytes; cut reports that the line was longer), or a protocol
+// error.
 type childEvent struct {
 	msg   *childMessage
 	stray string
+	cut   bool
 	err   error
 }
 
@@ -433,7 +478,7 @@ func runInChild(ctx context.Context, req Request, approval ToolApproval, timeout
 
 	debug := func(msg string) {
 		if req.Log != nil {
-			req.Log(slog.LevelDebug, redact(names.hide(msg), secrets))
+			req.Log(slog.LevelDebug, names.hide(redact(msg, secrets)))
 		}
 	}
 
@@ -561,6 +606,9 @@ type runChildProcess interface {
 	stop()
 	// kill kills the child at once.
 	kill()
+	// expire kills the child at once without making that a stop: what it left running is
+	// still counted (leftRunning). For a child whose teardown took too long.
+	expire()
 	// exited is closed when the child exited; state returns how then.
 	exited() <-chan struct{}
 	state() (*os.ProcessState, error)
@@ -589,19 +637,34 @@ const (
 // tracker's messages) without the names of a secret configuration too.
 func superviseChild(ctx context.Context, req Request, creq childRequest, secrets []string, names *nameHider,
 ) childOutcome {
-	clean := func(s string) string { return redact(s, secrets) }
+	// Redacted first, then without the names: hiding a name inside a secret would split it.
 	logDebugMsg := func(msg string) {
 		if req.Log != nil {
-			req.Log(slog.LevelDebug, redact(names.hide(msg), secrets))
+			req.Log(slog.LevelDebug, names.hide(redact(msg, secrets)))
+		}
+	}
+	// strayText is a line the child wrote outside the protocol, for the debug log: redacted,
+	// then without the names, then shortened. Shortening first would keep the start of a
+	// secret that redaction no longer recognizes; for the same reason a line that was cut
+	// loses the start of a secret it ends with.
+	strayText := func(line string, cut bool) string {
+		if cut {
+			line = withoutSecretHead(line, secrets)
+		}
+		return truncate(names.hide(redact(line, secrets)), maxResult)
+	}
+	logStray := func(where, text string) {
+		if req.Log != nil {
+			req.Log(slog.LevelDebug, "the agent run process wrote to "+where+": "+text)
 		}
 	}
 	body, err := json.Marshal(creq)
 	if err != nil {
 		return childOutcome{err: fmt.Errorf("encoding the agent run request: %w", err)}
 	}
-	exe, err := childExecutable()
+	exes, err := childExecutables()
 	if err != nil {
-		return childOutcome{err: fmt.Errorf("starting the agent run process: %w", err)}
+		return childOutcome{err: fmt.Errorf("finding the provider binary for the agent run: %w", err)}
 	}
 
 	// The child's stdio are pipes of the parent's own, so Go starts no copy goroutines and
@@ -629,9 +692,12 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 	var closeStdin sync.Once
 	closeIn := func() { closeStdin.Do(func() { _ = stdinW.Close() }) }
 
-	cmd := exec.Command(exe, childArgs()...)
-	cmd.Env = childExecEnv(os.Environ(), creq.InheritEnvironment)
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdinR, stdoutW, stderrW
+	newCmd := func(exe string) *exec.Cmd {
+		cmd := exec.Command(exe, childArgs()...) //nolint:gosec // the provider's own executable
+		cmd.Env = childExecEnv(os.Environ(), creq.InheritEnvironment)
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = stdinR, stdoutW, stderrW
+		return cmd
+	}
 	// The tracker's debug messages come from its goroutines; they are logged from this one.
 	debugs := make(chan string, 64)
 	debug := func(msg string) {
@@ -640,33 +706,32 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 		default:
 		}
 	}
-	proc, err := startRunChild(cmd, closeIn, debug)
+	proc, err := startRunChildFrom(exes, newCmd, closeIn, debug)
 	// The child has its own copies of these ends.
 	_, _, _ = stdinR.Close(), stdoutW.Close(), stderrW.Close()
 	if err != nil {
-		if errors.Is(err, errShuttingDown) {
-			return childOutcome{err: err}
-		}
-		return childOutcome{err: fmt.Errorf("starting the agent run process: %w", err)}
+		return childOutcome{err: err}
 	}
 
 	go func() {
 		_, _ = stdinW.Write(append(body, '\n'))
 	}()
+	stdout := &waitingReader{r: stdoutR}
 	msgs := make(chan childEvent)
-	go readChildOutput(stdoutR, msgs)
+	go readChildOutput(stdout, msgs)
 	strays := make(chan string, childQueue)
 	tail := &childStderr{}
-	go readChildStderr(stderrR, tail, strays)
+	go readChildStderr(stderrR, tail, strays, strayText)
 
 	var (
-		reason    childStop
-		protoErr  error
-		hello     bool
-		result    *childResult
-		childErr  string
+		reason childStop
+		end    childEnd
+		hello  bool
+		// ended is set when the child sent its result or error: the end of the conversation.
+		ended     bool
 		exitedAt  time.Time
-		drainC    <-chan time.Time
+		stuckC    <-chan time.Time
+		teardownC <-chan time.Time
 		ctxDone   = ctx.Done()
 		exited    = proc.exited()
 		handshake = time.NewTimer(childHandshakeTimeout)
@@ -675,8 +740,6 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 		backstop  *time.Timer
 		backstopC <-chan time.Time
 	)
-	// The variables of a MissingCredentialsError of the child.
-	var childMissing []string
 	defer handshake.Stop()
 	defer func() {
 		if backstop != nil {
@@ -693,15 +756,41 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 			proc.stop()
 		}
 	}
+	// conversationEnded takes the child's result or error. As in process, the run is judged by
+	// the end of the conversation: the timeoutSeconds backstop and the parent's context no
+	// longer count, and the child gets childTeardownGrace to stop the runtime and its toolsets.
+	conversationEnded := func(m *childMessage) {
+		ended = true
+		switch {
+		case m.Type == msgResult && m.Result != nil && reason == stopNone:
+			// A result after the parent stopped the run does not count: in process, the run was
+			// canceled when the cancellation came before the end of the conversation.
+			end.result = m.Result
+		case m.Type == msgError:
+			// An error that came after the context ended (the child has the same deadline) or
+			// after a stop is a consequence of it.
+			end.childErr, end.missing = m.Message, m.Missing
+			end.first = reason == stopNone && !proc.stoppedForShutdown() && ctx.Err() == nil
+		}
+		if backstop != nil {
+			backstop.Stop()
+		}
+		backstopC, ctxDone = nil, nil
+		teardownC = time.After(childTeardownGrace())
+	}
 	handle := func(ev childEvent) {
 		switch {
 		case ev.err != nil:
-			if protoErr == nil {
-				protoErr = ev.err
+			// After the end of the conversation, or once the child is being stopped (a kill can
+			// cut a line), a broken message changes nothing.
+			if ended || reason != stopNone || proc.stoppedForShutdown() {
+				logDebugMsg("the agent run process sent a broken message: " + ev.err.Error())
+				return
 			}
+			end.protoErr = ev.err
 			stop(stopProtocol, true)
 		case ev.msg == nil:
-			logDebugMsg("the agent run process wrote to stdout: " + ev.stray)
+			logStray("stdout", strayText(ev.stray, ev.cut))
 		default:
 			m := ev.msg
 			switch m.Type {
@@ -709,37 +798,31 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 				hello = true
 				handshake.Stop()
 				if m.Protocol != childProtocol || m.Version != version.Version {
-					protoErr = fmt.Errorf("the agent run process is version %s of the provider (protocol %d), but the "+
+					end.protoErr = fmt.Errorf("the agent run process is version %s of the provider (protocol %d), but the "+
 						"provider is version %s (protocol %d): the provider's executable was replaced while it ran; run "+
 						"the command again", m.Version, m.Protocol, version.Version, childProtocol)
 					stop(stopProtocol, true)
 				}
 			case msgTimed:
-				if backstop == nil {
+				if backstop == nil && !ended {
 					backstop = time.NewTimer(creq.Timeout + childGrace())
 					backstopC = backstop.C
 				}
 			case msgProgress:
 				if req.Progress != nil {
-					req.Progress(Progress{Message: clean(m.Message), Persistent: m.Persistent})
+					req.Progress(Progress{Message: redact(m.Message, secrets), Persistent: m.Persistent})
 				}
 			case msgLog:
 				if req.Log != nil {
-					req.Log(slog.Level(m.Level), clean(m.Message))
+					req.Log(slog.Level(m.Level), redact(m.Message, secrets))
 				}
 			case msgWarn:
 				if req.Warn != nil {
-					req.Warn(clean(m.Message))
+					req.Warn(redact(m.Message, secrets))
 				}
-			case msgResult:
-				// A result after the parent canceled the run does not count: in process, the run
-				// was canceled when the cancellation came before the end of the conversation.
-				if result == nil && childErr == "" && m.Result != nil && reason != stopContext {
-					result = m.Result
-				}
-			case msgError:
-				if result == nil && childErr == "" {
-					childErr, childMissing = m.Message, m.Missing
+			case msgResult, msgError:
+				if !ended {
+					conversationEnded(m)
 				}
 			}
 		}
@@ -757,27 +840,41 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 				strays = nil
 				continue
 			}
-			logDebugMsg("the agent run process wrote to stderr: " + line)
+			logStray("stderr", line)
 		case msg := <-debugs:
 			logDebugMsg(msg)
 		case <-exited:
 			exited, exitedAt = nil, time.Now()
-			// The output is read for at most harnessDrain after the child exited.
-			drainC = time.After(harnessDrain)
-		case <-drainC:
-			drainC = nil
+			// Only the child holds the protocol's pipe, so its end follows the exit, and what the
+			// child wrote before is read however slowly the callbacks take it. Should a process
+			// the child started hold the pipe after all, the output is no longer read once a read
+			// has waited harnessDrain for it.
+			stuckC = time.After(harnessDrain)
+		case <-stuckC:
+			if d := stdout.waiting(); d < harnessDrain {
+				stuckC = time.After(harnessDrain - d)
+				continue
+			}
+			stuckC = nil
+			logDebugMsg(fmt.Sprintf("the protocol of the agent run process stayed open %s after it exited (a process "+
+				"it started holds it); it is no longer read", harnessDrain))
 			_ = stdoutR.Close()
 		case <-ctxDone:
 			ctxDone = nil
 			stop(stopContext, false)
 		case <-handshake.C:
 			if !hello {
-				protoErr = fmt.Errorf("the agent run process did not start: no handshake within %s", childHandshakeTimeout)
+				end.protoErr = fmt.Errorf("the agent run process did not start: no handshake within %s", childHandshakeTimeout)
 				stop(stopProtocol, true)
 			}
 		case <-backstopC:
 			backstopC = nil
 			stop(stopTimeout, true)
+		case <-teardownC:
+			teardownC = nil
+			logDebugMsg(fmt.Sprintf("the agent run process did not stop its runtime and toolsets within %s after the "+
+				"run ended; AgentRun stopped it", childTeardownGrace()))
+			proc.expire()
 		}
 	}
 
@@ -792,7 +889,7 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 				strays = nil
 				continue
 			}
-			logDebugMsg("the agent run process wrote to stderr: " + line)
+			logStray("stderr", line)
 		case msg := <-debugs:
 			logDebugMsg(msg)
 		case <-drain.C:
@@ -817,32 +914,140 @@ func superviseChild(ctx context.Context, req Request, creq childRequest, secrets
 		}
 	}
 
-	out := childOutcome{}
+	end.shutdown, end.ctxErr, end.reason = proc.stoppedForShutdown(), ctx.Err(), reason
+	out := end.outcome(creq.Timeout, func() error {
+		state, waitErr := proc.state()
+		return noResultError(state, waitErr, tail.text(secrets, names))
+	})
 	if n := proc.leftRunning(); n > 0 {
 		out.warnings = append(out.warnings, childLeftRunningWarning(n))
 	}
-	switch err := ctx.Err(); {
-	case result != nil && protoErr == nil:
-		out.result = result
-	case err != nil:
-		if errors.Is(err, context.DeadlineExceeded) {
-			out.err = errors.New("the operation's time limit (customTimeouts) ran out before the agent finished")
-		} else {
-			out.err = fmt.Errorf("the agent run was canceled: %w", err)
-		}
-	case proc.stoppedForShutdown():
+	return out
+}
+
+// childEnd is what the parent knows of a run child once the child and what it left running
+// ended.
+type childEnd struct {
+	result *childResult
+	// childErr is the child's own error, and missing the variables it says are missing; first
+	// reports that the error came before the parent's context ended, before the parent stopped
+	// the child and before Pulumi stopped the provider.
+	childErr string
+	first    bool
+	missing  []string
+	// shutdown: a SIGINT to the provider stopped the child. ctxErr is the error of the
+	// parent's context.
+	shutdown bool
+	ctxErr   error
+	protoErr error
+	reason   childStop
+}
+
+// outcome decides how the run ended, in this order:
+//
+//   - the result the child sent;
+//   - an error the child sent before the context ended and before it was stopped: the run's
+//     own error (a rejected key, a missing variable), also when Pulumi stops the provider or
+//     the deadline passes right after;
+//   - the shutdown, also when the context was canceled too: Pulumi cancels the operation
+//     before it sends SIGINT;
+//   - the context: its deadline (customTimeouts), then its cancellation;
+//   - a protocol error, then the timeoutSeconds backstop;
+//   - an error the child sent while it was being stopped;
+//   - noResult: the child ended without a result.
+func (e childEnd) outcome(timeout time.Duration, noResult func() error) childOutcome {
+	var out childOutcome
+	switch {
+	case e.result != nil:
+		out.result = e.result
+	case e.childErr != "" && e.first:
+		out.err, out.fromChild, out.missing = errors.New(e.childErr), true, e.missing
+	case e.shutdown:
 		out.err = errStoppedForShutdown
-	case childErr != "":
-		out.err, out.fromChild, out.missing = errors.New(childErr), true, childMissing
-	case protoErr != nil:
-		out.err = protoErr
-	case reason == stopTimeout:
-		out.err = fmt.Errorf("the agent did not finish within %s (timeoutSeconds)", creq.Timeout)
+	case errors.Is(e.ctxErr, context.DeadlineExceeded):
+		out.err = errors.New("the operation's time limit (customTimeouts) ran out before the agent finished")
+	case e.ctxErr != nil:
+		out.err = fmt.Errorf("the agent run was canceled: %w", e.ctxErr)
+	case e.protoErr != nil:
+		out.err = e.protoErr
+	case e.reason == stopTimeout:
+		out.err = fmt.Errorf("the agent did not finish within %s (timeoutSeconds)", timeout)
+	case e.childErr != "":
+		out.err, out.fromChild, out.missing = errors.New(e.childErr), true, e.missing
 	default:
-		state, waitErr := proc.state()
-		out.err = noResultError(state, waitErr, names.hide(tail.text(secrets)))
+		out.err = noResult()
 	}
 	return out
+}
+
+// startRunChildFrom starts a run child from the first of the executables that starts (on
+// Linux /proc/self/exe, then the binary's path). When none does because of its file, the
+// error says that the binary is gone or cannot be executed.
+func startRunChildFrom(exes []string, newCmd func(string) *exec.Cmd, closeStdin func(), debug func(string),
+) (runChildProcess, error) {
+	var err error
+	for i, exe := range exes {
+		var proc runChildProcess
+		proc, err = startRunChild(newCmd(exe), closeStdin, debug)
+		switch {
+		case err == nil:
+			return proc, nil
+		case errors.Is(err, errShuttingDown):
+			return nil, err
+		case i < len(exes)-1:
+			debug(fmt.Sprintf("starting the agent run process with %s: %v; trying %s", exe, err, exes[i+1]))
+		}
+	}
+	if cannotExec(err) {
+		return nil, fmt.Errorf("the provider binary %s cannot be started for the agent run: %w; was the plugin upgraded "+
+			"or removed while Pulumi ran?", exes[len(exes)-1], err)
+	}
+	return nil, fmt.Errorf("starting the agent run process: %w", err)
+}
+
+// cannotExec reports whether starting a program failed because of its file: it is gone, not
+// executable, or no program.
+func cannotExec(err error) bool {
+	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) || errors.Is(err, syscall.ENOEXEC)
+}
+
+// waitingReader records since when a Read has been waiting for data.
+type waitingReader struct {
+	r     io.Reader
+	since atomic.Int64 // UnixNano when the pending Read started; 0 without one
+}
+
+func (w *waitingReader) Read(p []byte) (int, error) {
+	w.since.Store(time.Now().UnixNano())
+	defer w.since.Store(0)
+	return w.r.Read(p)
+}
+
+// waiting returns how long the pending Read has been waiting, 0 without one.
+func (w *waitingReader) waiting() time.Duration {
+	if s := w.since.Load(); s != 0 {
+		return time.Since(time.Unix(0, s))
+	}
+	return 0
+}
+
+// withoutSecretHead replaces the start of a secret that s ends with by [secret]: s was cut,
+// and redaction does not recognize the part of a secret before the cut.
+func withoutSecretHead(s string, secrets []string) string {
+	cut := 0
+	for _, secret := range secrets {
+		secret = strings.TrimSpace(secret)
+		for n := min(len(secret)-1, len(s)); n > cut; n-- {
+			if strings.HasSuffix(s, secret[:n]) {
+				cut = n
+				break
+			}
+		}
+	}
+	if cut == 0 {
+		return s
+	}
+	return s[:len(s)-cut] + validate.Redacted
 }
 
 // noResultError is the error of a run child that ended without a result.
@@ -892,12 +1097,16 @@ func readChildOutputLimited(r io.Reader, events chan<- childEvent, limit int) {
 			// A write without a newline before a message shares its line.
 			i := bytes.Index(line, magic)
 			if i != 0 {
-				stray := line
+				// Raw: the parent redacts it before it shortens it.
+				stray, cut := line, tooLong && i < 0
 				if i > 0 {
 					stray = line[:i]
 				}
+				if len(stray) > maxStreamLine {
+					stray, cut = stray[:maxStreamLine], true
+				}
 				if s := strings.TrimSpace(string(stray)); s != "" {
-					events <- childEvent{stray: truncate(s, maxResult)}
+					events <- childEvent{stray: s, cut: cut}
 				}
 			}
 			switch {
@@ -950,25 +1159,26 @@ type childStderr struct {
 	panic string
 }
 
-// text returns what to show of stderr, redacted: the panic, if the child panicked, else the
-// end of stderr.
-func (s *childStderr) text(secrets []string) string {
+// text returns what to show of stderr, redacted and without the names: the panic, if the
+// child panicked, else the end of stderr.
+func (s *childStderr) text(secrets []string, names *nameHider) string {
 	s.mu.Lock()
 	p := s.panic
 	s.mu.Unlock()
 	if p != "" {
-		return truncate(redact(p, secrets), maxReason*5)
+		return truncate(names.hide(redact(p, secrets)), maxReason*5)
 	}
-	return s.tail.text(secrets)
+	return names.hide(s.tail.text(secrets))
 }
 
-// readChildStderr reads a run child's stderr into tail and sends its lines, without ever
-// blocking the child: a line is dropped when lines is full. It closes lines at the end.
-func readChildStderr(r io.Reader, s *childStderr, lines chan<- string) {
+// readChildStderr reads a run child's stderr into tail and sends its lines, made fit for the
+// log by clean (cut reports a line longer than maxStreamLine), without ever blocking the
+// child: a line is dropped when lines is full. It closes lines at the end.
+func readChildStderr(r io.Reader, s *childStderr, lines chan<- string, clean func(line string, cut bool) string) {
 	defer close(lines)
 	br := bufio.NewReaderSize(r, 64<<10)
 	for {
-		line, _, err := readLine(br, maxStreamLine)
+		line, tooLong, err := readLine(br, maxStreamLine)
 		if len(line) > 0 {
 			_, _ = s.tail.Write(append(line, '\n'))
 			text := string(line)
@@ -981,7 +1191,7 @@ func readChildStderr(r io.Reader, s *childStderr, lines chan<- string) {
 			}
 			if t := strings.TrimSpace(text); t != "" {
 				select {
-				case lines <- truncate(t, maxResult):
+				case lines <- clean(t, tooLong):
 				default:
 				}
 			}

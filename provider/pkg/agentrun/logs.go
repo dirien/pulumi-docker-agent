@@ -40,7 +40,8 @@ func (r *runLog) handle(rec slog.Record, attrs []slog.Attr) {
 	if r.closed || r.log == nil {
 		return
 	}
-	r.log(rec.Level, redact(r.names.hide(format(rec, attrs)), r.secrets))
+	// Redacted first, then without the names: hiding a name inside a secret would split it.
+	r.log(rec.Level, r.names.hide(redact(format(rec, attrs), r.secrets)))
 }
 
 func (r *runLog) close() {

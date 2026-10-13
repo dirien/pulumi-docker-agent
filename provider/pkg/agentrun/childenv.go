@@ -57,6 +57,14 @@ var baseEnvVars = slices.Concat(
 	},
 	// The Go runtime of the child (for example a TLS workaround in GODEBUG, a memory limit).
 	[]string{"GODEBUG", "GOMAXPROCS", "GOMEMLIMIT", "GOGC"},
+	// The Go module settings of the tool installation, which runs `go install` with the child's
+	// environment (a corporate module proxy, private modules, the toolchain and the caches).
+	// GITHUB_TOKEN and GH_TOKEN, which it reads for GitHub's API, are credentials: they come
+	// from env.
+	[]string{
+		"GOPROXY", "GOFLAGS", "GONOSUMDB", "GONOPROXY", "GOPRIVATE", "GOSUMDB", "GOINSECURE", "GOTOOLCHAIN", "GOENV",
+		"GOPATH", "GOMODCACHE", "GOCACHE", "GOROOT", "GOAUTH", "GOVCS", "GOTMPDIR",
+	},
 	// The desktop session: Docker credential helpers (secretservice).
 	[]string{"DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"},
 )

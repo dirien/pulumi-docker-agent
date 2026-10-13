@@ -8,9 +8,11 @@ package agentrun
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
+	goruntime "runtime"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -46,6 +48,14 @@ func (c unixRunChild) stoppedForShutdown() bool { return c.p.stoppedForShutdown(
 
 func (c unixRunChild) state() (*os.ProcessState, error) { return c.p.state, c.p.waitErr }
 
+// expire kills the child without marking it as stopping, so that the cleanup after its exit
+// still counts what it left running.
+func (c unixRunChild) expire() {
+	c.p.mu.Lock()
+	defer c.p.mu.Unlock()
+	c.p.signalSelfLocked(syscall.SIGKILL)
+}
+
 func (c unixRunChild) leftRunning() int {
 	c.p.mu.Lock()
 	defer c.p.mu.Unlock()
@@ -53,10 +63,10 @@ func (c unixRunChild) leftRunning() int {
 }
 
 // takeChildStdio takes the protocol (stdout) and the request (stdin) away from the standard
-// streams of a run child: both get descriptors of their own, closed on exec, so that no
-// process the child starts holds them. File descriptor 1 becomes a copy of stderr, and 0 one
-// of /dev/null, so that whatever writes to stdout (os.Stdout, or the descriptor itself) cannot
-// corrupt the protocol.
+// streams of a run child: both get descriptors of their own, closed on exec (F_DUPFD_CLOEXEC),
+// so that no process the child starts holds them, and the end of the protocol follows the
+// child's exit. File descriptor 1 becomes a copy of stderr, and 0 one of /dev/null, so that
+// whatever writes to stdout (os.Stdout, or the descriptor itself) cannot corrupt the protocol.
 func takeChildStdio() (proto, input *os.File, err error) {
 	out, err := unix.FcntlInt(1, unix.F_DUPFD_CLOEXEC, 3)
 	if err != nil {
@@ -111,6 +121,17 @@ func watchChildSignals(cancel context.CancelCauseFunc) func() {
 
 // writeFD1 writes to file descriptor 1 directly (a test's stray output).
 func writeFD1(s string) { _, _ = syscall.Write(1, []byte(s)) }
+
+// fdTarget says what a file's descriptor refers to (on Linux its /proc/self/fd target, for
+// example pipe:[1234]); empty elsewhere or for a reader that is no file (a test's fault).
+func fdTarget(r any) string {
+	f, ok := r.(*os.File)
+	if !ok || goruntime.GOOS != "linux" {
+		return ""
+	}
+	t, _ := os.Readlink(fmt.Sprintf("/proc/self/fd/%d", f.Fd()))
+	return t
+}
 
 // snapshotProcLimits and applyProcLimits carry the tracking limits and the faults of the
 // process table into a run child of a test binary (childtest.go).
