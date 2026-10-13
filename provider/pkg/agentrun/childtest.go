@@ -29,6 +29,9 @@ type childTest struct {
 	SignalGrace        time.Duration `json:"signalGrace"`
 	ToolsetStopTimeout time.Duration `json:"toolsetStopTimeout"`
 	HarnessOS          string        `json:"harnessOS"`
+	// The codex runner's durations (harness_codex.go).
+	InterruptGrace     time.Duration `json:"interruptGrace"`
+	CodexProbeTimeout  time.Duration `json:"codexProbeTimeout"`
 	ProcPollInterval   time.Duration `json:"procPollInterval"`
 	CookieSweepTimeout time.Duration `json:"cookieSweepTimeout"`
 	MaxProcTable       int           `json:"maxProcTable"`
@@ -89,6 +92,7 @@ func snapshotChildTest(f *childFaults) *childTest {
 		HarnessGrace: harnessGrace, PostExitGrace: postExitGrace, HarnessDrain: harnessDrain, SignalGrace: signalGrace,
 		ToolsetStopTimeout: toolsetStopTimeout, HarnessOS: harnessOS, ProcTableError: testFaults.procTableError,
 		NoProcs: testFaults.noProcs, RootCAs: testFaults.rootCAs,
+		InterruptGrace: interruptGrace, CodexProbeTimeout: codexProbeTimeout,
 	}
 	snapshotProcLimits(t)
 	if f != nil {
@@ -102,6 +106,7 @@ func snapshotChildTest(f *childFaults) *childTest {
 func (t *childTest) apply(ctx context.Context, w *childWriter, input io.Reader) (status int, stop bool) {
 	harnessGrace, postExitGrace, harnessDrain, signalGrace = t.HarnessGrace, t.PostExitGrace, t.HarnessDrain, t.SignalGrace
 	toolsetStopTimeout = t.ToolsetStopTimeout
+	interruptGrace, codexProbeTimeout = t.InterruptGrace, t.CodexProbeTimeout
 	harnessOS = t.HarnessOS
 	applyProcLimits(t)
 	if len(t.RootCAs) > 0 {

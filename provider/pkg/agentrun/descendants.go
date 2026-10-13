@@ -56,7 +56,12 @@ import (
 // saw it, and whose environment does not show the cookie is not found: one started with a
 // cleared or replaced environment (`env -i`), or, on macOS 11 and later, one whose
 // environment the system does not show to other processes (programs restricted by their code
-// signature, such as some signed with entitlements, while System Integrity Protection is on). Tracking is best effort and bounded: when the
+// signature, such as some signed with entitlements, while System Integrity Protection is on).
+// Codex passes the cookie to its shell commands only under its default shell_environment_policy
+// (inherit = all): a config.toml with `inherit = "core"` or `"none"`, or `include_only`, keeps it
+// from them, and Codex starts its stdio MCP servers with a minimal environment without it, so
+// only the tree finds those (an MCP server that daemonizes before a poll saw it is not found).
+// Tracking is best effort and bounded: when the
 // process table cannot be read, or has more than maxProcTable processes, the cleanup stops
 // the CLI's process group and what it can check one by one, and the reason is logged at
 // debug level.
@@ -203,10 +208,17 @@ type procTree struct {
 	cookie string // runCookieVar=value (or childCookieVar=value), "" without a cookie
 	self   struct{ pid, pgid, sid, uid int }
 	debug  func(string)
+	// ownGroups: the groups that direct children of the root create in the root's session do
+	// not count as left running (supervision.ownGroups); rootSID is the root's session.
+	ownGroups bool
+	rootSID   int
 
 	mu sync.Mutex
 	// procs are the recorded processes that ran at the last read of the table.
 	procs map[procKey]bool
+	// direct are the recorded processes whose parent was the root, or in the root's group, when
+	// they were recorded (with ownGroups only).
+	direct map[procKey]bool
 	// groups and sessions that a recorded process created, by ID, with their leader. An ID
 	// that was seen without members or with another leader is deleted: it may be reused.
 	groups, sessions map[int]procKey
@@ -236,8 +248,8 @@ func newProcTreeOf(pid int, s supervision, cookie string) *procTree {
 		return nil
 	}
 	t := &procTree{
-		root: root.procKey, name: s.name, debug: s.debug,
-		procs: map[procKey]bool{}, groups: map[int]procKey{}, sessions: map[int]procKey{},
+		root: root.procKey, name: s.name, debug: s.debug, ownGroups: s.ownGroups, rootSID: root.sid,
+		procs: map[procKey]bool{}, direct: map[procKey]bool{}, groups: map[int]procKey{}, sessions: map[int]procKey{},
 		termed: map[procKey]bool{}, termedGroups: map[int]bool{}, logged: map[string]bool{},
 		stopPoll: make(chan struct{}), pollDone: make(chan struct{}),
 	}
@@ -334,6 +346,11 @@ func (t *procTree) readLocked() *procTableView {
 			delete(t.procs, k)
 		}
 	}
+	for k := range t.direct {
+		if !running(k) {
+			delete(t.direct, k)
+		}
+	}
 	for k := range t.termed {
 		if !running(k) {
 			delete(t.termed, k)
@@ -385,6 +402,11 @@ func (t *procTree) walkLocked(tbl *procTableView) {
 			// this parent's: a process a debugger attached to (macOS reports the tracer as
 			// its parent), or a reused PID read in one table.
 			if !visited[c.pid] && c.start >= e.start {
+				// The npm launcher of Codex runs the native CLI in its own group: its children
+				// count as direct too.
+				if t.ownGroups && (e.procKey == t.root || e.pgid == t.root.pid) {
+					t.direct[c.procKey] = true
+				}
 				stack = append(stack, c)
 			}
 		}
@@ -520,10 +542,18 @@ func (t *procTree) mayGroup(g int) bool {
 func (t *procTree) targetsLocked(tbl *procTableView) procTargets {
 	var tg procTargets
 	outside := map[int]bool{}
+	// The groups that direct children of the root lead in the root's session (ownGroups): they
+	// are stopped, but do not count as left running.
+	exempt := map[int]bool{}
+	for k := range t.direct {
+		if e := tbl.byPID[k.pid]; e != nil && e.procKey == k && e.pgid == e.pid && e.sid == t.rootSID {
+			exempt[e.pgid] = true
+		}
+	}
 	for k := range t.procs {
 		if e := tbl.byPID[k.pid]; e != nil && e.procKey == k && !e.zombie && k.pid != t.self.pid {
 			tg.procs = append(tg.procs, procTarget{k, e.pgid})
-			if e.pgid != t.root.pid {
+			if e.pgid != t.root.pid && !exempt[e.pgid] {
 				outside[k.pid] = true
 			}
 		}
@@ -545,7 +575,7 @@ func (t *procTree) targetsLocked(tbl *procTableView) procTargets {
 	for _, e := range tbl.byPID {
 		if _, ok := groups[e.pgid]; ok && !e.zombie {
 			members[e.pgid] = true
-			if e.pid != t.root.pid && e.pid != t.self.pid {
+			if e.pid != t.root.pid && e.pid != t.self.pid && !exempt[e.pgid] {
 				outside[e.pid] = true
 			}
 		}

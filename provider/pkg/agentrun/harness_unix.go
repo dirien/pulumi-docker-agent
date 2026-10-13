@@ -120,6 +120,9 @@ func startSupervised(cmd *exec.Cmd, s supervision) (*harnessProcess, error) {
 		if p.kill != nil {
 			p.kill.Stop()
 		}
+		if p.interrupt != nil {
+			p.interrupt.Stop()
+		}
 		p.mu.Unlock()
 		harnesses.remove(p)
 		close(p.done)
@@ -154,10 +157,12 @@ func (p *harnessProcess) termAfterExit() procTargets {
 	p.tree.stopPolling()
 	left := p.tree.scan()
 	p.mu.Lock()
-	stopping := p.stopping
+	// A stop of a backstop process, and the first step of a stop that interrupts the CLI,
+	// signalled only the process itself.
+	termed := p.groupTermed
+	p.groupTermed = true
 	p.mu.Unlock()
-	// A stop of a backstop process signalled only the process itself.
-	if !stopping || p.sup.backstop {
+	if !termed {
 		signalGroup(p.pgid, syscall.SIGTERM, syscall.SIGCONT)
 	}
 	p.tree.term(left)
@@ -211,6 +216,10 @@ func (p *harnessProcess) stop() {
 // A backstop process gets sig (SIGTERM for a stop, SIGINT for a shutdown) the first time, and
 // SIGKILL after grace; its group and the processes started under it are left to the cleanup
 // after it exited.
+//
+// A CLI that stops gracefully on SIGINT (supervision.interruptFirst) gets SIGINT alone the
+// first time; its group and the processes started under it get SIGTERM and SIGCONT
+// min(interruptGrace, grace/2) later, unless it exited by then, and SIGKILL after grace.
 func (p *harnessProcess) stopWithin(grace time.Duration, sig syscall.Signal) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -219,12 +228,20 @@ func (p *harnessProcess) stopWithin(grace time.Duration, sig syscall.Signal) {
 	}
 	if !p.stopping {
 		p.stopping = true
-		if p.sup.backstop {
+		switch {
+		case p.sup.backstop:
 			p.signalSelfLocked(sig)
-		} else {
-			left := p.scanFrozen()
-			signalGroup(p.pgid, syscall.SIGTERM, syscall.SIGCONT)
-			p.tree.term(left)
+		case p.sup.interruptFirst:
+			p.signalSelfLocked(syscall.SIGINT)
+			p.interrupt = time.AfterFunc(min(interruptGrace, grace/2), func() {
+				p.mu.Lock()
+				defer p.mu.Unlock()
+				if !p.finished && !p.reaped {
+					p.termGroupLocked()
+				}
+			})
+		default:
+			p.termGroupLocked()
 		}
 	}
 	deadline := time.Now().Add(grace)
@@ -249,6 +266,18 @@ func (p *harnessProcess) stopWithin(grace time.Duration, sig syscall.Signal) {
 		signalGroup(p.pgid, syscall.SIGKILL)
 		p.tree.kill(left)
 	})
+}
+
+// termGroupLocked sends SIGTERM and SIGCONT to the CLI's group and to the processes started
+// under it, unless they got them already. p.mu is held.
+func (p *harnessProcess) termGroupLocked() {
+	if p.groupTermed {
+		return
+	}
+	p.groupTermed = true
+	left := p.scanFrozen()
+	signalGroup(p.pgid, syscall.SIGTERM, syscall.SIGCONT)
+	p.tree.term(left)
 }
 
 // killNow kills a backstop process at once (its group and processes are stopped after it

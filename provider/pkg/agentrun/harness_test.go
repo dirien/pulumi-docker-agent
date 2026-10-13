@@ -1215,11 +1215,12 @@ func TestHarnessAnnounceAndBilling(t *testing.T) {
 }
 
 func TestUnsupportedHarnessTypes(t *testing.T) {
-	for _, typ := range []string{"codex", "pi", "opencode"} {
+	for _, typ := range []string{"pi", "opencode"} {
 		t.Run(typ, func(t *testing.T) {
 			doc := []byte("agents:\n  root:\n    harness:\n      type: " + typ + "\n")
-			want := typ + " harness agents (agents.root.harness) are not supported by AgentRun yet: only claude-code is; " +
-				"run them with docker agent run"
+			want := typ + " harness agents (agents.root.harness) are not supported by AgentRun yet: only claude-code and " +
+				"codex are; run them with docker agent run (a ChatGPT subscription can also run a chatgpt/<model> model in " +
+				"docker-agent's own runtime, without a coding harness)"
 			for _, allow := range []bool{true, false} {
 				problems, warnings := CheckConfig(t.Context(), "test.yaml", doc, CheckOptions{AllowHarnessAgents: allow})
 				assert.Equal(t, []string{want}, problems, "allowHarnessAgents %v", allow)

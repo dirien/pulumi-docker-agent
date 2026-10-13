@@ -1,0 +1,17 @@
+#!/bin/sh
+# A fake bubblewrap for AgentRun's tests of the sandbox check's fallback (a codex without
+# `codex sandbox`): it logs `kind=bwrap` and its arguments to FAKE_CODEX_LOG, and exits 0, or with
+# FAKE_BWRAP=unavailable writes bubblewrap's user-namespace error and exits 1.
+set -u
+log=${FAKE_CODEX_LOG:-./.fake-codex.log}
+{
+	echo "--- invocation"
+	echo "kind=bwrap"
+	echo "argc=$#"
+	for a in "$@"; do echo "arg=$a"; done
+} >>"$log"
+if [ "${FAKE_BWRAP:-}" = unavailable ]; then
+	echo "bwrap: setting up uid map: Permission denied" >&2
+	exit 1
+fi
+exit 0

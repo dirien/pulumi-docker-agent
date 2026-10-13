@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"__THREAD__"}
+{"type":"turn.started"}
+{"type":"error","message":"To use Codex with your ChatGPT plan, upgrade to Plus: https://chatgpt.com/explore/plus."}
+{"type":"turn.failed","error":{"message":"To use Codex with your ChatGPT plan, upgrade to Plus: https://chatgpt.com/explore/plus."}}

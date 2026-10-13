@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"__THREAD__"}
+{"type":"turn.started"}
+{"type":"error","message":"unexpected status 400 Bad Request: The 'gpt-0-nope' model is not supported when using Codex with a ChatGPT account."}
+{"type":"turn.failed","error":{"message":"unexpected status 400 Bad Request: The 'gpt-0-nope' model is not supported when using Codex with a ChatGPT account."}}
