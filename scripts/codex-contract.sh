@@ -42,7 +42,10 @@ exec_help=$("$codex" exec --help)
 check "$exec_help" "codex exec --help" --json --color --skip-git-repo-check --sandbox workspace-write \
 	--dangerously-bypass-approvals-and-sandbox --model --output-schema --output-last-message
 # --color=never: the value must be one the CLI accepts.
-if ! grep -- '--color' <<<"$exec_help" | grep -q never && ! grep -A3 -- '--color' <<<"$exec_help" | grep -q never; then
+# clap's long help lists the possible values several lines below the option: read the whole option
+# block, up to the next option.
+color_help=$(awk '/^ *--color/ {in_block = 1; print; next} in_block && /^ *-(-|[A-Za-z],)/ {exit} in_block' <<<"$exec_help")
+if ! grep -qw never <<<"$color_help"; then
 	echo "FAIL: codex exec --help does not list never as a value of --color"
 	fail=1
 fi
