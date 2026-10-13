@@ -154,7 +154,7 @@ func TestExampleAgentRunChatGPTLogin(t *testing.T) {
 	assert.Equal(t, map[string]any{"inputTokens": 10.0, "outputTokens": 5.0, "cost": 0.0}, outputValue(t, up.Outputs, "usage"))
 	assert.Contains(t, up.StdOut,
 		"models: chatgpt/gpt-5.6 (the ChatGPT login of docker agent setup, billed to the ChatGPT plan)")
-	assert.Contains(t, up.StdOut, "no cost estimate (billed to the ChatGPT plan)")
+	assert.Contains(t, up.StdOut, "no per-token cost: billed to the ChatGPT plan")
 	assert.NotContains(t, up.StdOut+up.StdErr, accessToken)
 	assert.NotContains(t, up.StdOut+up.StdErr, refreshToken)
 
@@ -250,7 +250,7 @@ func (f *fakeChatGPT) serve(w http.ResponseWriter, r *http.Request) {
 			"model": req.Model, "output": output}
 		if status == "completed" {
 			resp["usage"] = map[string]any{"input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
-				"input_tokens_details": map[string]any{"cached_tokens": 0},
+				"input_tokens_details":  map[string]any{"cached_tokens": 0},
 				"output_tokens_details": map[string]any{"reasoning_tokens": 0}}
 		}
 		return resp
