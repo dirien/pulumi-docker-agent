@@ -316,9 +316,9 @@ class StructuredOutputMode(_builtins.str, Enum):
 class ToolApproval(_builtins.str, Enum):
     DENY = "deny"
     """
-    Run only the tool calls docker-agent approves without asking (read-only tools, `permissions` allow rules, the configuration's own safety mode); reject the rest.
+    Run only the tool calls docker-agent approves without asking (read-only tools, `permissions` allow rules, the configuration's own safety mode); reject the rest. Codex agents run their commands in Codex's workspace-write sandbox.
     """
     ALLOW = "allow"
     """
-    Approve every tool call, like `docker agent run --yolo`. Tools run on the machine executing `pulumi up`.
+    Approve every tool call, like `docker agent run --yolo`. Tools run on the machine executing `pulumi up`. Codex agents run without Codex's sandbox.
     """

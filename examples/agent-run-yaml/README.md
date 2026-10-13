@@ -7,7 +7,7 @@ Defines a change-review agent with `AgentConfig` and runs it with `AgentRun`:
   `AgentRun`'s `env`, so it is stored encrypted and never written into the agent configuration.
 - The agent declares `structuredOutput`, so `AgentRun` returns its answer as JSON in
   `structuredOutput`, and the program exports `risk` and `summary` from it.
-- The agent runs in the provider process during `pulumi up`, never during `pulumi preview`. A
+- The agent runs in a child process of the provider during `pulumi up`, never during `pulumi preview`. A
   `pulumi up` without changes keeps the stored answer; changing any input, for example the
   `revision` setting that feeds `triggers`, runs it again. With the `rerun` setting `always`,
   every `pulumi up` runs it again, while `pulumi refresh` still reports no changes.

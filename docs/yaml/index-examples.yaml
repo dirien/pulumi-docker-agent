@@ -198,13 +198,13 @@ outputs:
   verdict: ${review.structuredOutput}
   usage: ${review.usage}
 ---
-description: Two runs of one Claude Code agent during pulumi up
+description: A Claude Code agent and a Codex agent during pulumi up
 notes:
   hcl: >-
     In HCL, the properties of `docker-agent_agent_run` are snake_case (`allow_harness_agents`,
     `working_dir`, `update_prompt`, `delete_prompt`, `inherit_environment`), and `agents` are
     repeated nested blocks.
-name: claude-code
+name: coding-harness
 runtime: yaml
 
 config:
@@ -213,26 +213,36 @@ config:
   claudeCodeOauthToken:
     type: string
     secret: true
+  # A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+  # `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+  # `pulumi config set codexHome $HOME/.codex-agentrun`.
+  codexHome:
+    type: string
 
 resources:
-  # The agent, authored once: Claude Code as a coding harness. It needs no model and no API key.
-  writer:
+  # The agents, authored once: Claude Code and Codex as coding harnesses. They need no model and
+  # no API key.
+  coders:
     type: docker-agent:index:AgentConfig
     properties:
       agents:
         - name: root
-          description: Writes and reviews project notes with Claude Code
+          description: Writes project notes with Claude Code
           harness:
             type: claude-code
             model: sonnet
             effort: low
+        - name: reviewer
+          description: Reviews project notes with Codex
+          harness:
+            type: codex
 
-  # Run 1 maintains NOTES.md in the existing directory ./workspace. Claude Code runs its own tools
-  # (shell commands, file edits) there without approval.
+  # Run 1: Claude Code maintains NOTES.md in the existing directory ./workspace. It runs its own
+  # tools (shell commands, file edits) there without approval.
   notes:
     type: docker-agent:index:AgentRun
     properties:
-      yaml: ${writer.yaml}
+      yaml: ${coders.yaml}
       allowHarnessAgents: true
       workingDir: ./workspace
       prompt: Write NOTES.md with three bullet points about this workspace, then summarise the file in one sentence.
@@ -250,19 +260,21 @@ resources:
       # the new run.
       deleteBeforeReplace: true
 
-  # Run 2: the same agent with another prompt, in a temporary directory. It runs again whenever
-  # run 1 ran.
+  # Run 2: the Codex agent of the same configuration, in a temporary directory. With
+  # toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox.
+  # It runs again whenever run 1 ran.
   review:
     type: docker-agent:index:AgentRun
     properties:
-      yaml: ${writer.yaml}
+      yaml: ${coders.yaml}
+      agent: reviewer
       allowHarnessAgents: true
       prompt: "Review this summary of NOTES.md in two sentences: ${notes.output}"
       triggers:
         - ${notes.ranAt}
       inheritEnvironment: false
       env:
-        CLAUDE_CODE_OAUTH_TOKEN: ${claudeCodeOauthToken}
+        CODEX_HOME: ${codexHome}
       timeoutSeconds: 600
 
 outputs:

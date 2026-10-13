@@ -191,8 +191,8 @@ export const agentRunToolApprovalDeny: ResourceValidationPolicy = {
     description: "AgentRun must keep toolApproval \"deny\" and must not set allowHookApprovals or " +
         "allowHarnessAgents: \"allow\" runs every tool call of the agent (shell commands, file writes, fetches) " +
         "unattended on the machine that runs `pulumi up`, allowHookApprovals lets the configuration's hooks approve " +
-        "any tool call under \"deny\", and allowHarnessAgents runs coding-harness agents (Claude Code), whose CLI " +
-        "runs its own tool calls without approval.",
+        "any tool call under \"deny\", and allowHarnessAgents runs coding-harness agents (Claude Code, Codex), whose " +
+        "CLI runs its own tool calls without approval.",
     enforcementLevel: "mandatory",
     remediationSteps: "Remove toolApproval or set it to \"deny\", remove allowHookApprovals and " +
         "allowHarnessAgents, or add the resource to allowedResources of this policy. With the enforcement level " +
@@ -227,10 +227,13 @@ export const agentRunToolApprovalDeny: ResourceValidationPolicy = {
                 "allowHookApprovals, or add the resource to allowedResources of this policy.");
         }
         if (harness) {
-            // toolApproval does not apply to a harness agent's CLI, so this is reported on its own.
+            // toolApproval does not apply to Claude Code, and for Codex it only selects the sandbox, so this is
+            // reported on its own.
             reportViolation(`AgentRun "${args.name}" sets allowHarnessAgents: a coding-harness agent runs every tool ` +
-                "call of its CLI (shell commands, file edits) without approval on the machine that runs `pulumi up`. " +
-                "Remove allowHarnessAgents, or add the resource to allowedResources of this policy.");
+                "call of its CLI (shell commands, file edits) without approval on the machine that runs `pulumi up` " +
+                "(Claude Code always, Codex in its workspace-write sandbox under toolApproval \"deny\", which limits " +
+                "writes and network but not reads). Remove allowHarnessAgents, or add the resource to " +
+                "allowedResources of this policy.");
         }
     }),
     remediateResource: remediateResourceOfType(dockeragent.AgentRun, (run, args) => {
@@ -328,7 +331,8 @@ export const agentConfigSandboxForLocalTools: ResourceValidationPolicy = {
         "should run in a sandbox (`runtime.sandbox: true`).",
     enforcementLevel: "advisory",
     remediationSteps: "Set runtime.sandbox to true, so `docker agent run` runs the agent in a Docker sandbox " +
-        "by default. (AgentRun runs agents in the provider process and does not use the sandbox.)",
+        "by default. (AgentRun runs agents on the machine that runs `pulumi up`, in a child process of the provider, " +
+        "and does not use the sandbox.)",
     configSchema: {
         properties: {
             toolsetTypes: {

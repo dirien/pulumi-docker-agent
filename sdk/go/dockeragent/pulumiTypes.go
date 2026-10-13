@@ -662,7 +662,7 @@ func (o AgentRoutingPtrOutput) Extra() pulumi.MapOutput {
 
 // Token usage and cost of an agent run, including sub-agents.
 type AgentRunUsage struct {
-	// Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers. For a coding-harness agent, the cost Claude Code reports (`total_cost_usd`), an API-price estimate also under a subscription.
+	// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
 	Cost float64 `pulumi:"cost"`
 	// Prompt tokens, including cached input tokens.
 	InputTokens int `pulumi:"inputTokens"`
@@ -685,7 +685,7 @@ func (o AgentRunUsageOutput) ToAgentRunUsageOutputWithContext(ctx context.Contex
 	return o
 }
 
-// Estimated cost in US dollars, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers. For a coding-harness agent, the cost Claude Code reports (`total_cost_usd`), an API-price estimate also under a subscription.
+// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
 func (o AgentRunUsageOutput) Cost() pulumi.Float64Output {
 	return o.ApplyT(func(v AgentRunUsage) float64 { return v.Cost }).(pulumi.Float64Output)
 }

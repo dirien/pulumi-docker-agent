@@ -11,12 +11,12 @@ import java.util.StringJoiner;
     @EnumType
     public enum ToolApproval {
         /**
-         * Run only the tool calls docker-agent approves without asking (read-only tools, `permissions` allow rules, the configuration&#39;s own safety mode); reject the rest.
+         * Run only the tool calls docker-agent approves without asking (read-only tools, `permissions` allow rules, the configuration&#39;s own safety mode); reject the rest. Codex agents run their commands in Codex&#39;s workspace-write sandbox.
          * 
          */
         Deny("deny"),
         /**
-         * Approve every tool call, like `docker agent run --yolo`. Tools run on the machine executing `pulumi up`.
+         * Approve every tool call, like `docker agent run --yolo`. Tools run on the machine executing `pulumi up`. Codex agents run without Codex&#39;s sandbox.
          * 
          */
         Allow("allow");

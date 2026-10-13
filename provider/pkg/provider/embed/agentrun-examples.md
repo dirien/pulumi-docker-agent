@@ -1060,6 +1060,647 @@ output "usage" {
 ```
 {{% /example %}}
 {{% example %}}
+### A ChatGPT subscription model
+
+```typescript
+import * as pulumi from "@pulumi/pulumi";
+import * as docker_agent from "@ediri/pulumi-docker-agent";
+
+// A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
+// `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+const reviewer = new docker_agent.AgentConfig("reviewer", {agents: [{
+    name: "root",
+    model: "chatgpt/gpt-5.6",
+    instruction: "You review Pulumi programs for security issues. Answer in at most five bullet points.",
+    toolsets: [{
+        type: "filesystem",
+    }],
+}]});
+
+// Reads the files of ./infra with the read-only filesystem tools: toolApproval: deny (the
+// default) rejects writes. The ChatGPT login is not an environment variable, so the run uses
+// it also with inheritEnvironment: false.
+const review = new docker_agent.AgentRun("review", {
+    yaml: reviewer.yaml,
+    workingDir: "./infra",
+    prompt: "Review the Pulumi program in this directory.",
+    inheritEnvironment: false,
+});
+export const findings = review.output;
+export const usage = review.usage;
+```
+```python
+import pulumi
+import ediri_docker_agent as docker_agent
+
+# A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
+# `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+reviewer = docker_agent.AgentConfig("reviewer", agents=[{
+    "name": "root",
+    "model": "chatgpt/gpt-5.6",
+    "instruction": "You review Pulumi programs for security issues. Answer in at most five bullet points.",
+    "toolsets": [{
+        "type": "filesystem",
+    }],
+}])
+
+# Reads the files of ./infra with the read-only filesystem tools: toolApproval: deny (the
+# default) rejects writes. The ChatGPT login is not an environment variable, so the run uses
+# it also with inheritEnvironment: false.
+review = docker_agent.AgentRun("review",
+    yaml=reviewer.yaml,
+    working_dir="./infra",
+    prompt="Review the Pulumi program in this directory.",
+    inherit_environment=False)
+pulumi.export("findings", review.output)
+pulumi.export("usage", review.usage)
+```
+```go
+package main
+
+import (
+	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+)
+
+func main() {
+	pulumi.Run(func(ctx *pulumi.Context) error {
+		// A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
+		// `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+		reviewer, err := dockeragent.NewAgentConfig(ctx, "reviewer", &dockeragent.AgentConfigArgs{
+			Agents: dockeragent.AgentArray{
+				&dockeragent.AgentArgs{
+					Name:        pulumi.String("root"),
+					Model:       pulumi.String("chatgpt/gpt-5.6"),
+					Instruction: pulumi.String("You review Pulumi programs for security issues. Answer in at most five bullet points."),
+					Toolsets: dockeragent.ToolsetArray{
+						&dockeragent.ToolsetArgs{
+							Type: pulumi.String("filesystem"),
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		// Reads the files of ./infra with the read-only filesystem tools: toolApproval: deny (the
+		// default) rejects writes. The ChatGPT login is not an environment variable, so the run uses
+		// it also with inheritEnvironment: false.
+		review, err := dockeragent.NewAgentRun(ctx, "review", &dockeragent.AgentRunArgs{
+			Yaml:               reviewer.Yaml,
+			WorkingDir:         pulumi.String("./infra"),
+			Prompt:             pulumi.String("Review the Pulumi program in this directory."),
+			InheritEnvironment: pulumi.Bool(false),
+		})
+		if err != nil {
+			return err
+		}
+		ctx.Export("findings", review.Output)
+		ctx.Export("usage", review.Usage)
+		return nil
+	})
+}
+```
+```csharp
+using System.Collections.Generic;
+using System.Linq;
+using Pulumi;
+using DockerAgent = ediri.DockerAgent;
+
+return await Deployment.RunAsync(() =>
+{
+    // A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
+    // `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+    var reviewer = new DockerAgent.AgentConfig("reviewer", new()
+    {
+        Agents = new[]
+        {
+            new DockerAgent.Inputs.AgentArgs
+            {
+                Name = "root",
+                Model = "chatgpt/gpt-5.6",
+                Instruction = "You review Pulumi programs for security issues. Answer in at most five bullet points.",
+                Toolsets = new[]
+                {
+                    new DockerAgent.Inputs.ToolsetArgs
+                    {
+                        Type = "filesystem",
+                    },
+                },
+            },
+        },
+    });
+
+    // Reads the files of ./infra with the read-only filesystem tools: toolApproval: deny (the
+    // default) rejects writes. The ChatGPT login is not an environment variable, so the run uses
+    // it also with inheritEnvironment: false.
+    var review = new DockerAgent.AgentRun("review", new()
+    {
+        Yaml = reviewer.Yaml,
+        WorkingDir = "./infra",
+        Prompt = "Review the Pulumi program in this directory.",
+        InheritEnvironment = false,
+    });
+
+    return new Dictionary<string, object?>
+    {
+        ["findings"] = review.Output,
+        ["usage"] = review.Usage,
+    };
+});
+```
+```java
+package generated_program;
+
+import com.pulumi.Context;
+import com.pulumi.Pulumi;
+import com.pulumi.core.Output;
+import io.github.dirien.dockeragent.AgentConfig;
+import io.github.dirien.dockeragent.AgentConfigArgs;
+import io.github.dirien.dockeragent.inputs.AgentArgs;
+import io.github.dirien.dockeragent.inputs.ToolsetArgs;
+import io.github.dirien.dockeragent.AgentRun;
+import io.github.dirien.dockeragent.AgentRunArgs;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+public class App {
+    public static void main(String[] args) {
+        Pulumi.run(App::stack);
+    }
+
+    public static void stack(Context ctx) {
+        // A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
+        // `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+        var reviewer = new AgentConfig("reviewer", AgentConfigArgs.builder()
+            .agents(AgentArgs.builder()
+                .name("root")
+                .model("chatgpt/gpt-5.6")
+                .instruction("You review Pulumi programs for security issues. Answer in at most five bullet points.")
+                .toolsets(ToolsetArgs.builder()
+                    .type("filesystem")
+                    .build())
+                .build())
+            .build());
+
+        // Reads the files of ./infra with the read-only filesystem tools: toolApproval: deny (the
+        // default) rejects writes. The ChatGPT login is not an environment variable, so the run uses
+        // it also with inheritEnvironment: false.
+        var review = new AgentRun("review", AgentRunArgs.builder()
+            .yaml(reviewer.yaml())
+            .workingDir("./infra")
+            .prompt("Review the Pulumi program in this directory.")
+            .inheritEnvironment(false)
+            .build());
+
+        ctx.export("findings", review.output());
+        ctx.export("usage", review.usage());
+    }
+}
+```
+```yaml
+name: chatgpt-subscription
+runtime: yaml
+resources:
+  # A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
+  # `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+  reviewer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          model: chatgpt/gpt-5.6
+          instruction: You review Pulumi programs for security issues. Answer in at most five bullet points.
+          toolsets:
+            - type: filesystem
+  # Reads the files of ./infra with the read-only filesystem tools: toolApproval: deny (the
+  # default) rejects writes. The ChatGPT login is not an environment variable, so the run uses
+  # it also with inheritEnvironment: false.
+  review:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${reviewer.yaml}
+      workingDir: ./infra
+      prompt: Review the Pulumi program in this directory.
+      inheritEnvironment: false
+outputs:
+  findings: ${review.output}
+  # The run is billed to the ChatGPT plan, so usage.cost is 0.
+  usage: ${review.usage}
+```
+```hcl
+terraform {
+  required_providers {
+    docker-agent = {
+      source = "pulumi/dirien/docker-agent"
+    }
+  }
+}
+
+# A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
+# `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+resource "docker-agent_agent_config" "reviewer" {
+  agents {
+    name        = "root"
+    model       = "chatgpt/gpt-5.6"
+    instruction = "You review Pulumi programs for security issues. Answer in at most five bullet points."
+    toolsets {
+      type = "filesystem"
+    }
+  }
+}
+
+# Reads the files of ./infra with the read-only filesystem tools: toolApproval: deny (the
+# default) rejects writes. The ChatGPT login is not an environment variable, so the run uses
+# it also with inheritEnvironment: false.
+resource "docker-agent_agent_run" "review" {
+  yaml                = docker-agent_agent_config.reviewer.yaml
+  working_dir         = "./infra"
+  prompt              = "Review the Pulumi program in this directory."
+  inherit_environment = false
+}
+
+output "findings" {
+  value = docker-agent_agent_run.review.output
+}
+
+output "usage" {
+  value = docker-agent_agent_run.review.usage
+}
+```
+{{% /example %}}
+{{% example %}}
+### Codex on a ChatGPT plan
+
+```typescript
+import * as pulumi from "@pulumi/pulumi";
+import * as docker_agent from "@ediri/pulumi-docker-agent";
+
+const config = new pulumi.Config();
+
+// A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+// `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+// `pulumi config set codexHome $HOME/.codex-agentrun`.
+const codexHome = config.require("codexHome");
+
+// The agent: Codex as a coding harness. Without harness.model, Codex uses the model of its
+// config.toml, or its default.
+const coder = new docker_agent.AgentConfig("coder", {agents: [{
+    name: "root",
+    description: "Maintains the notes of a repository with Codex",
+    harness: {
+        type: docker_agent.HarnessType.Codex,
+    },
+}]});
+
+// Starts the codex CLI during `pulumi up` in the existing directory ./workspace. With
+// toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox:
+// they can write only in workingDir and the temporary directories and reach no network, but
+// they can read every file of the user.
+const notes = new docker_agent.AgentRun("notes", {
+    yaml: coder.yaml,
+    allowHarnessAgents: true,
+    workingDir: "./workspace",
+    prompt: "Write NOTES.md with three bullet points about the files in this directory.",
+    updatePrompt: "NOTES.md exists. Bring it up to date and keep its format.",
+    inheritEnvironment: false,
+    env: {
+        CODEX_HOME: codexHome,
+    },
+    timeoutSeconds: 900,
+});
+export const summary = notes.output;
+export const usage = notes.usage;
+```
+```python
+import pulumi
+import ediri_docker_agent as docker_agent
+
+config = pulumi.Config()
+
+# A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+# `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+# `pulumi config set codexHome $HOME/.codex-agentrun`.
+codex_home = config.require("codexHome")
+
+# The agent: Codex as a coding harness. Without harness.model, Codex uses the model of its
+# config.toml, or its default.
+coder = docker_agent.AgentConfig("coder", agents=[{
+    "name": "root",
+    "description": "Maintains the notes of a repository with Codex",
+    "harness": {
+        "type": docker_agent.HarnessType.CODEX,
+    },
+}])
+
+# Starts the codex CLI during `pulumi up` in the existing directory ./workspace. With
+# toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox:
+# they can write only in workingDir and the temporary directories and reach no network, but
+# they can read every file of the user.
+notes = docker_agent.AgentRun("notes",
+    yaml=coder.yaml,
+    allow_harness_agents=True,
+    working_dir="./workspace",
+    prompt="Write NOTES.md with three bullet points about the files in this directory.",
+    update_prompt="NOTES.md exists. Bring it up to date and keep its format.",
+    inherit_environment=False,
+    env={
+        "CODEX_HOME": codex_home,
+    },
+    timeout_seconds=900)
+pulumi.export("summary", notes.output)
+pulumi.export("usage", notes.usage)
+```
+```go
+package main
+
+import (
+	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
+)
+
+func main() {
+	pulumi.Run(func(ctx *pulumi.Context) error {
+		cfg := config.New(ctx, "")
+
+		// A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+		// `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+		// `pulumi config set codexHome $HOME/.codex-agentrun`.
+		codexHome := cfg.Require("codexHome")
+
+		// The agent: Codex as a coding harness. Without harness.model, Codex uses the model of its
+		// config.toml, or its default.
+		coder, err := dockeragent.NewAgentConfig(ctx, "coder", &dockeragent.AgentConfigArgs{
+			Agents: dockeragent.AgentArray{
+				&dockeragent.AgentArgs{
+					Name:        pulumi.String("root"),
+					Description: pulumi.String("Maintains the notes of a repository with Codex"),
+					Harness: &dockeragent.HarnessArgs{
+						Type: dockeragent.HarnessTypeCodex,
+					},
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		// Starts the codex CLI during `pulumi up` in the existing directory ./workspace. With
+		// toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox:
+		// they can write only in workingDir and the temporary directories and reach no network, but
+		// they can read every file of the user.
+		notes, err := dockeragent.NewAgentRun(ctx, "notes", &dockeragent.AgentRunArgs{
+			Yaml:               coder.Yaml,
+			AllowHarnessAgents: pulumi.Bool(true),
+			WorkingDir:         pulumi.String("./workspace"),
+			Prompt:             pulumi.String("Write NOTES.md with three bullet points about the files in this directory."),
+			UpdatePrompt:       pulumi.String("NOTES.md exists. Bring it up to date and keep its format."),
+			InheritEnvironment: pulumi.Bool(false),
+			Env: pulumi.StringMap{
+				"CODEX_HOME": pulumi.String(codexHome),
+			},
+			TimeoutSeconds: pulumi.Int(900),
+		})
+		if err != nil {
+			return err
+		}
+		ctx.Export("summary", notes.Output)
+		ctx.Export("usage", notes.Usage)
+		return nil
+	})
+}
+```
+```csharp
+using System.Collections.Generic;
+using System.Linq;
+using Pulumi;
+using DockerAgent = ediri.DockerAgent;
+
+return await Deployment.RunAsync(() =>
+{
+    var config = new Config();
+
+    // A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+    // `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+    // `pulumi config set codexHome $HOME/.codex-agentrun`.
+    var codexHome = config.Require("codexHome");
+
+    // The agent: Codex as a coding harness. Without harness.model, Codex uses the model of its
+    // config.toml, or its default.
+    var coder = new DockerAgent.AgentConfig("coder", new()
+    {
+        Agents = new[]
+        {
+            new DockerAgent.Inputs.AgentArgs
+            {
+                Name = "root",
+                Description = "Maintains the notes of a repository with Codex",
+                Harness = new DockerAgent.Inputs.HarnessArgs
+                {
+                    Type = DockerAgent.HarnessType.Codex,
+                },
+            },
+        },
+    });
+
+    // Starts the codex CLI during `pulumi up` in the existing directory ./workspace. With
+    // toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox:
+    // they can write only in workingDir and the temporary directories and reach no network, but
+    // they can read every file of the user.
+    var notes = new DockerAgent.AgentRun("notes", new()
+    {
+        Yaml = coder.Yaml,
+        AllowHarnessAgents = true,
+        WorkingDir = "./workspace",
+        Prompt = "Write NOTES.md with three bullet points about the files in this directory.",
+        UpdatePrompt = "NOTES.md exists. Bring it up to date and keep its format.",
+        InheritEnvironment = false,
+        Env =
+        {
+            { "CODEX_HOME", codexHome },
+        },
+        TimeoutSeconds = 900,
+    });
+
+    return new Dictionary<string, object?>
+    {
+        ["summary"] = notes.Output,
+        ["usage"] = notes.Usage,
+    };
+});
+```
+```java
+package generated_program;
+
+import com.pulumi.Context;
+import com.pulumi.Pulumi;
+import com.pulumi.core.Output;
+import io.github.dirien.dockeragent.AgentConfig;
+import io.github.dirien.dockeragent.AgentConfigArgs;
+import io.github.dirien.dockeragent.inputs.AgentArgs;
+import io.github.dirien.dockeragent.inputs.HarnessArgs;
+import io.github.dirien.dockeragent.AgentRun;
+import io.github.dirien.dockeragent.AgentRunArgs;
+import io.github.dirien.dockeragent.enums.HarnessType;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+public class App {
+    public static void main(String[] args) {
+        Pulumi.run(App::stack);
+    }
+
+    public static void stack(Context ctx) {
+        final var config = ctx.config();
+
+        // A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+        // `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+        // `pulumi config set codexHome $HOME/.codex-agentrun`.
+        final var codexHome = config.require("codexHome");
+
+        // The agent: Codex as a coding harness. Without harness.model, Codex uses the model of its
+        // config.toml, or its default.
+        var coder = new AgentConfig("coder", AgentConfigArgs.builder()
+            .agents(AgentArgs.builder()
+                .name("root")
+                .description("Maintains the notes of a repository with Codex")
+                .harness(HarnessArgs.builder()
+                    .type(HarnessType.Codex)
+                    .build())
+                .build())
+            .build());
+
+        // Starts the codex CLI during `pulumi up` in the existing directory ./workspace. With
+        // toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox:
+        // they can write only in workingDir and the temporary directories and reach no network, but
+        // they can read every file of the user.
+        var notes = new AgentRun("notes", AgentRunArgs.builder()
+            .yaml(coder.yaml())
+            .allowHarnessAgents(true)
+            .workingDir("./workspace")
+            .prompt("Write NOTES.md with three bullet points about the files in this directory.")
+            .updatePrompt("NOTES.md exists. Bring it up to date and keep its format.")
+            .inheritEnvironment(false)
+            .env(Map.of("CODEX_HOME", codexHome))
+            .timeoutSeconds(900)
+            .build());
+
+        ctx.export("summary", notes.output());
+        ctx.export("usage", notes.usage());
+    }
+}
+```
+```yaml
+name: codex
+runtime: yaml
+config:
+  # A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+  # `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+  # `pulumi config set codexHome $HOME/.codex-agentrun`.
+  codexHome:
+    type: string
+resources:
+  # The agent: Codex as a coding harness. Without harness.model, Codex uses the model of its
+  # config.toml, or its default.
+  coder:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          description: Maintains the notes of a repository with Codex
+          harness:
+            type: codex
+  # Starts the codex CLI during `pulumi up` in the existing directory ./workspace. With
+  # toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox:
+  # they can write only in workingDir and the temporary directories and reach no network, but
+  # they can read every file of the user.
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${coder.yaml}
+      allowHarnessAgents: true
+      workingDir: ./workspace
+      prompt: Write NOTES.md with three bullet points about the files in this directory.
+      # Sent on reruns while `prompt` is unchanged, for example after a change of `triggers`.
+      updatePrompt: NOTES.md exists. Bring it up to date and keep its format.
+      # The CLI gets the system variables, the Codex and network variables of the environment,
+      # and `env`, so a CODEX_API_KEY of the environment cannot switch it to API billing.
+      inheritEnvironment: false
+      env:
+        CODEX_HOME: ${codexHome}
+      timeoutSeconds: 900
+outputs:
+  # Codex's final message.
+  summary: ${notes.output}
+  # usage.cost is 0 with a ChatGPT login.
+  usage: ${notes.usage}
+```
+```hcl
+terraform {
+  required_providers {
+    docker-agent = {
+      source = "pulumi/dirien/docker-agent"
+    }
+  }
+}
+
+# The agent: Codex as a coding harness. Without harness.model, Codex uses the model of its
+# config.toml, or its default.
+resource "docker-agent_agent_config" "coder" {
+  agents {
+    name        = "root"
+    description = "Maintains the notes of a repository with Codex"
+    harness = {
+      type = "codex"
+    }
+  }
+}
+
+# Starts the codex CLI during `pulumi up` in the existing directory ./workspace. With
+# toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox:
+# they can write only in workingDir and the temporary directories and reach no network, but
+# they can read every file of the user.
+resource "docker-agent_agent_run" "notes" {
+  yaml                 = docker-agent_agent_config.coder.yaml
+  allow_harness_agents = true
+  working_dir          = "./workspace"
+  prompt               = "Write NOTES.md with three bullet points about the files in this directory."
+  update_prompt        = "NOTES.md exists. Bring it up to date and keep its format."
+  inherit_environment  = false
+  env = {
+    "CODEX_HOME" = var.codexHome
+  }
+  timeout_seconds = 900
+}
+
+# A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+# `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+# `pulumi config set codexHome $HOME/.codex-agentrun`.
+variable "codexHome" {
+  type = string
+}
+
+output "summary" {
+  value = docker-agent_agent_run.notes.output
+}
+
+output "usage" {
+  value = docker-agent_agent_run.notes.usage
+}
+```
+{{% /example %}}
+{{% example %}}
 ### One agent, several runs
 
 ```typescript
