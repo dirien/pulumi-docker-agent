@@ -1,0 +1,16 @@
+{"type":"thread.started","thread_id":"__THREAD__"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Planning the notes**\n\nI list the files, then write NOTES.md."}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/bash -lc ls","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/bash -lc ls","aggregated_output":"NOTES.md\n","exit_code":0,"status":"completed"}}
+{"type":"item.started","item":{"id":"item_2","type":"todo_list","items":[{"text":"List the files","completed":true},{"text":"Write NOTES.md","completed":false}]}}
+{"type":"item.started","item":{"id":"item_3","type":"mcp_tool_call","server":"docs","tool":"search","arguments":{"query":"pulumi"},"result":null,"error":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_3","type":"mcp_tool_call","server":"docs","tool":"search","arguments":{"query":"pulumi"},"result":{"content":[{"type":"text","text":"Pulumi is infrastructure as code."}],"structured_content":null},"error":null,"status":"completed"}}
+{"type":"item.started","item":{"id":"item_4","type":"web_search","id":"ws_0a1b2c3d4e5f","query":"","action":{"type":"other"}}}
+{"type":"item.completed","item":{"id":"item_4","type":"web_search","id":"ws_0a1b2c3d4e5f","query":"codex exec json","action":{"type":"search","query":"codex exec json"}}}
+{"type":"item.completed","item":{"id":"item_5","type":"agent_message","text":"I'll write NOTES.md now."}}
+{"type":"item.completed","item":{"id":"item_6","type":"file_change","changes":[{"path":"__CWD__/NOTES.md","kind":"add"}],"status":"completed"}}
+{"type":"item.updated","item":{"id":"item_2","type":"todo_list","items":[{"text":"List the files","completed":true},{"text":"Write NOTES.md","completed":true}]}}
+{"type":"item.completed","item":{"id":"item_7","type":"agent_message","text":"Done: NOTES.md lists the changes."}}
+{"type":"item.completed","item":{"id":"item_2","type":"todo_list","items":[{"text":"List the files","completed":true},{"text":"Write NOTES.md","completed":true}]}}
+{"type":"turn.completed","usage":{"input_tokens":24763,"cached_input_tokens":24448,"cache_write_input_tokens":0,"output_tokens":122,"reasoning_output_tokens":64}}

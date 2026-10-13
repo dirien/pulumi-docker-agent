@@ -10,5 +10,6 @@ package agentrun
 // (child_unix_test.go).
 func runHelperModes() {
 	runHarnessHelperMode()
+	runCodexHelperMode()
 	runRunHelperMode()
 }

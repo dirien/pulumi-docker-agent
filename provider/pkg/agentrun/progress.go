@@ -6,6 +6,7 @@ package agentrun
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -65,6 +66,16 @@ type progress struct {
 	started   time.Time
 	sessions  map[string]bool
 	calls     map[string]string // tool call ID -> arguments
+	// extra returns the secrets found during the run (harnessInfo.extraSecrets); nil for none.
+	extra func() []string
+}
+
+// secretSet is the redaction set of the messages: secrets and the secrets found so far.
+func (p *progress) secretSet() []string {
+	if p.extra == nil {
+		return p.secrets
+	}
+	return append(slices.Clone(p.secrets), p.extra()...)
 }
 
 func newProgress(req Request, secrets []string, names *nameHider) *progress {
@@ -87,17 +98,17 @@ func (p *progress) at(level Logging) bool {
 }
 
 func (p *progress) status(format string, args ...any) {
-	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secrets)})
+	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secretSet())})
 }
 
 func (p *progress) record(format string, args ...any) {
-	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secrets), Persistent: true})
+	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secretSet()), Persistent: true})
 }
 
 // quote returns s, without hidden names, redacted, on one line and shortened to n runes.
 // Redacting first keeps a secret that the shortening would cut from slipping through.
 func (p *progress) quote(s string, n int) string {
-	return truncate(redact(p.names.hide(s), p.secrets), n)
+	return truncate(redact(p.names.hide(s), p.secretSet()), n)
 }
 
 // name returns a name of the configuration, or what it stands for ("an agent") when names are
@@ -219,7 +230,7 @@ func (p *progress) summary(res *Result) {
 		took = took.Round(100 * time.Millisecond)
 	}
 	p.emit(Progress{Message: redact(fmt.Sprintf("agent run finished in %s: %s answered after %s; %d input and %d "+
-		"output tokens; %s", took, agent, calls, res.Usage.InputTokens, res.Usage.OutputTokens, cost), p.secrets),
+		"output tokens; %s", took, agent, calls, res.Usage.InputTokens, res.Usage.OutputTokens, cost), p.secretSet()),
 		Persistent: true, Summary: true})
 }
 

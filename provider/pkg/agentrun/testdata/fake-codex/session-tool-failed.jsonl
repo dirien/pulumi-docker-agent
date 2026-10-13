@@ -1,0 +1,9 @@
+{"type":"thread.started","thread_id":"__THREAD__"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_0","type":"command_execution","command":"/bin/bash -lc 'cat missing.txt'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"/bin/bash -lc 'cat missing.txt'","aggregated_output":"cat: missing.txt: No such file or directory\n","exit_code":1,"status":"failed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"file_change","changes":[{"path":"__CWD__/README.md","kind":"update"},{"path":"/etc/hosts","kind":"update"}],"status":"failed"}}
+{"type":"item.started","item":{"id":"item_2","type":"mcp_tool_call","server":"docs","tool":"search","arguments":{"query":"x"},"result":null,"error":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_2","type":"mcp_tool_call","server":"docs","tool":"search","arguments":{"query":"x"},"result":null,"error":{"message":"tool call failed: timed out"},"status":"failed"}}
+{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Some tools failed."}}
+{"type":"turn.completed","usage":{"input_tokens":900,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":15,"reasoning_output_tokens":0}}

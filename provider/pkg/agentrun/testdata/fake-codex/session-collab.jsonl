@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"__THREAD__"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_0","type":"collab_tool_call","tool":"spawn_agent","sender_thread_id":"__THREAD__","receiver_thread_ids":[],"prompt":"Review NOTES.md","agents_states":{},"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_0","type":"collab_tool_call","tool":"spawn_agent","sender_thread_id":"__THREAD__","receiver_thread_ids":["0199a213-0000-7000-8000-000000000002"],"prompt":"Review NOTES.md","agents_states":{"0199a213-0000-7000-8000-000000000002":{"status":"running","message":null}},"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"A reviewer is looking at NOTES.md."}}
+{"type":"turn.completed","usage":{"input_tokens":900,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":15,"reasoning_output_tokens":0}}

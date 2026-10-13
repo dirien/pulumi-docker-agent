@@ -41,6 +41,8 @@ import (
 var baseEnvVars = slices.Concat(
 	// Claude Code's configuration locations (they select the login), and its root opt-in.
 	claudeKeptEnvVars,
+	// Codex's configuration location (it selects the login) and its CA certificate.
+	[]string{"CODEX_HOME", "CODEX_CA_CERTIFICATE"},
 	// The network: proxies (Go and docker-agent read both cases) and CA certificates.
 	[]string{
 		"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy",
