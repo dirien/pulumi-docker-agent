@@ -18,10 +18,15 @@ import (
 
 // A Claude Code CLI runs in a process group of its own, and the processes started under it
 // are found by procTree (descendants.go): recorded while it runs, and found by the run's
-// cookie at each cleanup step. Claude Code runs every shell command in a session of its own,
-// out of the group's reach, and leaves the ones it ran in the background running when it
-// exits. Whatever the CLI does with them, the runner stops the CLI's group and those
-// processes (with the groups and sessions they created) on every end of a run:
+// cookie at each cleanup step. A run child (child.go) is supervised the same way, by the
+// provider, as a backstop (supervision.backstop): it stops its own CLIs and tools, and only
+// what it left gets the signals below after it exited (child_unix.go). What follows is about
+// the CLI.
+//
+// Claude Code runs every shell command in a session of its own, out of the group's reach, and
+// leaves the ones it ran in the background running when it exits. Whatever the CLI does with
+// them, the runner stops the CLI's group and those processes (with the groups and sessions
+// they created) on every end of a run:
 //
 //   - a cancelled or timed-out run sends SIGTERM and SIGCONT to the group and those
 //     processes (SIGCONT wakes a stopped one), and SIGKILL to what is left after harnessGrace,
@@ -66,21 +71,28 @@ import (
 // under it, and watches it until it exited and its group and those processes were stopped.
 // debug receives tracking problems. It fails with errShuttingDown after a SIGINT.
 func startHarness(cmd *exec.Cmd, debug func(string)) (*harnessProcess, error) {
+	return startSupervised(cmd, claudeSupervision(debug))
+}
+
+// startSupervised starts a process as s describes, in a process group of its own, records
+// the processes started under it, and watches it until it exited and its group and those
+// processes were stopped. It fails with errShuttingDown after a SIGINT.
+func startSupervised(cmd *exec.Cmd, s supervision) (*harnessProcess, error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	setPdeathsig(cmd.SysProcAttr)
-	// Every process the CLI starts inherits the cookie, unless it clears its environment.
+	// Every process it starts inherits the cookie, unless it clears its environment.
 	cookie := newRunCookie()
 	if cookie != "" {
-		cmd.Env = withRunCookie(cmd.Env, cookie)
+		cmd.Env = withCookie(cmd.Env, s.cookieVar, cookie)
 	}
 	WatchShutdownSignals()
-	p := &harnessProcess{exited: make(chan struct{}), done: make(chan struct{})}
+	p := &harnessProcess{sup: s, exited: make(chan struct{}), done: make(chan struct{})}
 	started := make(chan error, 1)
 	go func() {
 		// The parent-death signal is tied to the thread that started the process: the thread
 		// must not exit before the process was reaped.
 		goruntime.LockOSThread()
-		if err := harnesses.start(p, cmd, cookie, debug); err != nil {
+		if err := harnesses.start(p, cmd, cookie); err != nil {
 			goruntime.UnlockOSThread()
 			started <- err
 			return
@@ -90,11 +102,13 @@ func startHarness(cmd *exec.Cmd, debug func(string)) (*harnessProcess, error) {
 		var left procTargets
 		pinned := waitUnreaped(p.pgid)
 		if pinned {
+			p.markReaped()
 			left = p.termAfterExit()
 		}
 		p.waitErr = cmd.Wait()
 		p.state = cmd.ProcessState
 		p.exitedAt = time.Now()
+		p.markReaped()
 		goruntime.UnlockOSThread()
 		close(p.exited)
 		if !pinned {
@@ -116,6 +130,23 @@ func startHarness(cmd *exec.Cmd, debug func(string)) (*harnessProcess, error) {
 	return p, nil
 }
 
+// markReaped stops the signals to the process itself: it exited, and its PID is free once
+// it is reaped. On Linux it is marked before the reap, while the exited process still holds
+// its PID; on macOS right after it.
+func (p *harnessProcess) markReaped() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.reaped = true
+}
+
+// signalSelfLocked sends a signal to the process itself (not its group) while it may still
+// run. p.mu is held.
+func (p *harnessProcess) signalSelfLocked(sig syscall.Signal) {
+	if !p.reaped && !p.finished {
+		_ = syscall.Kill(p.pgid, sig)
+	}
+}
+
 // termAfterExit ends the recording when the CLI exited, and sends SIGTERM and SIGCONT to the
 // rest of its group and to the processes started under it that still run (what a stop did
 // not signal already), which it returns. When the CLI exited on its own, it counts them.
@@ -125,7 +156,8 @@ func (p *harnessProcess) termAfterExit() procTargets {
 	p.mu.Lock()
 	stopping := p.stopping
 	p.mu.Unlock()
-	if !stopping {
+	// A stop of a backstop process signalled only the process itself.
+	if !stopping || p.sup.backstop {
 		signalGroup(p.pgid, syscall.SIGTERM, syscall.SIGCONT)
 	}
 	p.tree.term(left)
@@ -139,11 +171,12 @@ func (p *harnessProcess) termAfterExit() procTargets {
 
 // killAfterExit waits up to postExitGrace after the exit (or until the deadline of a stop)
 // for the rest of the CLI's group and the processes started under it to end, and kills what
-// is left. When nothing is left it returns at once.
+// is left. When nothing is left it returns at once. A backstop process's group and processes
+// got their first SIGTERM after the exit, so they get the whole postExitGrace.
 func (p *harnessProcess) killAfterExit(left procTargets) {
 	p.mu.Lock()
 	deadline := p.exitedAt.Add(postExitGrace)
-	if p.kill != nil && p.killAt.Before(deadline) {
+	if p.kill != nil && p.killAt.Before(deadline) && !p.sup.backstop {
 		deadline = p.killAt
 	}
 	p.mu.Unlock()
@@ -160,14 +193,25 @@ func (p *harnessProcess) killAfterExit(left procTargets) {
 }
 
 // stop asks the CLI, its group and the processes started under it to stop, and kills them
-// after harnessGrace.
-func (p *harnessProcess) stop() { p.stopWithin(harnessGrace) }
+// after harnessGrace. A backstop process (a run child) gets SIGTERM, and SIGKILL after
+// childGrace; its group and processes are stopped after it exited.
+func (p *harnessProcess) stop() {
+	if p.sup.backstop {
+		p.stopWithin(childGrace(), syscall.SIGTERM)
+		return
+	}
+	p.stopWithin(harnessGrace, syscall.SIGTERM)
+}
 
 // stopWithin sends SIGTERM and SIGCONT to the group and the processes started under the CLI,
 // the first time, and kills them after grace, or at the earlier deadline of a previous call
 // (killAfterExit kills them postExitGrace after the CLI exited, if that comes first).
 // Once the group is gone it does nothing, so that a reused group ID is never signalled.
-func (p *harnessProcess) stopWithin(grace time.Duration) {
+//
+// A backstop process gets sig (SIGTERM for a stop, SIGINT for a shutdown) the first time, and
+// SIGKILL after grace; its group and the processes started under it are left to the cleanup
+// after it exited.
+func (p *harnessProcess) stopWithin(grace time.Duration, sig syscall.Signal) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.finished {
@@ -175,9 +219,13 @@ func (p *harnessProcess) stopWithin(grace time.Duration) {
 	}
 	if !p.stopping {
 		p.stopping = true
-		left := p.scanFrozen()
-		signalGroup(p.pgid, syscall.SIGTERM, syscall.SIGCONT)
-		p.tree.term(left)
+		if p.sup.backstop {
+			p.signalSelfLocked(sig)
+		} else {
+			left := p.scanFrozen()
+			signalGroup(p.pgid, syscall.SIGTERM, syscall.SIGCONT)
+			p.tree.term(left)
+		}
 	}
 	deadline := time.Now().Add(grace)
 	if p.kill != nil {
@@ -190,12 +238,26 @@ func (p *harnessProcess) stopWithin(grace time.Duration) {
 	p.kill = time.AfterFunc(grace, func() {
 		p.mu.Lock()
 		defer p.mu.Unlock()
-		if !p.finished {
-			left := p.scanFrozen()
-			signalGroup(p.pgid, syscall.SIGKILL)
-			p.tree.kill(left)
+		if p.finished {
+			return
 		}
+		if p.sup.backstop {
+			p.signalSelfLocked(syscall.SIGKILL)
+			return
+		}
+		left := p.scanFrozen()
+		signalGroup(p.pgid, syscall.SIGKILL)
+		p.tree.kill(left)
 	})
+}
+
+// killNow kills a backstop process at once (its group and processes are stopped after it
+// exited).
+func (p *harnessProcess) killNow() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.stopping = true
+	p.signalSelfLocked(syscall.SIGKILL)
 }
 
 // scanFrozen reads the process table while the CLI's group is stopped (SIGSTOP): the CLI
@@ -211,14 +273,15 @@ func (p *harnessProcess) scanFrozen() procTargets {
 	return p.tree.scan()
 }
 
-// stopForShutdown stops the CLI within signalGrace because the provider got SIGINT.
+// stopForShutdown stops the CLI within signalGrace because the provider got SIGINT. A run
+// child gets the SIGINT, which makes it stop its own CLIs and tools.
 func (p *harnessProcess) stopForShutdown() {
 	p.mu.Lock()
 	if !p.finished {
 		p.shutdown = true
 	}
 	p.mu.Unlock()
-	p.stopWithin(signalGrace)
+	p.stopWithin(signalGrace, syscall.SIGINT)
 }
 
 // signalGroup sends signals to a process group. A group that is gone is not an error.
@@ -244,22 +307,19 @@ type harnessRegistry struct {
 
 var harnesses = &harnessRegistry{running: map[*harnessProcess]bool{}}
 
-// errShuttingDown is the error of a CLI that would start after the provider got SIGINT.
-var errShuttingDown = errors.New("the provider is shutting down (Pulumi asked it to stop), so no claude CLI starts")
-
 // start starts the CLI, begins recording the processes started under it, and tracks it,
 // unless the provider is shutting down.
-func (h *harnessRegistry) start(p *harnessProcess, cmd *exec.Cmd, cookie string, debug func(string)) error {
+func (h *harnessRegistry) start(p *harnessProcess, cmd *exec.Cmd, cookie string) error {
 	h.Lock()
 	defer h.Unlock()
 	if h.shutdown {
-		return errShuttingDown
+		return shuttingDownError(p.sup.kind)
 	}
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 	p.pgid = cmd.Process.Pid
-	p.tree = newProcTree(p.pgid, cookie, debug)
+	p.tree = newProcTreeOf(p.pgid, p.sup, cookie)
 	h.running[p] = true
 	return nil
 }
@@ -285,10 +345,11 @@ func (h *harnessRegistry) shutDown() []*harnessProcess {
 var watchSignals sync.Once
 
 // WatchShutdownSignals makes a SIGINT to the process (Pulumi stops a provider with SIGINT)
-// stop the Claude Code CLIs of coding-harness agents: no CLI starts any more, and the
-// running ones, their groups and the processes started under them get SIGTERM and SIGCONT,
-// and SIGKILL after signalGrace. Every later SIGINT does the same for the CLIs that still
-// run.
+// stop the agent runs and the Claude Code CLIs of coding-harness agents: none starts any
+// more, the running run children (child.go) get SIGINT and SIGKILL after signalGrace, and
+// the running CLIs, their groups and the processes started under them get SIGTERM and
+// SIGCONT, and SIGKILL after signalGrace. Every later SIGINT does the same for what still
+// runs.
 //
 // It only observes SIGINT: the process ends as its own handler decides. In the provider
 // binary that is the Pulumi SDK's provider.MainContext, which stops the gRPC server
@@ -296,7 +357,7 @@ var watchSignals sync.Once
 // is not watched and still ends the process at once.
 //
 // The provider calls it when the engine configures it, after the Pulumi SDK installed its
-// own handler; startHarness and Run (for a run that allows harness agents) call it too.
+// own handler; startHarness and Run call it too.
 func WatchShutdownSignals() {
 	watchSignals.Do(func() {
 		ch := make(chan os.Signal, 1)

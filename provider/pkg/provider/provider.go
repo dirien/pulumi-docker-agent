@@ -104,8 +104,9 @@ func withConfigUpdatesInPlace(prov p.Provider) p.Provider {
 }
 
 // withShutdownWatch starts agentrun.WatchShutdownSignals when the engine configures the
-// provider: from then on, a SIGINT (Pulumi stops a provider with SIGINT) refuses new Claude
-// Code CLIs and stops the running ones. The engine configures a provider before it creates,
+// provider: from then on, a SIGINT (Pulumi stops a provider with SIGINT) refuses new agent
+// runs and stops the running ones (their run children, which stop their Claude Code CLIs and
+// tools). The engine configures a provider before it creates,
 // updates or deletes resources with it, and the Pulumi SDK installed its own SIGINT handler
 // before it served the first request, so the watcher never takes a SIGINT that would have
 // ended the provider.

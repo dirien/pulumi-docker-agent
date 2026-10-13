@@ -23,6 +23,10 @@ import (
 //     processes a configuration starts can see them;
 //   - the values of the variables the configuration names as `token_key` (models and
 //     providers), from Request.Env or, when inherited, the provider's environment.
+//
+// A run child (child.go) computes the set from its own environment, which without
+// Request.InheritEnvironment holds none of the provider's credentials; the provider redacts
+// everything the child sends again with its own set.
 
 // credentialName matches environment variable names that hold credentials.
 var credentialName = regexp.MustCompile(`(?i)(API_?KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASSPHRASE|CREDENTIAL|ACCESS_?KEY|PRIVATE_?KEY)`)

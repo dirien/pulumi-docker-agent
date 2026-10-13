@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker-agent/pkg/paths"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -399,20 +398,24 @@ func TestEnvOverridesInheritedEnvironment(t *testing.T) {
 }
 
 func TestIsolation(t *testing.T) {
-	home := t.TempDir()
+	home, tmp := t.TempDir(), t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	// The state and working directories are created here.
+	t.Setenv("TMPDIR", tmp)
 	// A user config that would make every tool call autonomous and add a global
 	// provider: it must be ignored.
 	require.NoError(t, os.MkdirAll(filepath.Join(home, ".config", "cagent"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(home, ".config", "cagent", "config.yaml"),
 		[]byte("settings:\n  YOLO: true\n  safety: autonomous\n"), 0o600))
 
-	var dataDir, workDir string
+	// The memory toolset creates the directory of its database in docker-agent's data
+	// directory, which the run child points into the run's state directory.
+	var memoryDirs []string
 	srv := fakeopenai.New(func(r fakeopenai.Request) fakeopenai.Reply {
 		if len(r.ToolResults()) == 0 {
-			dataDir = paths.GetDataDir()
+			memoryDirs, _ = filepath.Glob(filepath.Join(tmp, stateRootPrefix+"*", "data", "memory", "*"))
 			return fakeopenai.Reply{ToolCalls: []fakeopenai.ToolCall{{Name: "shell", Arguments: `{"cmd":"pwd"}`}}}
 		}
 		return fakeopenai.Reply{Content: toolResult(r)}
@@ -431,14 +434,19 @@ func TestIsolation(t *testing.T) {
 	req.ToolApproval = ToolApprovalAllow
 	res, err := Run(t.Context(), req)
 	require.NoError(t, err)
-	workDir = strings.TrimSpace(res.Output)
+	workDir := strings.TrimSpace(res.Output)
 
-	assert.True(t, strings.HasPrefix(filepath.Base(filepath.Dir(dataDir)), stateRootPrefix), "data dir %s", dataDir)
-	assert.NoDirExists(t, filepath.Dir(dataDir), "the state directory is removed")
+	require.Len(t, memoryDirs, 1, "docker-agent's data directory is in the run's state directory")
+	stateRoot := filepath.Dir(filepath.Dir(filepath.Dir(memoryDirs[0])))
+	assert.True(t, strings.HasPrefix(filepath.Base(stateRoot), stateRootPrefix), "state root %s", stateRoot)
+	assert.NoDirExists(t, stateRoot, "the state directory is removed")
+	assert.Equal(t, tmp, filepath.Dir(workDir))
 	assert.Contains(t, filepath.Base(workDir), "pulumi-docker-agent-work-")
 	assert.NoDirExists(t, workDir, "the temporary working directory is removed")
 	assert.NoDirExists(t, filepath.Join(home, ".cagent"))
-	assert.NotEqual(t, filepath.Join(home, ".cagent"), paths.GetDataDir(), "docker-agent never falls back to the user's data dir")
+	entries, err := os.ReadDir(tmp)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "nothing is left in the temporary directory")
 
 	// The user settings did not apply: under the default deny, shell is rejected.
 	srv2 := fakeopenai.New(callOnce("shell", `{"cmd":"echo hi"}`))
@@ -601,18 +609,11 @@ func (h *recordingHandler) all() string {
 	return strings.Join(h.msgs, "\n")
 }
 
-func TestLogsStayOffStderrAndAreRedacted(t *testing.T) {
-	installLogHandler()
-	lh, ok := slog.Default().Handler().(*logHandler)
-	require.True(t, ok, "the run log handler is the default")
-	stderr := &recordingHandler{}
-	prev := lh.next
-	lh.next = stderr
-	defer func() { lh.next = prev }()
-
+// docker-agent's records of a run reach Request.Log, redacted, and records below WARN are
+// dropped: the run child neither forwards them nor writes them to its stderr (which the
+// parent would log at debug level).
+func TestRunLogsAreRedacted(t *testing.T) {
 	srv := fakeopenai.New(func(r fakeopenai.Request) fakeopenai.Reply {
-		slog.Warn("context-less record mentioning " + fakeKey)        // attributed to the run
-		slog.WarnContext(context.TODO(), "unrelated record "+fakeKey) // other work: passed on, redacted
 		return fakeopenai.Reply{Status: 401, ErrorMessage: "Incorrect API key provided: " + fakeKey}
 	})
 	defer srv.Close()
@@ -629,16 +630,46 @@ func TestLogsStayOffStderrAndAreRedacted(t *testing.T) {
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), fakeKey)
 
+	mu.Lock()
 	logs := strings.Join(runLogs, "\n")
+	mu.Unlock()
 	assert.Contains(t, logs, "ERROR Non-retryable error from model")
-	assert.Contains(t, logs, "context-less record mentioning [secret]")
+	assert.Contains(t, logs, "[secret]")
 	assert.NotContains(t, logs, fakeKey)
 	assert.NotContains(t, logs, "Model selected", "records below WARN are dropped")
+}
 
+// The log routing of logs.go, which a run child installs: while a run is active, records
+// without a context of their own are the run's, and records of other work pass through to
+// the next handler, redacted.
+func TestLogHandlerRoutesRecordsToTheRun(t *testing.T) {
+	installLogHandler()
+	lh, ok := slog.Default().Handler().(*logHandler)
+	require.True(t, ok, "the run log handler is the default")
+	stderr := &recordingHandler{}
+	prev := lh.next
+	lh.next = stderr
+	defer func() { lh.next = prev }()
+
+	var runLogs []string
+	ctx, stop := startRunLog(t.Context(), []string{fakeKey}, nil, func(level slog.Level, msg string) {
+		runLogs = append(runLogs, level.String()+" "+msg)
+	})
+	slog.Warn("context-less record mentioning " + fakeKey)        // attributed to the run
+	slog.WarnContext(context.TODO(), "unrelated record "+fakeKey) // other work: passed on, redacted
+	slog.InfoContext(ctx, "an info record of the run "+fakeKey)   // below WARN: dropped
+	slog.ErrorContext(ctx, "an error of the run", "key", fakeKey) // the run's
+	stop()
+
+	logs := strings.Join(runLogs, "\n")
+	assert.Contains(t, logs, "WARN context-less record mentioning [secret]")
+	assert.Contains(t, logs, "ERROR an error of the run key=[secret]")
+	assert.NotContains(t, logs, "info record")
+	assert.NotContains(t, logs, fakeKey)
 	out := stderr.all()
 	assert.Contains(t, out, "unrelated record [secret]")
 	assert.NotContains(t, out, fakeKey)
-	assert.NotContains(t, out, "Non-retryable error from model")
+	assert.NotContains(t, out, "of the run")
 
 	// After the run, records pass through untouched.
 	slog.Warn("after the run")
@@ -670,17 +701,17 @@ func TestWaitingForAnotherRunHonoursCancellation(t *testing.T) {
 	require.NoError(t, <-done)
 }
 
-// The `openai` provider uses the Responses API for gpt-5 models; OPENAI_BASE_URL points it at
-// the fake (the docs examples are tested this way).
+// The `openai` provider uses the Responses API for gpt-5 models; OPENAI_BASE_URL in env points
+// it at the fake (the docs examples are tested this way): the SDK reads it from the run
+// child's environment.
 func TestOpenAIProviderResponsesAPI(t *testing.T) {
 	srv := fakeopenai.New(nil)
 	defer srv.Close()
-	t.Setenv("OPENAI_BASE_URL", srv.URL)
 
 	res, err := Run(t.Context(), Request{
 		YAML:   []byte("agents:\n  root:\n    model: openai/gpt-5-mini\n    instruction: Review.\n" + reviewSchema),
 		Prompt: "Review this change.",
-		Env:    map[string]string{"OPENAI_API_KEY": fakeKey},
+		Env:    map[string]string{"OPENAI_API_KEY": fakeKey, "OPENAI_BASE_URL": srv.URL},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"risk": "low", "summary": "sample"}, res.StructuredOutput)
@@ -811,16 +842,16 @@ func TestProcessesDoNotInheritTheEnvironment(t *testing.T) {
 	assert.Contains(t, string(hook), "FAKE_API_KEY="+fakeKey, "hooks get env")
 	assert.Contains(t, string(hook), "PATH=")
 
-	// Inheriting keeps docker-agent's behaviour.
+	// Inheriting keeps docker-agent's behaviour, and env still does not reach the shell.
 	req.InheritEnvironment = true
 	res, err = Run(t.Context(), req)
 	require.NoError(t, err)
-	assert.Contains(t, res.Output, "P="+procSecret)
+	assert.Contains(t, res.Output, "P="+procSecret+" K= S=from-toolset-env")
 }
 
 func TestLSPEnvironmentEmptiesOtherVariables(t *testing.T) {
 	t.Setenv("PROC_ONLY_SECRET", "proc-only-secret-value")
-	env := slices.Concat(emptiedEnvList(), systemEnv())
+	env := slices.Concat(emptiedEnvList(Request{}), systemEnv())
 	assert.Contains(t, env, "PROC_ONLY_SECRET=")
 	assert.Contains(t, env, "PATH="+os.Getenv("PATH"))
 	assert.NotContains(t, strings.Join(env, "\n"), "proc-only-secret-value")

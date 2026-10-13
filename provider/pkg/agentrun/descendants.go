@@ -25,7 +25,8 @@ import (
 // Claude Code runs every shell command in a session of its own, so its commands are in
 // neither the CLI's process group nor its session, and the group signals of harness_unix.go
 // do not reach them; it also leaves the commands it ran in the background running when it
-// exits. A procTree therefore finds the processes started under one CLI in two ways, and the
+// exits. The same holds for a run child (child.go), whose tools run in groups of their own:
+// it is tracked like a CLI, with childCookieVar. A procTree therefore finds the processes started under one CLI in two ways, and the
 // cleanup of harness_unix.go stops them with the CLI's group, whatever the CLI does with them:
 //
 //   - the tree: every procPollInterval while the CLI runs, and at each cleanup step, it reads
@@ -76,11 +77,7 @@ var (
 	cookieSweepTimeout = time.Second
 )
 
-const (
-	procPollCost = 5
-	// runCookieVar names the variable that marks the processes of one CLI run.
-	runCookieVar = "DOCKER_AGENT_RUN_COOKIE"
-)
+const procPollCost = 5
 
 // Access to the process table (descendants_linux.go, descendants_darwin.go). Variables, so
 // that tests can replace them.
@@ -95,7 +92,7 @@ var (
 	readCookie = procHasCookie
 )
 
-var errProcTableTooLarge = errors.New("the process table is too large to track the processes of claude")
+var errProcTableTooLarge = errors.New("the process table is too large")
 
 // procKey identifies a process: its PID, and its start time (Linux: clock ticks since boot;
 // macOS: microseconds since the epoch), which tells it apart from a later process that got
@@ -127,16 +124,22 @@ func newRunCookie() string {
 // withRunCookie returns the environment with runCookieVar set to cookie, replacing a value
 // inherited from an outer run. A nil environment is the provider's.
 func withRunCookie(env []string, cookie string) []string {
+	return withCookie(env, runCookieVar, cookie)
+}
+
+// withCookie returns the environment with the cookie variable name set to cookie, replacing
+// a value inherited from an outer run. A nil environment is the provider's.
+func withCookie(env []string, name, cookie string) []string {
 	if env == nil {
 		env = os.Environ()
 	}
 	out := make([]string, 0, len(env)+1)
 	for _, kv := range env {
-		if !strings.HasPrefix(kv, runCookieVar+"=") {
+		if !strings.HasPrefix(kv, name+"=") {
 			out = append(out, kv)
 		}
 	}
-	return append(out, runCookieVar+"="+cookie)
+	return append(out, name+"="+cookie)
 }
 
 // environHas reports whether a NUL-separated environment holds exactly the entry
@@ -191,11 +194,13 @@ func procargsHas(b []byte, entry string) (found, hidden bool) {
 	return environHas(b, entry), false
 }
 
-// procTree records the processes started under one CLI. Its methods do nothing on a nil
-// tree (tracking is off).
+// procTree records the processes started under one CLI (or one run child: everything below
+// says "the CLI" for the process at its root). Its methods do nothing on a nil tree (tracking
+// is off).
 type procTree struct {
 	root   procKey
-	cookie string // runCookieVar=value, "" without a cookie
+	name   string // the root process in messages: "claude" or "the agent run"
+	cookie string // runCookieVar=value (or childCookieVar=value), "" without a cookie
 	self   struct{ pid, pgid, sid, uid int }
 	debug  func(string)
 
@@ -219,19 +224,25 @@ type procTree struct {
 // environment holds runCookieVar=cookie. It returns nil, after logging why, when the CLI
 // cannot be found in the process table.
 func newProcTree(pid int, cookie string, debug func(string)) *procTree {
+	return newProcTreeOf(pid, claudeSupervision(debug), cookie)
+}
+
+// newProcTreeOf starts recording the processes started under the process with that PID, which
+// s describes, whose environment holds s.cookieVar=cookie.
+func newProcTreeOf(pid int, s supervision, cookie string) *procTree {
 	root, ok := readProc(pid)
 	if !ok {
-		logDebug(debug, "tracking the processes of claude is off: claude (PID %d) is not in the process table", pid)
+		logDebug(s.debug, "tracking the processes of %s is off: %s (PID %d) is not in the process table", s.name, s.name, pid)
 		return nil
 	}
 	t := &procTree{
-		root: root.procKey, debug: debug,
+		root: root.procKey, name: s.name, debug: s.debug,
 		procs: map[procKey]bool{}, groups: map[int]procKey{}, sessions: map[int]procKey{},
 		termed: map[procKey]bool{}, termedGroups: map[int]bool{}, logged: map[string]bool{},
 		stopPoll: make(chan struct{}), pollDone: make(chan struct{}),
 	}
 	if cookie != "" {
-		t.cookie = runCookieVar + "=" + cookie
+		t.cookie = s.cookieVar + "=" + cookie
 	}
 	t.self.pid, t.self.pgid, t.self.uid = syscall.Getpid(), unix.Getpgrp(), os.Geteuid()
 	t.self.sid, _ = unix.Getsid(0)
@@ -296,11 +307,11 @@ type procTableView struct {
 func (t *procTree) readLocked() *procTableView {
 	entries, err := readProcTable(t.root.start)
 	if err != nil {
-		t.logOnce("tracking the processes of claude: reading the process table: %v", err)
+		t.logOnce("tracking the processes of %s: reading the process table: %v", t.name, err)
 		return nil
 	}
 	if len(entries) > maxProcTable {
-		t.logOnce("tracking the processes of claude: %v (%d processes)", errProcTableTooLarge, len(entries))
+		t.logOnce("tracking the processes of %s: %v (%d processes)", t.name, errProcTableTooLarge, len(entries))
 		return nil
 	}
 	tbl := &procTableView{byPID: make(map[int]*procEntry, len(entries)), children: map[int][]*procEntry{}}
@@ -385,8 +396,8 @@ func (t *procTree) walkLocked(tbl *procTableView) {
 func (t *procTree) record(e *procEntry, force bool) bool {
 	if !t.procs[e.procKey] {
 		if len(t.procs) >= maxTrackedProcs && !force {
-			t.logOnce("tracking the processes of claude: more than %d processes run, the others are not recorded",
-				maxTrackedProcs)
+			t.logOnce("tracking the processes of %s: more than %d processes run, the others are not recorded",
+				t.name, maxTrackedProcs)
 			return false
 		}
 		t.procs[e.procKey] = true
@@ -416,8 +427,8 @@ func (t *procTree) sweepLocked(tbl *procTableView) int {
 			continue
 		}
 		if len(cands) == maxCookieReads {
-			t.logOnce("tracking the processes of claude: more than %d candidates for the run's cookie, the others "+
-				"are not checked", maxCookieReads)
+			t.logOnce("tracking the processes of %s: more than %d candidates for the run's cookie, the others "+
+				"are not checked", t.name, maxCookieReads)
 			break
 		}
 		cands = append(cands, *e)
@@ -463,14 +474,14 @@ func (t *procTree) sweepLocked(tbl *procTableView) int {
 			}
 		case <-timer.C:
 			abandon.Store(true)
-			t.logOnce("tracking the processes of claude: reading the environments of processes took longer than %v, "+
-				"the others are not checked for the run's cookie", cookieSweepTimeout)
+			t.logOnce("tracking the processes of %s: reading the environments of processes took longer than %v, "+
+				"the others are not checked for the run's cookie", t.name, cookieSweepTimeout)
 			done = true
 		}
 	}
 	if hidden > 0 {
-		t.logOnce("tracking the processes of claude: the system does not show the environment of some processes " +
-			"(macOS hides it for code-signing restricted programs), so the run's cookie cannot find them")
+		t.logOnce("tracking the processes of %s: the system does not show the environment of some processes "+
+			"(macOS hides it for code-signing restricted programs), so the run's cookie cannot find them", t.name)
 	}
 	return found
 }

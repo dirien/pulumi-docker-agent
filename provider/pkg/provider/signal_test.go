@@ -24,11 +24,12 @@ import (
 // the provider ("build") or after the engine configured it ("configure").
 const signalHelperEnv = "PROVIDER_TEST_SIGNAL_HELPER"
 
-func TestMain(m *testing.M) {
+// runHelperModes runs the test binary as the signal helper when the environment says so
+// (TestMain, main_test.go).
+func runHelperModes() {
 	if mode := os.Getenv(signalHelperEnv); mode != "" {
 		os.Exit(runSignalHelper(mode))
 	}
-	os.Exit(m.Run())
 }
 
 // runSignalHelper has no SIGINT handler of its own, so a SIGINT ends it unless the provider

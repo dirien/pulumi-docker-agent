@@ -31,12 +31,14 @@ import (
 // The tests of descendants.go: what a Claude Code CLI starts in sessions of its own (as
 // Claude Code runs its shell commands) is stopped on every end of a run, and nothing else is.
 
-// failProcTable makes every read of the process table fail.
+// failProcTable makes every read of the process table fail, in this process and in run
+// children (childtest.go).
 func failProcTable(t *testing.T, err error) {
 	t.Helper()
-	prev := readProcTable
+	prev, prevFault := readProcTable, testFaults.procTableError
 	readProcTable = func(uint64) ([]procEntry, error) { return nil, err }
-	t.Cleanup(func() { readProcTable = prev })
+	testFaults.procTableError = err.Error()
+	t.Cleanup(func() { readProcTable, testFaults.procTableError = prev, prevFault })
 }
 
 // fakeProcTable makes the process table the given entries.
@@ -462,7 +464,8 @@ func TestHarnessTrackingProblemsFallBack(t *testing.T) {
 		{"the CLI is not in the table", "tracking the processes of claude is off", func(t *testing.T) {
 			prev := readProc
 			readProc = func(int) (procEntry, bool) { return procEntry{}, false }
-			t.Cleanup(func() { readProc = prev })
+			testFaults.noProcs = true
+			t.Cleanup(func() { readProc, testFaults.noProcs = prev, false })
 		}},
 	} {
 		t.Run(c.name, func(t *testing.T) {

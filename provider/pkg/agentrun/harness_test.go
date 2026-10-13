@@ -889,11 +889,12 @@ func TestHarnessLingeringStderrIsNotAnError(t *testing.T) {
 
 const harnessHelperEnv = "AGENTRUN_TEST_HARNESS_HELPER"
 
-func TestMain(m *testing.M) {
+// runHarnessHelperMode runs the test binary as the harness helper when the environment says
+// so (TestMain, main_test.go).
+func runHarnessHelperMode() {
 	if dir := os.Getenv(harnessHelperEnv); dir != "" {
 		os.Exit(runHarnessHelper(dir))
 	}
-	os.Exit(m.Run())
 }
 
 // harnessHelperLateEnv makes the helper try to start another CLI after the SIGINT.

@@ -251,10 +251,59 @@ func lookPathIn(file, path string) (string, error) {
 	return "", errClaudeNotFound
 }
 
-// harnessProcess is a started Claude Code CLI, its process group and the processes started
-// under it (harness_unix.go).
+const (
+	// runCookieVar names the variable that marks the processes of one CLI run (descendants.go).
+	runCookieVar = "DOCKER_AGENT_RUN_COOKIE"
+	// childCookieVar names the variable that marks the processes of one run child (child.go).
+	// It is separate from runCookieVar: the run child's own supervisor of a Claude Code CLI
+	// sets runCookieVar for the CLI, and the CLI's processes carry both.
+	childCookieVar = "DOCKER_AGENT_AGENTRUN_COOKIE"
+)
+
+// isCookieVar reports whether a variable is one of the cookies: the processes AgentRun
+// controls always keep them (procenv.go), so that the supervisors find what they start.
+func isCookieVar(name string) bool { return name == runCookieVar || name == childCookieVar }
+
+// supervision describes a process that the runner supervises in a process group of its own,
+// with the processes started under it (harness_unix.go, descendants.go): the Claude Code CLI
+// of a harness agent, or a run child (child.go).
+type supervision struct {
+	// name names the process in messages: "claude" or "the agent run".
+	name string
+	// kind names what is refused during a shutdown: "claude CLI" or "agent run".
+	kind string
+	// cookieVar names the variable that marks the processes started under it.
+	cookieVar string
+	// backstop is set for a process that stops what it started itself (a run child stops its
+	// Claude Code CLIs, MCP servers and tools): a stop or a shutdown signals only the process,
+	// and its group and the processes started under it are signalled only after it exited or
+	// its grace ran out, so that each of them gets SIGTERM from one supervisor only.
+	backstop bool
+	// debug receives tracking problems; nil drops them.
+	debug func(string)
+}
+
+// claudeSupervision is the supervision of a Claude Code CLI.
+func claudeSupervision(debug func(string)) supervision {
+	return supervision{name: "claude", kind: "claude CLI", cookieVar: runCookieVar, debug: debug}
+}
+
+// errShuttingDown is the error of a CLI or a run child that would start after the provider
+// got SIGINT.
+var errShuttingDown = errors.New("the provider is shutting down (Pulumi asked it to stop)")
+
+// shuttingDownError is errShuttingDown for a process of that kind, for example "the provider
+// is shutting down (Pulumi asked it to stop), so no claude CLI starts".
+func shuttingDownError(kind string) error {
+	return fmt.Errorf("%w, so no %s starts", errShuttingDown, kind)
+}
+
+// harnessProcess is a started Claude Code CLI (or run child), its process group and the
+// processes started under it (harness_unix.go).
 type harnessProcess struct {
 	pgid int
+	// sup is how the process is supervised.
+	sup supervision
 	// tree records the processes started under the CLI; nil when tracking is off.
 	tree *procTree
 	// exited is closed when the CLI exited and was reaped; state, waitErr and exitedAt are
@@ -268,6 +317,7 @@ type harnessProcess struct {
 
 	mu       sync.Mutex
 	finished bool // the group is gone: no more signals
+	reaped   bool // the process itself was reaped (or is about to be): its PID is not signalled any more
 	stopping bool // SIGTERM was sent
 	shutdown bool // stopped because the provider is shutting down
 	kill     *time.Timer

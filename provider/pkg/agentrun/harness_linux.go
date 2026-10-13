@@ -26,3 +26,12 @@ func waitUnreaped(pid int) bool {
 		}
 	}
 }
+
+// childExecutable is the provider's own executable for a run child: /proc/self/exe is the
+// running binary also when its file was replaced or removed since.
+func childExecutable() (string, error) { return "/proc/self/exe", nil }
+
+// protectChild makes the run child not dumpable: its /proc files (environ, fd, mem) belong to
+// root, so the processes of the same user that the run starts cannot read Request.Env or the
+// request from it, and it never dumps core. The processes it starts are dumpable again.
+func protectChild() { _ = unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0) }

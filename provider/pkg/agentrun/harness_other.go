@@ -20,6 +20,3 @@ func startHarness(*exec.Cmd, func(string)) (*harnessProcess, error) {
 type procTree struct{}
 
 func (*harnessProcess) stop() {}
-
-// WatchShutdownSignals does nothing: no Claude Code CLI runs on this system.
-func WatchShutdownSignals() {}

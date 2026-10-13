@@ -136,6 +136,17 @@ jobs:
         run: make check_config_types
       - name: Build provider
         run: make provider
+      - name: Cross-build and vet the provider for Windows
+        # AgentRun supervises its run child differently on Windows (stdin and a job object
+        # instead of signals and process groups: provider/pkg/agentrun/child_nonunix.go and
+        # child_windows.go). The jobs run on Linux, so compile and vet that code here.
+        working-directory: provider
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          go build ./...
+          go vet ./pkg/agentrun/
       - name: Check DockerAgentVersion matches go.mod
         run: |
           want="$(cd provider && go list -m -f '{{.Version}}' github.com/docker/docker-agent)"

@@ -1,18 +1,22 @@
 // Copyright 2026, Engin Diri.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package agentrun runs a docker-agent configuration in process, headless, with the
-// docker-agent Go SDK (pkg/teamloader, pkg/runtime and pkg/session), the same code path
-// `docker agent run --exec` uses, but without the CLI's user-level state:
+// Package agentrun runs a docker-agent configuration headless, with the docker-agent Go SDK
+// (pkg/teamloader, pkg/runtime and pkg/session), the same code path `docker agent run --exec`
+// uses, in a child process of the provider (a run child, see child.go), but without the CLI's
+// user-level state:
 //
 //   - every run gets a private, empty docker-agent data, config and cache directory
 //     (paths.SetRoot), so ~/.cagent, ~/.config/cagent (user settings, aliases, global
 //     providers, the .env file, hook drop-ins, the credential helper) and ~/.cache/cagent
 //     are never read or written. The directory is removed when the run ends;
 //   - credentials and ${env.NAME} references resolve from Request.Env and, when
-//     Request.InheritEnvironment is set, the provider process environment only.
-//     Without it, the processes the configuration starts get a scrubbed environment
-//     (see procenv.go);
+//     Request.InheritEnvironment is set, the provider process environment only. The model
+//     SDKs, which read the process environment themselves, see the same: the run child's
+//     environment is Request.Env over the provider's environment, or over a base environment
+//     without credentials (see childenv.go). The processes the configuration starts do not
+//     get Request.Env, and without Request.InheritEnvironment they get a scrubbed
+//     environment (see procenv.go);
 //   - sessions are kept in memory, telemetry is off and the models.dev catalog is the
 //     snapshot embedded in the docker-agent library (no network lookup);
 //   - tool calls are approved by docker-agent's own rules for unattended runs
@@ -22,8 +26,7 @@
 //     AgentRun runs the Claude Code CLI itself, in the run's working directory and
 //     environment (see harness.go).
 //
-// docker-agent keeps its data, config and cache directories in process-global state, so
-// runs in one process are serialized.
+// Runs of one provider process are serialized.
 package agentrun
 
 import (
@@ -33,8 +36,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -98,9 +99,11 @@ type Request struct {
 	// Prompt is the user message.
 	Prompt string
 	// Env holds environment variables for model credentials and ${env.NAME}
-	// references. It takes precedence over the inherited environment.
+	// references. It takes precedence over the inherited environment. The run child sets
+	// them in its process environment, where the model SDKs read them (see childenv.go).
 	Env map[string]string
-	// InheritEnvironment also resolves variables from the process environment.
+	// InheritEnvironment also resolves variables from the process environment, and gives
+	// the run child the provider's whole environment instead of a base environment.
 	InheritEnvironment bool
 	// WorkingDir is the agent's working directory. Empty means a fresh temporary
 	// directory that is removed after the run.
@@ -121,7 +124,9 @@ type Request struct {
 	Secrets []string
 	// Log receives docker-agent's own WARN and ERROR log records of this run, redacted
 	// (lower levels are dropped), and the runner's DEBUG records: problems tracking the
-	// processes of a Claude Code CLI. Nil discards them.
+	// processes of the run child and of a Claude Code CLI, and what the run child wrote to
+	// its stdout and stderr (see child.go). It is called from the goroutine that called Run.
+	// Nil discards them.
 	Log func(level slog.Level, msg string)
 	// Progress receives the run's progress messages, redacted, as selected by Logging. It is
 	// called from the goroutine that called Run. Nil reports nothing.
@@ -143,13 +148,20 @@ type Request struct {
 	// run when the resource is deleted.
 	AnnounceHarness bool
 	// Warn receives warnings while the run is in progress, redacted: those of
-	// AnnounceHarness, and, when the run fails, that Claude Code billed API credentials.
-	// The warnings of a successful run are in Result.Warnings. Nil drops them.
+	// AnnounceHarness, and, when the run fails, that Claude Code billed API credentials and
+	// that the run left processes running. The warnings of a successful run are in
+	// Result.Warnings. It is called from the goroutine that called Run. Nil drops them.
 	Warn func(msg string)
 	// Start is called once the run holds the run slot (runs of one process are serialized),
 	// before the agent starts, from the goroutine that called Run. When it returns an error,
 	// Run returns that error, unchanged, without running the agent. Nil starts the run.
 	Start func() error
+
+	// withheldToken is set in a run child: the provider's environment has a
+	// CLAUDE_CODE_OAUTH_TOKEN that the child does not inherit (procenv.go).
+	withheldToken bool
+	// test is what a test makes the run child do (childtest.go).
+	test *childFaults
 }
 
 // Usage is the token usage and cost of a run, including sub-agents.
@@ -188,14 +200,14 @@ type Result struct {
 	OutputContainsSecret bool
 }
 
-// runSlot serializes runs: paths.SetRoot is process-global. Waiting for it honours
-// cancellation.
+// runSlot serializes runs. Waiting for it honours cancellation.
 var runSlot = make(chan struct{}, 1)
 
 // stateRootPrefix names the per-run state directories.
 const stateRootPrefix = "pulumi-docker-agent-state-"
 
-// Run executes the request. It blocks while another run of this process is in progress.
+// Run executes the request in a run child (child.go). It blocks while another run of this
+// process is in progress. The process must have called MaybeRunChild first.
 func Run(ctx context.Context, req Request) (*Result, error) {
 	if strings.TrimSpace(req.Prompt) == "" {
 		return nil, errors.New("prompt must not be empty")
@@ -214,11 +226,16 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
-	secrets := redactionSet(req)
-	if req.AllowHarnessAgents {
-		// A SIGINT from now on also refuses the CLIs this run would start.
-		WatchShutdownSignals()
+	switch {
+	case inChild.Load():
+		return nil, errors.New("an agent run cannot start another agent run")
+	case !childEntry.Load():
+		return nil, errors.New("this program cannot run agents: its main function (or TestMain) must call " +
+			"agentrun.MaybeRunChild first")
 	}
+	secrets := redactionSet(req)
+	// A SIGINT from now on also stops the run, and refuses the next.
+	WatchShutdownSignals()
 
 	select {
 	case runSlot <- struct{}{}:
@@ -234,45 +251,20 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 			return nil, err
 		}
 	}
+	return runInChild(ctx, req, approval, timeout, secrets)
+}
 
-	// docker-agent logs to slog: keep its records (which can quote API errors) off the
-	// provider's stderr.
+// runRequest runs the request in the run child (child.go), in the state root and the working
+// directory the parent created. The parent redacts what it returns again, adds its own check
+// whether the answer is secret, and reports the summary. timed is called when the run's
+// timeout starts (once the configuration is loaded).
+func runRequest(ctx context.Context, req Request, stateRoot string, timed func()) (*Result, error) {
+	secrets := redactionSet(req)
+	// docker-agent logs to slog: keep its records (which can quote API errors) off stderr.
 	names := newNameHider(req)
 	ctx, stopLog := startRunLog(ctx, secrets, names, req.Log)
 	defer stopLog()
-
-	stateRoot, err := os.MkdirTemp("", stateRootPrefix)
-	if err != nil {
-		return nil, fmt.Errorf("creating docker-agent state directory: %w", err)
-	}
 	paths.SetRoot(stateRoot)
-	defer func() {
-		// Point docker-agent at an unused directory rather than the user's defaults, so
-		// that nothing in this process (for example a goroutine a toolset left behind)
-		// falls back to ~/.cagent after the run.
-		paths.SetRoot(idleRoot())
-		_ = os.RemoveAll(stateRoot)
-		_ = os.RemoveAll(idleRoot())
-	}()
-
-	workingDir := req.WorkingDir
-	if workingDir == "" {
-		wd, err := os.MkdirTemp("", "pulumi-docker-agent-work-")
-		if err != nil {
-			return nil, fmt.Errorf("creating working directory: %w", err)
-		}
-		defer func() { _ = os.RemoveAll(wd) }()
-		workingDir = wd
-	} else {
-		abs, err := filepath.Abs(workingDir)
-		if err != nil {
-			return nil, fmt.Errorf("resolving workingDir: %w", err)
-		}
-		if fi, err := os.Stat(abs); err != nil || !fi.IsDir() {
-			return nil, fmt.Errorf("workingDir %q is not an existing directory", workingDir)
-		}
-		workingDir = abs
-	}
 
 	warn := func(msg string) {
 		if req.Warn != nil {
@@ -286,7 +278,8 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 			req.Log(slog.LevelDebug, redact(names.hide(msg), secrets))
 		}
 	}
-	res, err := run(ctx, req, runSetup{approval, timeout, workingDir, secrets, info, warn, debug}, prog)
+	res, err := run(ctx, req, runSetup{req.ToolApproval, req.Timeout, req.WorkingDir, secrets, info, warn, debug, timed},
+		prog)
 	harnessWarnings := reportHarness(info, prog)
 	if err != nil {
 		for _, w := range harnessWarnings {
@@ -298,17 +291,9 @@ func Run(ctx context.Context, req Request) (*Result, error) {
 	for i, w := range res.Warnings {
 		res.Warnings[i] = redact(w, secrets)
 	}
+	// The parent adds its own finding (the provider's credentials) and the warning.
 	res.OutputContainsSecret = containsSecret(res.Output, secrets)
-	if res.OutputContainsSecret {
-		res.Warnings = append(res.Warnings, "the answer contains the value of a secret (an `env` value, a secret input or "+
-			"a credential of the environment); output and structuredOutput are stored as secrets")
-	}
-	prog.summary(res)
 	return res, nil
-}
-
-func idleRoot() string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("pulumi-docker-agent-idle-%d", os.Getpid()))
 }
 
 // reportHarness reports what the Claude Code CLI of a run said about itself, as a progress
@@ -389,6 +374,8 @@ type runSetup struct {
 	warn       func(string)
 	// debug receives the runner's own debug messages, redacted.
 	debug func(string)
+	// timed is called when the timeout starts; nil does nothing.
+	timed func()
 }
 
 func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result, error) {
@@ -500,6 +487,9 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	if rs.timed != nil {
+		rs.timed()
+	}
 
 	col := newCollector(sess.ID)
 	for ev := range rt.RunStream(runCtx, sess) {
