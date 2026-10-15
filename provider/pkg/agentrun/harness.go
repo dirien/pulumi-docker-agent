@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -48,9 +49,13 @@ import (
 //   - reporting only Claude Code's final result as the agent's answer: docker-agent would
 //     otherwise join the text of every turn into it.
 //
-// Only claude-code is supported, and only on Linux and macOS: the other harness types pass
-// the prompt as an argument and need their own error handling, and Windows has no process
-// groups to stop the CLI's tools with.
+// Codex agents (`harness: {type: codex}`) run the same way, with a runner of their own
+// (harness_codex.go): AgentRun builds the `codex exec` arguments itself and reads Codex's
+// JSONL events with its own adapter.
+//
+// Only claude-code and codex are supported, and only on Linux and macOS: the other harness
+// types pass the prompt as an argument and need their own error handling, and Windows has no
+// process groups to stop the CLI's tools with.
 
 // Process handling. Variables, so that tests can shorten them.
 var (
@@ -91,21 +96,36 @@ func harnessOSMessage() string {
 	return "coding-harness agents in AgentRun are supported on Linux and macOS, not on " + harnessOS
 }
 
+// harnessTypes are the coding-harness types AgentRun runs.
+var harnessTypes = []string{codingharness.TypeClaudeCode, codingharness.TypeCodex}
+
+func isHarnessSupported(typ string) bool { return slices.Contains(harnessTypes, typ) }
+
+// unsupportedHarnessMessage is H2 for agents of a harness type AgentRun does not run; agents
+// names them ("" names none).
+func unsupportedHarnessMessage(typ, agents string) string {
+	if agents != "" {
+		agents = " (" + agents + ")"
+	}
+	return fmt.Sprintf("%s harness agents%s are not supported by AgentRun yet: only %s and %s are; run them with docker "+
+		"agent run (a ChatGPT subscription can also run a chatgpt/<model> model in docker-agent's own runtime, without a "+
+		"coding harness)", typ, agents, codingharness.TypeClaudeCode, codingharness.TypeCodex)
+}
+
 // harnessSupported reports why a harness configuration cannot run in AgentRun (H2, H3).
 func harnessSupported(cfg *latest.HarnessConfig) error {
 	switch {
 	case cfg == nil:
 		return errors.New("harness config is nil")
-	case cfg.Type != codingharness.TypeClaudeCode:
-		return fmt.Errorf("%s harness agents are not supported by AgentRun yet: only %s is; run them with docker agent run",
-			cfg.Type, codingharness.TypeClaudeCode)
+	case !isHarnessSupported(cfg.Type):
+		return errors.New(unsupportedHarnessMessage(cfg.Type, ""))
 	case !harnessOSSupported():
 		return errors.New(harnessOSMessage())
 	}
 	return nil
 }
 
-// harnessRun is what the Claude Code CLIs of one run share.
+// harnessRun is what the coding-harness CLIs of one run share.
 type harnessRun struct {
 	dir     string
 	env     claudeEnvironment
@@ -114,6 +134,9 @@ type harnessRun struct {
 	// debug receives the runner's debug messages (problems tracking the CLI's processes);
 	// nil drops them.
 	debug func(string)
+	// codex is what the codex CLIs of the run share (harness_codex.go); nil when the
+	// configuration has no codex agents.
+	codex *codexRun
 }
 
 // harnessInfo is what the CLIs of a run reported about themselves, and what their
@@ -130,6 +153,117 @@ type harnessInfo struct {
 	leftRunning int
 	// noKey is what the CLIs' environment bills when Claude Code reports apiKeySource none.
 	noKey noKeySource
+
+	// codex is what the codex CLIs of the run reported (harness_codex.go).
+	codex codexReport
+	// secrets are values found during the run that are secret too (the tokens of a codex
+	// login, codexauth.go): the run's errors, warnings and progress are redacted with them.
+	secrets []string
+	// claudePlan is what the Claude Code CLIs that a Claude subscription paid for reported as
+	// their cost (total_cost_usd, at API prices), and claudePlanTurns how many of their turns.
+	claudePlan      float64
+	claudePlanTurns int
+}
+
+// The subscription plans of a run's usage (billingNote).
+const (
+	chatgptPlan = "the ChatGPT plan"
+	claudePlan  = "the Claude subscription"
+)
+
+// planUsage is usage that a subscription plan pays for, not billed per token: part names it,
+// price is what it would cost at API prices, when known (priced).
+type planUsage struct {
+	plan, part string
+	price      float64
+	priced     bool
+}
+
+// claudeSubscription reports whether the Claude Code CLIs of the run use a Claude subscription:
+// apiKeySource none with neither a cloud provider nor ANTHROPIC_AUTH_TOKEN (a Claude login, or
+// CLAUDE_CODE_OAUTH_TOKEN).
+func (h *harnessInfo) claudeSubscription() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.seen && h.apiKeySource == "none" && h.noKey.billed == ""
+}
+
+// addClaudePlan records the cost a Claude Code CLI reported for a turn its subscription paid for.
+func (h *harnessInfo) addClaudePlan(cost float64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.claudePlan += cost
+	h.claudePlanTurns++
+}
+
+// plans returns the usage of the run's coding-harness CLIs that subscription plans paid for.
+func (h *harnessInfo) plans() []planUsage {
+	if h == nil {
+		return nil
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []planUsage
+	if c := h.codex; c.seen && c.planBilled {
+		out = append(out, planUsage{plan: chatgptPlan, part: codingharness.TypeCodex, price: c.planCost,
+			priced: !c.costUnknown && c.planCost > 0})
+	}
+	if h.claudePlanTurns > 0 {
+		out = append(out, planUsage{plan: claudePlan, part: codingharness.TypeClaudeCode, price: h.claudePlan,
+			priced: h.claudePlan > 0})
+	}
+	return out
+}
+
+// billingNote names the subscription plans that paid for a run's usage, for the summary:
+// "billed to the ChatGPT plan", with what their usage would cost at API prices where that is
+// known ("billed to the Claude subscription (API price about $0.0421)"), "" when no plan paid.
+// chatgptModels reports that chatgpt models answered (docker-agent has no price for them).
+func billingNote(chatgptModels bool, plans []planUsage) string {
+	type entry struct {
+		price            float64
+		priced, unpriced []string
+	}
+	byPlan := map[string]*entry{}
+	add := func(p planUsage) {
+		e := byPlan[p.plan]
+		if e == nil {
+			e = &entry{}
+			byPlan[p.plan] = e
+		}
+		if p.priced {
+			e.price += p.price
+			e.priced = append(e.priced, p.part)
+		} else {
+			e.unpriced = append(e.unpriced, p.part)
+		}
+	}
+	if chatgptModels {
+		add(planUsage{plan: chatgptPlan, part: "the chatgpt models"})
+	}
+	for _, p := range plans {
+		add(p)
+	}
+	var notes []string
+	for _, plan := range []string{chatgptPlan, claudePlan} {
+		e := byPlan[plan]
+		if e == nil {
+			continue
+		}
+		note := plan
+		if len(e.priced) > 0 {
+			note += fmt.Sprintf(" (API price about $%.4f", e.price)
+			if len(e.unpriced) > 0 {
+				note += " for " + strings.Join(e.priced, " and ")
+			}
+			note += ")"
+		}
+		notes = append(notes, note)
+	}
+	if len(notes) == 0 {
+		return ""
+	}
+	return "billed to " + strings.Join(notes, " and ")
 }
 
 func (h *harnessInfo) set(version, model, apiKeySource string) {
@@ -177,6 +311,9 @@ func newHarnessFactory(h harnessRun) harness.Factory {
 	return func(cfg *latest.HarnessConfig) (harness.Provider, error) {
 		if err := harnessSupported(cfg); err != nil {
 			return nil, err
+		}
+		if cfg.Type == codingharness.TypeCodex {
+			return newCodexHarness(h, cfg)
 		}
 		p, err := codingharness.NewProvider(cfg)
 		if err != nil {
@@ -248,13 +385,85 @@ func lookPathIn(file, path string) (string, error) {
 			return p, nil
 		}
 	}
-	return "", errClaudeNotFound
+	return "", cliNotFound(file)
 }
 
-// harnessProcess is a started Claude Code CLI, its process group and the processes started
-// under it (harness_unix.go).
+// cliNotFound is the error when a coding-harness CLI is not on the PATH of its environment.
+func cliNotFound(file string) error {
+	if file == "codex" {
+		return errCodexNotFound
+	}
+	return errClaudeNotFound
+}
+
+const (
+	// runCookieVar names the variable that marks the processes of one CLI run (descendants.go).
+	runCookieVar = "DOCKER_AGENT_RUN_COOKIE"
+	// childCookieVar names the variable that marks the processes of one run child (child.go).
+	// It is separate from runCookieVar: the run child's own supervisor of a Claude Code CLI
+	// sets runCookieVar for the CLI, and the CLI's processes carry both.
+	childCookieVar = "DOCKER_AGENT_AGENTRUN_COOKIE"
+)
+
+// isCookieVar reports whether a variable is one of the cookies: the processes AgentRun
+// controls always keep them (procenv.go), so that the supervisors find what they start.
+func isCookieVar(name string) bool { return name == runCookieVar || name == childCookieVar }
+
+// supervision describes a process that the runner supervises in a process group of its own
+// (a run child: in a session of its own), with the processes started under it
+// (harness_unix.go, descendants.go): the Claude Code CLI of a harness agent, or a run child
+// (child.go).
+type supervision struct {
+	// name names the process in messages: "claude" or "the agent run".
+	name string
+	// kind names what is refused during a shutdown: "claude CLI" or "agent run".
+	kind string
+	// cookieVar names the variable that marks the processes started under it.
+	cookieVar string
+	// backstop is set for a process that stops what it started itself (a run child stops its
+	// Claude Code CLIs, MCP servers and tools): a stop or a shutdown signals only the process,
+	// and its group and the processes started under it are signalled only after it exited or
+	// its grace ran out, so that each of them gets SIGTERM from one supervisor only.
+	backstop bool
+	// interruptFirst is set for a CLI that stops gracefully on SIGINT (Codex interrupts its
+	// turn): a stop sends SIGINT to the CLI alone, and SIGTERM to its group and the processes
+	// started under it interruptGrace later (harness_unix.go).
+	interruptFirst bool
+	// ownGroups is set for a CLI that starts servers in process groups of their own in its
+	// session (Codex's stdio MCP servers): what runs in such a group of a direct child does not
+	// count as left running when the CLI exited, it is only stopped (descendants.go).
+	ownGroups bool
+	// ownSession is set for a process that runs in a session of its own (a run child, with
+	// backstop): it starts with setsid instead of setpgid, and once it exited, the processes
+	// of the provider's user that are still in its session and started after it are stopped
+	// and counted with the rest (descendants.go). Unlike the environment cookie, this does
+	// not depend on whether the system shows a process's environment.
+	ownSession bool
+	// debug receives tracking problems; nil drops them.
+	debug func(string)
+}
+
+// claudeSupervision is the supervision of a Claude Code CLI.
+func claudeSupervision(debug func(string)) supervision {
+	return supervision{name: "claude", kind: "claude CLI", cookieVar: runCookieVar, debug: debug}
+}
+
+// errShuttingDown is the error of a CLI or a run child that would start after the provider
+// got SIGINT.
+var errShuttingDown = errors.New("the provider is shutting down (Pulumi asked it to stop)")
+
+// shuttingDownError is errShuttingDown for a process of that kind, for example "the provider
+// is shutting down (Pulumi asked it to stop), so no claude CLI starts".
+func shuttingDownError(kind string) error {
+	return fmt.Errorf("%w, so no %s starts", errShuttingDown, kind)
+}
+
+// harnessProcess is a started Claude Code CLI (or run child), its process group and the
+// processes started under it (harness_unix.go).
 type harnessProcess struct {
 	pgid int
+	// sup is how the process is supervised.
+	sup supervision
 	// tree records the processes started under the CLI; nil when tracking is off.
 	tree *procTree
 	// exited is closed when the CLI exited and was reaped; state, waitErr and exitedAt are
@@ -268,10 +477,15 @@ type harnessProcess struct {
 
 	mu       sync.Mutex
 	finished bool // the group is gone: no more signals
-	stopping bool // SIGTERM was sent
+	reaped   bool // the process itself was reaped (or is about to be): its PID is not signalled any more
+	stopping bool // SIGTERM (or, first, SIGINT) was sent
 	shutdown bool // stopped because the provider is shutting down
-	kill     *time.Timer
-	killAt   time.Time
+	// groupTermed: the group and the processes started under the CLI got SIGTERM.
+	groupTermed bool
+	// interrupt sends SIGTERM to the group after a SIGINT to the CLI (supervision.interruptFirst).
+	interrupt *time.Timer
+	kill      *time.Timer
+	killAt    time.Time
 	// leftRunning is how many processes the CLI left running when it exited on its own, which
 	// the cleanup stopped. It is set before done is closed.
 	leftRunning int
@@ -293,10 +507,51 @@ func (p *harnessProcess) drainLeft() time.Duration {
 // the CLI exited, its output was read and the rest of its group and the processes started
 // under it were stopped.
 func runClaude(ctx context.Context, h harnessRun, args []string, prompt string, s *claudeStream) error {
+	return runCLI(ctx, cliRun{
+		name: args[0], args: args[1:], dir: h.dir, env: h.env.list(), path: h.env.path(), prompt: prompt,
+		start: func(cmd *exec.Cmd) (*harnessProcess, error) { return startHarness(cmd, h.debug) },
+		read:  s.read,
+		finish: func(ctx context.Context, proc *harnessProcess, streamErr error, tail *stderrTail) error {
+			if proc.leftRunning > 0 && h.info != nil {
+				h.info.addLeftRunning(proc.leftRunning)
+			}
+			if err := s.result(ctx, proc, streamErr, tail.text(h.secrets)); err != nil {
+				return err
+			}
+			return s.answer()
+		},
+	})
+}
+
+// cliRun is one run of a coding-harness CLI: what runCLI starts, and what it does with the
+// output.
+type cliRun struct {
+	// name is the executable, looked up in path, and names the CLI in messages.
+	name string
+	args []string
+	dir  string
+	env  []string
+	path string
+	// prompt is written to the CLI's stdin, which is closed then.
+	prompt string
+	// start starts the CLI as the runner supervises it (harness_unix.go).
+	start func(*exec.Cmd) (*harnessProcess, error)
+	// read reads the CLI's stdout until it ends (see readStream).
+	read func(ctx context.Context, stdout *os.File, proc *harnessProcess) error
+	// finish maps the end of the run to its error, once the CLI exited, its output was read
+	// and the rest of its group and the processes started under it were stopped. tail holds
+	// the end of stderr, not yet redacted.
+	finish func(ctx context.Context, proc *harnessProcess, streamErr error, tail *stderrTail) error
+}
+
+// runCLI runs a coding-harness CLI with the prompt on stdin. It returns when the CLI exited,
+// its output was read and the rest of its group and the processes started under it were
+// stopped.
+func runCLI(ctx context.Context, c cliRun) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	bin, err := lookPathIn(args[0], h.env.path())
+	bin, err := lookPathIn(c.name, c.path)
 	if err != nil {
 		return err
 	}
@@ -319,26 +574,26 @@ func runClaude(ctx context.Context, h harnessRun, args []string, prompt string, 
 	stderrR, stderrW, err3 := pipe()
 	if err := errors.Join(err1, err2, err3); err != nil {
 		closeAll()
-		return fmt.Errorf("creating pipes for claude: %w", err)
+		return fmt.Errorf("creating pipes for %s: %w", c.name, err)
 	}
 
-	cmd := exec.Command(bin, args[1:]...)
-	cmd.Dir = h.dir
-	cmd.Env = h.env.list()
+	cmd := exec.Command(bin, c.args...)
+	cmd.Dir = c.dir
+	cmd.Env = c.env
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdinR, stdoutW, stderrW
-	proc, err := startHarness(cmd, h.debug)
+	proc, err := c.start(cmd)
 	// The child has its own copies of these ends.
 	_, _, _ = stdinR.Close(), stdoutW.Close(), stderrW.Close()
 	if err != nil {
 		closeAll()
-		return fmt.Errorf("starting claude: %w", err)
+		return fmt.Errorf("starting %s: %w", c.name, err)
 	}
 
 	var closeStdin sync.Once
 	stdinDone := make(chan struct{})
 	go func() {
 		defer close(stdinDone)
-		_, _ = io.WriteString(stdinW, prompt)
+		_, _ = io.WriteString(stdinW, c.prompt)
 		closeStdin.Do(func() { _ = stdinW.Close() })
 	}()
 	tail := &stderrTail{}
@@ -348,7 +603,7 @@ func runClaude(ctx context.Context, h harnessRun, args []string, prompt string, 
 		_, _ = io.Copy(tail, stderrR)
 	}()
 
-	streamErr := s.read(ctx, stdoutR, proc)
+	streamErr := c.read(ctx, stdoutR, proc)
 	<-proc.exited
 	// A process the CLI started can hold stdin open without reading it.
 	closeStdin.Do(func() { _ = stdinW.Close() })
@@ -365,13 +620,7 @@ func runClaude(ctx context.Context, h harnessRun, args []string, prompt string, 
 	_ = stderrR.Close()
 	<-stderrDone
 	<-proc.done
-	if proc.leftRunning > 0 && h.info != nil {
-		h.info.addLeftRunning(proc.leftRunning)
-	}
-	if err := s.result(ctx, proc, streamErr, tail.text(h.secrets)); err != nil {
-		return err
-	}
-	return s.answer()
+	return c.finish(ctx, proc, streamErr, tail)
 }
 
 // claudeStream turns the CLI's stream-json output into docker-agent harness events.
@@ -412,11 +661,17 @@ type readResult struct {
 	err  error
 }
 
-// read reads the CLI's output until it ends, and for at most harnessDrain after the CLI
-// exited: a process the CLI left behind can keep the pipe open and keep writing. When ctx is
-// done it stops the CLI and keeps reading until the CLI exited. It returns a stream error (a
-// line over 16 MiB, a read error), after which the CLI is stopped too.
+// read reads the CLI's output (see readStream).
 func (s *claudeStream) read(ctx context.Context, stdout *os.File, proc *harnessProcess) error {
+	return readStream(ctx, stdout, proc, s.line, &s.canceled)
+}
+
+// readStream reads a CLI's output, line by line into line, until it ends, and for at most
+// harnessDrain after the CLI exited: a process the CLI left behind can keep the pipe open and
+// keep writing. When ctx is done it stops the CLI, sets canceled and keeps reading until the
+// CLI exited. It returns a stream error (a line over 16 MiB, a read error, an error of line),
+// after which canceled is set and the CLI is stopped too.
+func readStream(ctx context.Context, stdout *os.File, proc *harnessProcess, line func(string) error, canceled *bool) error {
 	reads := make(chan readResult)
 	stopReading := make(chan struct{})
 	readerDone := make(chan struct{})
@@ -441,12 +696,12 @@ func (s *claudeStream) read(ctx context.Context, stdout *os.File, proc *harnessP
 		<-readerDone
 	}()
 
-	lines := lineStream{handle: s.line}
+	lines := lineStream{handle: line}
 	var streamErr error
 	fail := func(err error) {
 		if streamErr == nil {
 			streamErr = err
-			s.canceled = true
+			*canceled = true
 			proc.stop()
 		}
 	}
@@ -464,7 +719,7 @@ func (s *claudeStream) read(ctx context.Context, stdout *os.File, proc *harnessP
 		select {
 		case <-ctxDone:
 			ctxDone = nil
-			s.canceled = true
+			*canceled = true
 			proc.stop()
 			if exited == nil {
 				// The CLI is gone; what is left is the output of processes it left behind.
@@ -473,7 +728,7 @@ func (s *claudeStream) read(ctx context.Context, stdout *os.File, proc *harnessP
 		case <-exited:
 			exited = nil
 			// After a cancellation or a stream error the output is discarded anyway.
-			if eof || s.canceled {
+			if eof || *canceled {
 				return streamErr
 			}
 			drain = time.NewTimer(max(proc.drainLeft(), 0))
@@ -529,6 +784,14 @@ func (s *claudeStream) line(line string) error {
 		case baseharness.EventResult:
 			s.sawResult = true
 			s.resultText = ev.Result
+			// A Claude subscription bills no per-token cost: Claude Code's total_cost_usd (its
+			// estimate at API prices) goes to the summary, not to the run's usage.cost.
+			if ev.Usage != nil && s.info != nil && s.info.claudeSubscription() {
+				u := *ev.Usage
+				s.info.addClaudePlan(u.TotalCostUSD)
+				u.TotalCostUSD = 0
+				ev.Usage = &u
+			}
 		}
 		s.handle(adaptEvent(ev))
 	}

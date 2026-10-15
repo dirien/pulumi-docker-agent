@@ -334,7 +334,9 @@ func TestHarnessClaudeCode(t *testing.T) {
 	assert.Equal(t, "root", res.AgentName)
 	assert.Equal(t, []string{"Write"}, res.ToolCalls)
 	assert.Empty(t, res.RejectedToolCalls)
-	assert.Equal(t, Usage{InputTokens: 15040, OutputTokens: 37, Cost: 0.0123}, res.Usage)
+	// A Claude subscription bills no per-token cost: Claude Code's total_cost_usd (its estimate at
+	// API prices) is named in the summary instead.
+	assert.Equal(t, Usage{InputTokens: 15040, OutputTokens: 37}, res.Usage)
 	assert.False(t, res.HasStructuredOutput)
 	assert.Empty(t, res.Warnings)
 
@@ -354,6 +356,8 @@ func TestHarnessClaudeCode(t *testing.T) {
 	assert.Contains(t, filepath.Base(cwd), "pulumi-docker-agent-work-")
 	assert.Equal(t, cwd, inv[0].get("pwd_env"), "PWD is the working directory")
 	assert.NoDirExists(t, cwd, "the temporary working directory is removed")
+	assert.Contains(t, rec.persistent[len(rec.persistent)-1], "; no per-token cost: billed to the Claude subscription (API "+
+		"price about $0.0123)")
 	assert.Equal(t, os.Getenv("HOME"), inv[0].get("home"))
 	assert.Equal(t, "set", inv[0].get("cookie"), "the CLI gets the run's cookie")
 	assert.Contains(t, rec.persistent, "claude-code 2.1.283 (claude-sonnet-4-6), apiKeySource none (the Claude login of "+
@@ -539,6 +543,13 @@ func TestClaudeEnvironment(t *testing.T) {
 		"CLAUDE_CODE_EXECPATH=/opt/claude/bin/claude", "CLAUDE_CODE_TMPDIR=/tmp/claude-1000",
 		"CLAUDE_CODE_INVOKED_SKILLS=review", "TMPDIR=/tmp/t", "SHELL=/bin/zsh", "GIT_EDITOR=true"}, nil, true, "")
 	assert.Equal(t, map[string]string{"TMPDIR": "/tmp/t", "SHELL": "/bin/zsh", "GIT_EDITOR": "true"}, e.vars)
+
+	// And what a parent Codex session sets, and the rest of the trace context (codex review #7).
+	e = newClaudeEnvironment([]string{"TRACESTATE=k=v", "CODEX_THREAD_ID=t", "CODEX_SANDBOX=seatbelt",
+		"CODEX_MANAGED_BY_NPM=1", "EXEC_WRAPPER=/w", "SHELL=/bin/zsh"}, nil, true, "")
+	assert.Equal(t, map[string]string{"SHELL": "/bin/zsh"}, e.vars)
+	e = newClaudeEnvironment([]string{"SHELL=/bin/zsh"}, map[string]string{"TRACEPARENT": "00-explicit"}, true, "")
+	assert.Equal(t, "00-explicit", e.vars["TRACEPARENT"], "env still wins")
 }
 
 // TestHarnessWithheldToken runs claude with inheritEnvironment: false while the Pulumi CLI has
@@ -586,21 +597,25 @@ func TestHarnessWithheldToken(t *testing.T) {
 func TestHarnessNoKeySource(t *testing.T) {
 	f := useFakeClaude(t)
 	const authToken = "an-explicit-auth-token-0123456789"
+	// The cost counts only what is billed per token (codex review #1): a Claude subscription (a
+	// login or CLAUDE_CODE_OAUTH_TOKEN) bills none.
 	for _, c := range []struct {
 		name          string
 		env           map[string]string
 		record, warns string
+		cost          float64
 	}{
-		{"login", nil, "apiKeySource none (the Claude login of this machine)", ""},
-		{"OAuth token", map[string]string{claudeOAuthTokenVar: fakeOAuthToken}, "apiKeySource none (CLAUDE_CODE_OAUTH_TOKEN)", ""},
+		{"login", nil, "apiKeySource none (the Claude login of this machine)", "", 0},
+		{"OAuth token", map[string]string{claudeOAuthTokenVar: fakeOAuthToken}, "apiKeySource none (CLAUDE_CODE_OAUTH_TOKEN)",
+			"", 0},
 		{"auth token", map[string]string{"ANTHROPIC_AUTH_TOKEN": authToken}, "apiKeySource none (ANTHROPIC_AUTH_TOKEN)",
-			"claude-code used ANTHROPIC_AUTH_TOKEN, which bills API usage, not a Claude subscription"},
+			"claude-code used ANTHROPIC_AUTH_TOKEN, which bills API usage, not a Claude subscription", 0.0123},
 		{"Bedrock", map[string]string{"CLAUDE_CODE_USE_BEDROCK": "1", "ANTHROPIC_AUTH_TOKEN": authToken},
 			"apiKeySource none (Amazon Bedrock, CLAUDE_CODE_USE_BEDROCK)",
 			"claude-code used Amazon Bedrock (CLAUDE_CODE_USE_BEDROCK), which bills usage to that cloud account, not a " +
-				"Claude subscription"},
+				"Claude subscription", 0.0123},
 		{"gateway", map[string]string{"ANTHROPIC_BASE_URL": "https://gateway.example.com"},
-			"apiKeySource none (the Claude login of this machine, through ANTHROPIC_BASE_URL)", ""},
+			"apiKeySource none (the Claude login of this machine, through ANTHROPIC_BASE_URL)", "", 0},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var rec records
@@ -610,6 +625,7 @@ func TestHarnessNoKeySource(t *testing.T) {
 			res, err := Run(t.Context(), req)
 			require.NoError(t, err)
 			assert.Contains(t, rec.persistent, "claude-code 2.1.283 (claude-sonnet-4-6), "+c.record)
+			assert.InDelta(t, c.cost, res.Usage.Cost, 1e-9)
 			if c.warns == "" {
 				assert.Empty(t, res.Warnings)
 			} else {
@@ -889,11 +905,12 @@ func TestHarnessLingeringStderrIsNotAnError(t *testing.T) {
 
 const harnessHelperEnv = "AGENTRUN_TEST_HARNESS_HELPER"
 
-func TestMain(m *testing.M) {
+// runHarnessHelperMode runs the test binary as the harness helper when the environment says
+// so (TestMain, main_test.go).
+func runHarnessHelperMode() {
 	if dir := os.Getenv(harnessHelperEnv); dir != "" {
 		os.Exit(runHarnessHelper(dir))
 	}
-	os.Exit(m.Run())
 }
 
 // harnessHelperLateEnv makes the helper try to start another CLI after the SIGINT.
@@ -1193,6 +1210,7 @@ func TestHarnessAnnounceAndBilling(t *testing.T) {
 	assert.Contains(t, res.Warnings, "claude-code authenticated with ANTHROPIC_API_KEY, which bills API usage, not a Claude "+
 		"subscription")
 	assert.Contains(t, rec.persistent, "claude-code 2.1.283 (claude-sonnet-4-6), apiKeySource ANTHROPIC_API_KEY")
+	assert.InDelta(t, 0.0123, res.Usage.Cost, 1e-9, "an API key is billed per token")
 
 	// A failed run reports the credential source through Warn.
 	t.Setenv("FAKE_CLAUDE_MODE", "error")
@@ -1214,11 +1232,12 @@ func TestHarnessAnnounceAndBilling(t *testing.T) {
 }
 
 func TestUnsupportedHarnessTypes(t *testing.T) {
-	for _, typ := range []string{"codex", "pi", "opencode"} {
+	for _, typ := range []string{"pi", "opencode"} {
 		t.Run(typ, func(t *testing.T) {
 			doc := []byte("agents:\n  root:\n    harness:\n      type: " + typ + "\n")
-			want := typ + " harness agents (agents.root.harness) are not supported by AgentRun yet: only claude-code is; " +
-				"run them with docker agent run"
+			want := typ + " harness agents (agents.root.harness) are not supported by AgentRun yet: only claude-code and " +
+				"codex are; run them with docker agent run (a ChatGPT subscription can also run a chatgpt/<model> model in " +
+				"docker-agent's own runtime, without a coding harness)"
 			for _, allow := range []bool{true, false} {
 				problems, warnings := CheckConfig(t.Context(), "test.yaml", doc, CheckOptions{AllowHarnessAgents: allow})
 				assert.Equal(t, []string{want}, problems, "allowHarnessAgents %v", allow)
@@ -1420,7 +1439,8 @@ func TestCheckConfigWarnings(t *testing.T) {
 		plain := "agents:\n  root:\n    model: openai/gpt-5-mini\n"
 		del := CheckOptions{DeletePrompt: true, ToolApprovalDeny: true}
 		assert.True(t, has(check(plain, del), w7+" and calls that permissions allow, which is rarely enough to clean up; "+
-			"add permissions allow rules, set toolApproval: allow, or use a coding-harness agent"))
+			"add permissions allow rules for the tools the cleanup needs (for example shell or write_file), or set "+
+			"toolApproval: allow"))
 		assert.Empty(t, check(plain, CheckOptions{DeletePrompt: true}), "toolApproval allow")
 		assert.Empty(t, check(plain, CheckOptions{ToolApprovalDeny: true}), "no deletePrompt")
 		withHarness := allowed

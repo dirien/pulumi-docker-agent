@@ -15,12 +15,12 @@ import (
 	"github.com/dirien/pulumi-docker-agent/provider/pkg/validate"
 )
 
-// docker-agent logs through slog.Default(). A provider's stderr is shown to the user as
-// Pulumi diagnostics, and docker-agent's error logs quote model API errors verbatim, which
-// can contain an API key (OpenAI echoes a rejected key). During a run, records are
+// docker-agent logs through slog.Default(). A run child's stderr ends up in the provider's
+// debug log, and docker-agent's error logs quote model API errors verbatim, which can contain
+// an API key (OpenAI echoes a rejected key). In the run child (child.go), records are
 // therefore routed to the run instead of stderr: below WARN they are dropped, the rest is
-// redacted and handed to Request.Log. Records of other work in the process pass through,
-// redacted while a run is active.
+// redacted and handed to Request.Log, which sends them to the provider. Records of other work
+// in the process pass through, redacted while a run is active.
 
 // runLog is the log sink of one run.
 type runLog struct {
@@ -40,7 +40,8 @@ func (r *runLog) handle(rec slog.Record, attrs []slog.Attr) {
 	if r.closed || r.log == nil {
 		return
 	}
-	r.log(rec.Level, redact(r.names.hide(format(rec, attrs)), r.secrets))
+	// Redacted first, then without the names: hiding a name inside a secret would split it.
+	r.log(rec.Level, r.names.hide(redact(format(rec, attrs), r.secrets)))
 }
 
 func (r *runLog) close() {

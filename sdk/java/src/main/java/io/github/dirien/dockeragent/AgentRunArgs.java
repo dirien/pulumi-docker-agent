@@ -41,14 +41,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+     * Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` and `codex` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) or the Codex CLI (`codex`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests, MCP tools): `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. Claude Code runs them without approval whatever `toolApproval` says; Codex runs its commands in its `workspace-write` sandbox under `toolApproval: deny` (which limits writes and network, not reads) and without a sandbox under `allow`. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s login and settings: the `claude` login of this machine or `CLAUDE_CODE_OAUTH_TOKEN` in `env`, or the Codex login of `CODEX_HOME` (default `~/.codex`) or `CODEX_API_KEY` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
      * 
      */
     @Import(name="allowHarnessAgents")
     private @Nullable Output<Boolean> allowHarnessAgents;
 
     /**
-     * @return Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+     * @return Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` and `codex` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) or the Codex CLI (`codex`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests, MCP tools): `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. Claude Code runs them without approval whatever `toolApproval` says; Codex runs its commands in its `workspace-write` sandbox under `toolApproval: deny` (which limits writes and network, not reads) and without a sandbox under `allow`. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s login and settings: the `claude` login of this machine or `CLAUDE_CODE_OAUTH_TOKEN` in `env`, or the Codex login of `CODEX_HOME` (default `~/.codex`) or `CODEX_API_KEY` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
      * 
      */
     public Optional<Output<Boolean>> allowHarnessAgents() {
@@ -86,14 +86,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
+     * Environment variables for model credentials (for example `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID` or the `tokenKey` of a custom provider), the variables the model SDKs read (base URLs such as `OPENAI_BASE_URL`, `GOOGLE_APPLICATION_CREDENTIALS`, headers) and `${env.NAME}` references in the configuration. The run&#39;s child process gets them over the environment of the Pulumi CLI (with `inheritEnvironment`) or over a base environment without credentials. They are stored as secrets and redacted from errors and logs (except values that are configuration, such as a region or a boolean), and also reach command hooks and the Claude Code and Codex CLIs of coding-harness agents (for example `CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_HOME` or `CODEX_API_KEY`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to Claude Code, and when it sets `CODEX_ACCESS_TOKEN`, an inherited `CODEX_API_KEY` is not passed to Codex. `shell`, `script` and `background_jobs` tools and MCP and LSP servers get them only through their toolset&#39;s own `env` (`${env.NAME}`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation get them too.
      * 
      */
     @Import(name="env")
     private @Nullable Output<Map<String,String>> env;
 
     /**
-     * @return Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
+     * @return Environment variables for model credentials (for example `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID` or the `tokenKey` of a custom provider), the variables the model SDKs read (base URLs such as `OPENAI_BASE_URL`, `GOOGLE_APPLICATION_CREDENTIALS`, headers) and `${env.NAME}` references in the configuration. The run&#39;s child process gets them over the environment of the Pulumi CLI (with `inheritEnvironment`) or over a base environment without credentials. They are stored as secrets and redacted from errors and logs (except values that are configuration, such as a region or a boolean), and also reach command hooks and the Claude Code and Codex CLIs of coding-harness agents (for example `CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_HOME` or `CODEX_API_KEY`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to Claude Code, and when it sets `CODEX_ACCESS_TOKEN`, an inherited `CODEX_API_KEY` is not passed to Codex. `shell`, `script` and `background_jobs` tools and MCP and LSP servers get them only through their toolset&#39;s own `env` (`${env.NAME}`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation get them too.
      * 
      */
     public Optional<Output<Map<String,String>>> env() {
@@ -101,14 +101,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+     * Also resolve credentials, `${env.NAME}` references and the variables the model SDKs read (base URLs, AWS and Google credentials, headers) from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, the run&#39;s child process gets only `env` and a base environment without credentials (the system variables, proxies and CA certificates, the Docker connection, the Claude Code and Codex configuration locations, Go and docker-agent settings), so a key, base URL or header exported in the shell does not reach the models; the preview warns about such variables. Command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the CLIs of coding-harness agents then see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the CLIs also get `env`); Claude Code also keeps its configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`, and Codex `CODEX_HOME`, `CODEX_CA_CERTIFICATE` and the proxy variables. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation get the child&#39;s environment. Credentials that are not environment variables still apply: the logins of the `claude` and `codex` CLIs, the ChatGPT login of `docker agent setup`, the AWS shared files and instance metadata, and the gcloud login. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
      * 
      */
     @Import(name="inheritEnvironment")
     private @Nullable Output<Boolean> inheritEnvironment;
 
     /**
-     * @return Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+     * @return Also resolve credentials, `${env.NAME}` references and the variables the model SDKs read (base URLs, AWS and Google credentials, headers) from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, the run&#39;s child process gets only `env` and a base environment without credentials (the system variables, proxies and CA certificates, the Docker connection, the Claude Code and Codex configuration locations, Go and docker-agent settings), so a key, base URL or header exported in the shell does not reach the models; the preview warns about such variables. Command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the CLIs of coding-harness agents then see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the CLIs also get `env`); Claude Code also keeps its configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`, and Codex `CODEX_HOME`, `CODEX_CA_CERTIFICATE` and the proxy variables. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation get the child&#39;s environment. Credentials that are not environment variables still apply: the logins of the `claude` and `codex` CLIs, the ChatGPT login of `docker agent setup`, the AWS shared files and instance metadata, and the gcloud login. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
      * 
      */
     public Optional<Output<Boolean>> inheritEnvironment() {
@@ -191,14 +191,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI and the processes it started: SIGTERM, and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
+     * How long the run may take, in seconds, from loading the configuration (starting MCP servers, pulling a Docker Model Runner model) to the answer, before it fails. When it runs out, AgentRun stops the run and the processes it started, including a Claude Code or Codex CLI: SIGTERM (Codex gets SIGINT 2 s before), and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
      * 
      */
     @Import(name="timeoutSeconds")
     private @Nullable Output<Integer> timeoutSeconds;
 
     /**
-     * @return How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI and the processes it started: SIGTERM, and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
+     * @return How long the run may take, in seconds, from loading the configuration (starting MCP servers, pulling a Docker Model Runner model) to the answer, before it fails. When it runs out, AgentRun stops the run and the processes it started, including a Claude Code or Codex CLI: SIGTERM (Codex gets SIGINT 2 s before), and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
      * 
      */
     public Optional<Output<Integer>> timeoutSeconds() {
@@ -206,14 +206,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`.
+     * What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`. For a Codex agent it also selects Codex&#39;s sandbox: `deny` runs its commands in Codex&#39;s `workspace-write` sandbox (writes only in `workingDir` and the temporary directories, no network, reads unrestricted), `allow` turns the sandbox off. Claude Code agents run every tool without approval either way.
      * 
      */
     @Import(name="toolApproval")
     private @Nullable Output<ToolApproval> toolApproval;
 
     /**
-     * @return What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`.
+     * @return What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`. For a Codex agent it also selects Codex&#39;s sandbox: `deny` runs its commands in Codex&#39;s `workspace-write` sandbox (writes only in `workingDir` and the temporary directories, no network, reads unrestricted), `allow` turns the sandbox off. Claude Code agents run every tool without approval either way.
      * 
      */
     public Optional<Output<ToolApproval>> toolApproval() {
@@ -251,14 +251,14 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+     * The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code or Codex CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
      * 
      */
     @Import(name="workingDir")
     private @Nullable Output<String> workingDir;
 
     /**
-     * @return The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+     * @return The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code or Codex CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
      * 
      */
     public Optional<Output<String>> workingDir() {
@@ -342,7 +342,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param allowHarnessAgents Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+         * @param allowHarnessAgents Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` and `codex` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) or the Codex CLI (`codex`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests, MCP tools): `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. Claude Code runs them without approval whatever `toolApproval` says; Codex runs its commands in its `workspace-write` sandbox under `toolApproval: deny` (which limits writes and network, not reads) and without a sandbox under `allow`. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s login and settings: the `claude` login of this machine or `CLAUDE_CODE_OAUTH_TOKEN` in `env`, or the Codex login of `CODEX_HOME` (default `~/.codex`) or `CODEX_API_KEY` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -353,7 +353,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param allowHarnessAgents Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests) without approval: `toolApproval`, `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s Claude login and settings: the login of `claude` on this machine, or `CLAUDE_CODE_OAUTH_TOKEN` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
+         * @param allowHarnessAgents Run coding-harness agents: agents with `harness`. AgentRun supports `harness.type: claude-code` and `codex` on Linux and macOS. Such an agent starts the Claude Code CLI (`claude`) or the Codex CLI (`codex`) on the machine that runs `pulumi up`. The CLI runs its own tools (shell commands, file edits, web requests, MCP tools): `allowHookApprovals` and the configuration&#39;s `permissions` do not apply to it. Claude Code runs them without approval whatever `toolApproval` says; Codex runs its commands in its `workspace-write` sandbox under `toolApproval: deny` (which limits writes and network, not reads) and without a sandbox under `allow`. The CLI runs in `workingDir`, with the environment described for `inheritEnvironment` plus `env`. It uses its user&#39;s login and settings: the `claude` login of this machine or `CLAUDE_CODE_OAUTH_TOKEN` in `env`, or the Codex login of `CODEX_HOME` (default `~/.codex`) or `CODEX_API_KEY` in `env`. Without it, a coding-harness agent fails the run, and a `yaml` configuration (that the provider&#39;s docker-agent version can load) already fails the preview. Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -405,7 +405,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param env Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
+         * @param env Environment variables for model credentials (for example `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID` or the `tokenKey` of a custom provider), the variables the model SDKs read (base URLs such as `OPENAI_BASE_URL`, `GOOGLE_APPLICATION_CREDENTIALS`, headers) and `${env.NAME}` references in the configuration. The run&#39;s child process gets them over the environment of the Pulumi CLI (with `inheritEnvironment`) or over a base environment without credentials. They are stored as secrets and redacted from errors and logs (except values that are configuration, such as a region or a boolean), and also reach command hooks and the Claude Code and Codex CLIs of coding-harness agents (for example `CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_HOME` or `CODEX_API_KEY`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to Claude Code, and when it sets `CODEX_ACCESS_TOKEN`, an inherited `CODEX_API_KEY` is not passed to Codex. `shell`, `script` and `background_jobs` tools and MCP and LSP servers get them only through their toolset&#39;s own `env` (`${env.NAME}`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation get them too.
          * 
          * @return builder
          * 
@@ -416,7 +416,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param env Environment variables for model credentials (for example `OPENAI_API_KEY` or the `tokenKey` of a custom provider) and `${env.NAME}` references in the configuration. They take precedence over the inherited environment, are stored as secrets, are redacted from errors and logs, and also reach command hooks and the Claude Code CLI of a coding-harness agent (for example `CLAUDE_CODE_OAUTH_TOKEN`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to the CLI. Other processes get them only through their toolset&#39;s own `env` (`${env.NAME}`).
+         * @param env Environment variables for model credentials (for example `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID` or the `tokenKey` of a custom provider), the variables the model SDKs read (base URLs such as `OPENAI_BASE_URL`, `GOOGLE_APPLICATION_CREDENTIALS`, headers) and `${env.NAME}` references in the configuration. The run&#39;s child process gets them over the environment of the Pulumi CLI (with `inheritEnvironment`) or over a base environment without credentials. They are stored as secrets and redacted from errors and logs (except values that are configuration, such as a region or a boolean), and also reach command hooks and the Claude Code and Codex CLIs of coding-harness agents (for example `CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_HOME` or `CODEX_API_KEY`). When `env` sets `CLAUDE_CODE_OAUTH_TOKEN`, an inherited `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is not passed to Claude Code, and when it sets `CODEX_ACCESS_TOKEN`, an inherited `CODEX_API_KEY` is not passed to Codex. `shell`, `script` and `background_jobs` tools and MCP and LSP servers get them only through their toolset&#39;s own `env` (`${env.NAME}`); `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation get them too.
          * 
          * @return builder
          * 
@@ -426,7 +426,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+         * @param inheritEnvironment Also resolve credentials, `${env.NAME}` references and the variables the model SDKs read (base URLs, AWS and Google credentials, headers) from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, the run&#39;s child process gets only `env` and a base environment without credentials (the system variables, proxies and CA certificates, the Docker connection, the Claude Code and Codex configuration locations, Go and docker-agent settings), so a key, base URL or header exported in the shell does not reach the models; the preview warns about such variables. Command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the CLIs of coding-harness agents then see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the CLIs also get `env`); Claude Code also keeps its configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`, and Codex `CODEX_HOME`, `CODEX_CA_CERTIFICATE` and the proxy variables. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation get the child&#39;s environment. Credentials that are not environment variables still apply: the logins of the `claude` and `codex` CLIs, the ChatGPT login of `docker agent setup`, the AWS shared files and instance metadata, and the gcloud login. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
          * 
          * @return builder
          * 
@@ -437,7 +437,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param inheritEnvironment Also resolve credentials and `${env.NAME}` references from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the Claude Code CLI of a coding-harness agent only see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the Claude Code CLI also get `env`); the Claude Code CLI also keeps the Claude configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation still inherit everything. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
+         * @param inheritEnvironment Also resolve credentials, `${env.NAME}` references and the variables the model SDKs read (base URLs, AWS and Google credentials, headers) from the environment of the Pulumi CLI, and let the processes the configuration starts inherit that environment. With `false`, the run&#39;s child process gets only `env` and a base environment without credentials (the system variables, proxies and CA certificates, the Docker connection, the Claude Code and Codex configuration locations, Go and docker-agent settings), so a key, base URL or header exported in the shell does not reach the models; the preview warns about such variables. Command hooks, `shell`, `script` and `background_jobs` tools, MCP and LSP servers started with `command`, and the CLIs of coding-harness agents then see the system variables (`PATH`, `HOME`, `USER`, `SHELL`, `LANG`, `TMPDIR`, `TZ`, ...) plus their own `env` (hooks and the CLIs also get `env`); Claude Code also keeps its configuration locations (`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, `XDG_*_HOME`) and `IS_SANDBOX`, and Codex `CODEX_HOME`, `CODEX_CA_CERTIFICATE` and the proxy variables. `docker:` MCP servers, filesystem `post_edit` commands, the `open_url` launcher and docker-agent&#39;s on-demand tool installation get the child&#39;s environment. Credentials that are not environment variables still apply: the logins of the `claude` and `codex` CLIs, the ChatGPT login of `docker agent setup`, the AWS shared files and instance metadata, and the gcloud login. docker-agent&#39;s other credential sources (its `.env` file, credential helper, Docker Desktop) are never used.
          * 
          * @return builder
          * 
@@ -552,7 +552,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param timeoutSeconds How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI and the processes it started: SIGTERM, and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
+         * @param timeoutSeconds How long the run may take, in seconds, from loading the configuration (starting MCP servers, pulling a Docker Model Runner model) to the answer, before it fails. When it runs out, AgentRun stops the run and the processes it started, including a Claude Code or Codex CLI: SIGTERM (Codex gets SIGINT 2 s before), and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -563,7 +563,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param timeoutSeconds How long the run may take, in seconds, before it fails. When it runs out, AgentRun stops a Claude Code CLI and the processes it started: SIGTERM, and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
+         * @param timeoutSeconds How long the run may take, in seconds, from loading the configuration (starting MCP servers, pulling a Docker Model Runner model) to the answer, before it fails. When it runs out, AgentRun stops the run and the processes it started, including a Claude Code or Codex CLI: SIGTERM (Codex gets SIGINT 2 s before), and SIGKILL after 10 s (or 1 s after the CLI exited, if that comes first). Changing it updates the state without running the agent again.
          * 
          * @return builder
          * 
@@ -573,7 +573,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param toolApproval What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`.
+         * @param toolApproval What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`. For a Codex agent it also selects Codex&#39;s sandbox: `deny` runs its commands in Codex&#39;s `workspace-write` sandbox (writes only in `workingDir` and the temporary directories, no network, reads unrestricted), `allow` turns the sandbox off. Claude Code agents run every tool without approval either way.
          * 
          * @return builder
          * 
@@ -584,7 +584,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param toolApproval What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`.
+         * @param toolApproval What happens to tool calls that docker-agent would ask a user to confirm. `deny` rejects them and tells the model; `allow` approves every tool call. Tools run on the machine executing `pulumi up`. For a Codex agent it also selects Codex&#39;s sandbox: `deny` runs its commands in Codex&#39;s `workspace-write` sandbox (writes only in `workingDir` and the temporary directories, no network, reads unrestricted), `allow` turns the sandbox off. Claude Code agents run every tool without approval either way.
          * 
          * @return builder
          * 
@@ -646,7 +646,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param workingDir The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+         * @param workingDir The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code or Codex CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
          * 
          * @return builder
          * 
@@ -657,7 +657,7 @@ public final class AgentRunArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param workingDir The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
+         * @param workingDir The agent&#39;s working directory, used by the shell, filesystem and other local tools, and the Claude Code or Codex CLI of a coding-harness agent. Defaults to a fresh temporary directory that is deleted after the run. Relative paths are resolved against the directory of the Pulumi program.
          * 
          * @return builder
          * 

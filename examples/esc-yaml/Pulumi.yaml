@@ -60,8 +60,8 @@ resources:
         ANTHROPIC_API_KEY: ${anthropicApiKey}
       inheritEnvironment: false
 
-  # An agent on Amazon Bedrock. The AWS SDK signs its requests with the credentials of the provider
-  # process: the short-lived AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN that
+  # An agent on Amazon Bedrock. The AWS SDK signs its requests with the credentials of the run: the
+  # short-lived AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN that
   # `fn::open::aws-login` creates and the environment exports as `environmentVariables`.
   summarizer:
     type: docker-agent:index:AgentConfig

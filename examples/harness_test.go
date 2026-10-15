@@ -94,7 +94,9 @@ func TestExampleAgentRunClaudeCode(t *testing.T) {
 	require.True(t, ok, "usage is not an object: %#v", up.Outputs["usage"].Value)
 	assert.Equal(t, 15040.0, usage["inputTokens"], "input tokens include cached input")
 	assert.Equal(t, 37.0, usage["outputTokens"])
-	assert.InDelta(t, 0.0123, usage["cost"], 1e-9, "cost is Claude Code's total_cost_usd")
+	assert.Zero(t, usage["cost"], "a Claude subscription bills no per-token cost")
+	assert.Contains(t, up.StdOut, "no per-token cost: billed to the Claude subscription (API price about $0.0123)",
+		"the summary keeps Claude Code's total_cost_usd as the API price")
 	assert.FileExists(t, filepath.Join(workspace, "NOTES.md"))
 	// The preview warning about tools that run without approval, and the run summary.
 	assert.Contains(t, up.StdOut, "run without tool approval")

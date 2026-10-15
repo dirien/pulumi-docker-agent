@@ -25,7 +25,9 @@ import (
 // Claude Code runs every shell command in a session of its own, so its commands are in
 // neither the CLI's process group nor its session, and the group signals of harness_unix.go
 // do not reach them; it also leaves the commands it ran in the background running when it
-// exits. A procTree therefore finds the processes started under one CLI in two ways, and the
+// exits. The same holds for a run child (child.go), whose tools run in groups of their own:
+// it is tracked like a CLI, with childCookieVar, and with its session. A procTree therefore
+// finds the processes started under one CLI in two ways (a run child: three), and the
 // cleanup of harness_unix.go stops them with the CLI's group, whatever the CLI does with them:
 //
 //   - the tree: every procPollInterval while the CLI runs, and at each cleanup step, it reads
@@ -40,6 +42,15 @@ import (
 //     that variable and value. This finds what the tree cannot: a process whose parent exited
 //     before a poll saw it (`cmd &` in a shell that exits at once, a double fork). The reads
 //     are bounded in number and time;
+//   - the session (supervision.ownSession, a run child): the root starts a session of its
+//     own. Once it exited (never while it runs: it stops its own processes), each cleanup step
+//     records the processes of the provider's user that are still in that session, started
+//     after the root, and are not in its group (its signals reach those). Every member of
+//     the session was started under the root, which created it; the kernel does not reuse
+//     the ID of a session that still has members, and the session is closed for good once
+//     a read saw it without members or the root's PID with another process. This finds what
+//     the cookie cannot: a process whose environment the system does not show (macOS) or
+//     that cleared it, as long as it stayed in the session;
 //   - it signals a recorded process only while one with its PID and start time runs (checked
 //     right before the signal; on Linux through a pidfd), so a reused PID is never signalled;
 //   - it signals a process group, or the groups of a session, only when a recorded process
@@ -49,13 +60,22 @@ import (
 //   - it never signals PID 1, the provider, or the provider's process group or session.
 //
 // So it signals only processes recorded under the CLI, the groups and sessions they created,
-// and processes of the provider's user that started after the CLI and carry the exact cookie.
+// processes of the provider's user that started after the CLI and carry the exact cookie,
+// and, after a run child exited, processes of the provider's user that started after it and
+// are still in its session.
 //
-// Limits: a process that left the CLI's group and session, whose parent exited before a poll
-// saw it, and whose environment does not show the cookie is not found: one started with a
-// cleared or replaced environment (`env -i`), or, on macOS 11 and later, one whose
-// environment the system does not show to other processes (programs restricted by their code
-// signature, such as some signed with entitlements, while System Integrity Protection is on). Tracking is best effort and bounded: when the
+// Limits: a process that left the CLI's group and session (for a run child: the run child's
+// session, as a command of Claude Code or Codex does, or one started with setsid), whose
+// parent exited before a poll saw it, and whose environment does not show the cookie is not
+// found: one started with a cleared or replaced environment (`env -i`), or, on macOS 11 and
+// later, one whose environment the system does not show to other processes (platform
+// binaries such as /bin/sleep, and programs restricted by their code signature, such as some
+// signed with entitlements, while System Integrity Protection is on).
+// Codex passes the cookie to its shell commands only under its default shell_environment_policy
+// (inherit = all): a config.toml with `inherit = "core"` or `"none"`, or `include_only`, keeps it
+// from them, and Codex starts its stdio MCP servers with a minimal environment without it, so
+// only the tree finds those (an MCP server that daemonizes before a poll saw it is not found).
+// Tracking is best effort and bounded: when the
 // process table cannot be read, or has more than maxProcTable processes, the cleanup stops
 // the CLI's process group and what it can check one by one, and the reason is logged at
 // debug level.
@@ -76,11 +96,7 @@ var (
 	cookieSweepTimeout = time.Second
 )
 
-const (
-	procPollCost = 5
-	// runCookieVar names the variable that marks the processes of one CLI run.
-	runCookieVar = "DOCKER_AGENT_RUN_COOKIE"
-)
+const procPollCost = 5
 
 // Access to the process table (descendants_linux.go, descendants_darwin.go). Variables, so
 // that tests can replace them.
@@ -95,7 +111,7 @@ var (
 	readCookie = procHasCookie
 )
 
-var errProcTableTooLarge = errors.New("the process table is too large to track the processes of claude")
+var errProcTableTooLarge = errors.New("the process table is too large")
 
 // procKey identifies a process: its PID, and its start time (Linux: clock ticks since boot;
 // macOS: microseconds since the epoch), which tells it apart from a later process that got
@@ -127,16 +143,22 @@ func newRunCookie() string {
 // withRunCookie returns the environment with runCookieVar set to cookie, replacing a value
 // inherited from an outer run. A nil environment is the provider's.
 func withRunCookie(env []string, cookie string) []string {
+	return withCookie(env, runCookieVar, cookie)
+}
+
+// withCookie returns the environment with the cookie variable name set to cookie, replacing
+// a value inherited from an outer run. A nil environment is the provider's.
+func withCookie(env []string, name, cookie string) []string {
 	if env == nil {
 		env = os.Environ()
 	}
 	out := make([]string, 0, len(env)+1)
 	for _, kv := range env {
-		if !strings.HasPrefix(kv, runCookieVar+"=") {
+		if !strings.HasPrefix(kv, name+"=") {
 			out = append(out, kv)
 		}
 	}
-	return append(out, runCookieVar+"="+cookie)
+	return append(out, name+"="+cookie)
 }
 
 // environHas reports whether a NUL-separated environment holds exactly the entry
@@ -191,17 +213,32 @@ func procargsHas(b []byte, entry string) (found, hidden bool) {
 	return environHas(b, entry), false
 }
 
-// procTree records the processes started under one CLI. Its methods do nothing on a nil
-// tree (tracking is off).
+// procTree records the processes started under one CLI (or one run child: everything below
+// says "the CLI" for the process at its root). Its methods do nothing on a nil tree (tracking
+// is off).
 type procTree struct {
 	root   procKey
-	cookie string // runCookieVar=value, "" without a cookie
+	name   string // the root process in messages: "claude" or "the agent run"
+	cookie string // runCookieVar=value (or childCookieVar=value), "" without a cookie
 	self   struct{ pid, pgid, sid, uid int }
 	debug  func(string)
+	// ownGroups: the groups that direct children of the root create in the root's session do
+	// not count as left running (supervision.ownGroups); rootSID is the root's session.
+	ownGroups bool
+	rootSID   int
+	// session is the session the root created (supervision.ownSession), whose ID is the
+	// root's PID; 0 without one.
+	session int
 
 	mu sync.Mutex
+	// sessionClosed: the session was seen without members, or the root's PID with another
+	// process; its ID may have been reused, so it is not swept any more.
+	sessionClosed bool
 	// procs are the recorded processes that ran at the last read of the table.
 	procs map[procKey]bool
+	// direct are the recorded processes whose parent was the root, or in the root's group, when
+	// they were recorded (with ownGroups only).
+	direct map[procKey]bool
 	// groups and sessions that a recorded process created, by ID, with their leader. An ID
 	// that was seen without members or with another leader is deleted: it may be reused.
 	groups, sessions map[int]procKey
@@ -219,22 +256,39 @@ type procTree struct {
 // environment holds runCookieVar=cookie. It returns nil, after logging why, when the CLI
 // cannot be found in the process table.
 func newProcTree(pid int, cookie string, debug func(string)) *procTree {
+	return newProcTreeOf(pid, claudeSupervision(debug), cookie)
+}
+
+// newProcTreeOf starts recording the processes started under the process with that PID, which
+// s describes, whose environment holds s.cookieVar=cookie.
+func newProcTreeOf(pid int, s supervision, cookie string) *procTree {
 	root, ok := readProc(pid)
 	if !ok {
-		logDebug(debug, "tracking the processes of claude is off: claude (PID %d) is not in the process table", pid)
+		logDebug(s.debug, "tracking the processes of %s is off: %s (PID %d) is not in the process table", s.name, s.name, pid)
 		return nil
 	}
 	t := &procTree{
-		root: root.procKey, debug: debug,
-		procs: map[procKey]bool{}, groups: map[int]procKey{}, sessions: map[int]procKey{},
+		root: root.procKey, name: s.name, debug: s.debug, ownGroups: s.ownGroups, rootSID: root.sid,
+		procs: map[procKey]bool{}, direct: map[procKey]bool{}, groups: map[int]procKey{}, sessions: map[int]procKey{},
 		termed: map[procKey]bool{}, termedGroups: map[int]bool{}, logged: map[string]bool{},
 		stopPoll: make(chan struct{}), pollDone: make(chan struct{}),
 	}
 	if cookie != "" {
-		t.cookie = runCookieVar + "=" + cookie
+		t.cookie = s.cookieVar + "=" + cookie
 	}
 	t.self.pid, t.self.pgid, t.self.uid = syscall.Getpid(), unix.Getpgrp(), os.Geteuid()
 	t.self.sid, _ = unix.Getsid(0)
+	if s.ownSession {
+		// The root called setsid before it ran its program (startSupervised), so its session's ID
+		// is its PID; a session that could not be read (macOS: getsid of a process that ended
+		// already) is taken as that.
+		if (root.sid >= 0 && root.sid != pid) || pid == t.self.sid {
+			logDebug(s.debug, "tracking the processes of %s: %s (PID %d) is not in a session of its own (session %d), "+
+				"so its session is not searched", s.name, s.name, pid, root.sid)
+		} else {
+			t.session = pid
+		}
+	}
 	go t.poll()
 	return t
 }
@@ -296,11 +350,11 @@ type procTableView struct {
 func (t *procTree) readLocked() *procTableView {
 	entries, err := readProcTable(t.root.start)
 	if err != nil {
-		t.logOnce("tracking the processes of claude: reading the process table: %v", err)
+		t.logOnce("tracking the processes of %s: reading the process table: %v", t.name, err)
 		return nil
 	}
 	if len(entries) > maxProcTable {
-		t.logOnce("tracking the processes of claude: %v (%d processes)", errProcTableTooLarge, len(entries))
+		t.logOnce("tracking the processes of %s: %v (%d processes)", t.name, errProcTableTooLarge, len(entries))
 		return nil
 	}
 	tbl := &procTableView{byPID: make(map[int]*procEntry, len(entries)), children: map[int][]*procEntry{}}
@@ -323,9 +377,21 @@ func (t *procTree) readLocked() *procTableView {
 			delete(t.procs, k)
 		}
 	}
+	for k := range t.direct {
+		if !running(k) {
+			delete(t.direct, k)
+		}
+	}
 	for k := range t.termed {
 		if !running(k) {
 			delete(t.termed, k)
+		}
+	}
+	// The root's session, when the root's PID now belongs to another process, or the session has
+	// nothing in it any more: its ID may be reused from then on.
+	if t.session > 0 && !t.sessionClosed {
+		if e := tbl.byPID[t.session]; (e != nil && e.procKey != t.root) || (e == nil && !sids[t.session]) {
+			t.sessionClosed = true
 		}
 	}
 	// A group or session whose leader's PID now belongs to another process, or that has
@@ -374,6 +440,11 @@ func (t *procTree) walkLocked(tbl *procTableView) {
 			// this parent's: a process a debugger attached to (macOS reports the tracer as
 			// its parent), or a reused PID read in one table.
 			if !visited[c.pid] && c.start >= e.start {
+				// The npm launcher of Codex runs the native CLI in its own group: its children
+				// count as direct too.
+				if t.ownGroups && (e.procKey == t.root || e.pgid == t.root.pid) {
+					t.direct[c.procKey] = true
+				}
 				stack = append(stack, c)
 			}
 		}
@@ -385,8 +456,8 @@ func (t *procTree) walkLocked(tbl *procTableView) {
 func (t *procTree) record(e *procEntry, force bool) bool {
 	if !t.procs[e.procKey] {
 		if len(t.procs) >= maxTrackedProcs && !force {
-			t.logOnce("tracking the processes of claude: more than %d processes run, the others are not recorded",
-				maxTrackedProcs)
+			t.logOnce("tracking the processes of %s: more than %d processes run, the others are not recorded",
+				t.name, maxTrackedProcs)
 			return false
 		}
 		t.procs[e.procKey] = true
@@ -398,6 +469,48 @@ func (t *procTree) record(e *procEntry, force bool) bool {
 		t.sessions[e.pid] = e.procKey
 	}
 	return true
+}
+
+// sessionSweepLocked records the processes left in the root's session (supervision.ownSession)
+// once the root exited: those that leftInSession accepts. It does nothing while the root runs
+// (it stops its own processes), and once the session was closed (readLocked). It returns how
+// many it recorded.
+func (t *procTree) sessionSweepLocked(tbl *procTableView) int {
+	if t.session <= 0 || t.sessionClosed {
+		return 0
+	}
+	if e := tbl.byPID[t.root.pid]; e != nil && e.procKey == t.root && !e.zombie {
+		return 0
+	}
+	found, unknown := 0, false
+	for _, e := range tbl.byPID {
+		switch {
+		case t.leftInSession(e):
+			t.record(e, true)
+			found++
+		case e.sid < 0 && !e.zombie && e.uid == t.self.uid && e.start >= t.root.start && e.pid != t.self.pid:
+			unknown = true
+		}
+	}
+	if unknown {
+		// macOS: getsid failed, for a process that ended meanwhile (XNU's getsid does not refuse
+		// processes of other sessions with EPERM, which POSIX would allow).
+		t.logOnce("tracking the processes of %s: the session of some processes could not be read, so they are not "+
+			"checked for the session of %s", t.name, t.name)
+	}
+	return found
+}
+
+// leftInSession reports whether a process of the table is one the root left in its session:
+// it is in the session, of the provider's user, started at or after the root (a process that
+// started before it cannot be under it; with the session's ID reserved, this also rules out a
+// reused PID), runs (not a zombie or a kernel thread), is neither the root nor the provider,
+// is not in the root's group or the provider's (the root's group gets its own signals), and is
+// not recorded yet.
+func (t *procTree) leftInSession(e *procEntry) bool {
+	return t.session > 0 && e.sid == t.session && e.sid != t.self.sid && e.uid == t.self.uid &&
+		e.start >= t.root.start && !e.zombie && !e.kthread && e.pid > 1 && e.pid != t.root.pid &&
+		e.pid != t.self.pid && e.pgid != t.root.pid && e.pgid != t.self.pgid && !t.procs[e.procKey]
 }
 
 // sweepLocked records the processes whose environment holds the run's cookie, among those of
@@ -416,8 +529,8 @@ func (t *procTree) sweepLocked(tbl *procTableView) int {
 			continue
 		}
 		if len(cands) == maxCookieReads {
-			t.logOnce("tracking the processes of claude: more than %d candidates for the run's cookie, the others "+
-				"are not checked", maxCookieReads)
+			t.logOnce("tracking the processes of %s: more than %d candidates for the run's cookie, the others "+
+				"are not checked", t.name, maxCookieReads)
 			break
 		}
 		cands = append(cands, *e)
@@ -463,14 +576,14 @@ func (t *procTree) sweepLocked(tbl *procTableView) int {
 			}
 		case <-timer.C:
 			abandon.Store(true)
-			t.logOnce("tracking the processes of claude: reading the environments of processes took longer than %v, "+
-				"the others are not checked for the run's cookie", cookieSweepTimeout)
+			t.logOnce("tracking the processes of %s: reading the environments of processes took longer than %v, "+
+				"the others are not checked for the run's cookie", t.name, cookieSweepTimeout)
 			done = true
 		}
 	}
 	if hidden > 0 {
-		t.logOnce("tracking the processes of claude: the system does not show the environment of some processes " +
-			"(macOS hides it for code-signing restricted programs), so the run's cookie cannot find them")
+		t.logOnce("tracking the processes of %s: the system does not show the environment of some processes "+
+			"(macOS hides it for code-signing restricted programs), so the run's cookie cannot find them", t.name)
 	}
 	return found
 }
@@ -509,10 +622,18 @@ func (t *procTree) mayGroup(g int) bool {
 func (t *procTree) targetsLocked(tbl *procTableView) procTargets {
 	var tg procTargets
 	outside := map[int]bool{}
+	// The groups that direct children of the root lead in the root's session (ownGroups): they
+	// are stopped, but do not count as left running.
+	exempt := map[int]bool{}
+	for k := range t.direct {
+		if e := tbl.byPID[k.pid]; e != nil && e.procKey == k && e.pgid == e.pid && e.sid == t.rootSID {
+			exempt[e.pgid] = true
+		}
+	}
 	for k := range t.procs {
 		if e := tbl.byPID[k.pid]; e != nil && e.procKey == k && !e.zombie && k.pid != t.self.pid {
 			tg.procs = append(tg.procs, procTarget{k, e.pgid})
-			if e.pgid != t.root.pid {
+			if e.pgid != t.root.pid && !exempt[e.pgid] {
 				outside[k.pid] = true
 			}
 		}
@@ -534,7 +655,7 @@ func (t *procTree) targetsLocked(tbl *procTableView) procTargets {
 	for _, e := range tbl.byPID {
 		if _, ok := groups[e.pgid]; ok && !e.zombie {
 			members[e.pgid] = true
-			if e.pid != t.root.pid && e.pid != t.self.pid {
+			if e.pid != t.root.pid && e.pid != t.self.pid && !exempt[e.pgid] {
 				outside[e.pid] = true
 			}
 		}
@@ -546,9 +667,10 @@ func (t *procTree) targetsLocked(tbl *procTableView) procTargets {
 	return tg
 }
 
-// scan reads the process table for a cleanup step: it records what runs below the CLI and
-// what carries the run's cookie, and returns what runs under the CLI. When the table cannot
-// be read, the recorded processes and the groups of recorded leaders are checked one by one.
+// scan reads the process table for a cleanup step: it records what runs below the CLI, what is
+// left in the session of an exited run child, and what carries the run's cookie, and returns
+// what runs under the CLI. When the table cannot be read, the recorded processes and the
+// groups of recorded leaders are checked one by one.
 func (t *procTree) scan() procTargets {
 	if t == nil {
 		return procTargets{}
@@ -557,8 +679,9 @@ func (t *procTree) scan() procTargets {
 	defer t.mu.Unlock()
 	if tbl := t.readLocked(); tbl != nil {
 		t.walkLocked(tbl)
-		if t.sweepLocked(tbl) > 0 {
-			// Below the processes the cookie found.
+		// The session first: the cookie then reads the environments of fewer processes.
+		if t.sessionSweepLocked(tbl)+t.sweepLocked(tbl) > 0 {
+			// Below the processes the session and the cookie found.
 			t.walkLocked(tbl)
 		}
 		return t.targetsLocked(tbl)

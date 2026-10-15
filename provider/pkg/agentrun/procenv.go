@@ -5,10 +5,10 @@ package agentrun
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
-	"os"
 	"slices"
 	"strings"
 
@@ -19,24 +19,39 @@ import (
 	"github.com/docker/docker-agent/pkg/teamloader/toolsets"
 	"github.com/docker/docker-agent/pkg/toolinstall"
 	"github.com/docker/docker-agent/pkg/tools"
+	"github.com/docker/docker-agent/pkg/tools/builtin/backgroundjobs"
 	"github.com/docker/docker-agent/pkg/tools/builtin/lsp"
+	"github.com/docker/docker-agent/pkg/tools/builtin/shell"
 	"github.com/docker/docker-agent/pkg/tools/lifecycle"
 	"github.com/docker/docker-agent/pkg/tools/mcp"
 	"github.com/docker/docker-agent/pkg/tools/workingdir"
 )
 
-// The processes docker-agent starts for a configuration inherit the provider's whole
-// environment: docker-agent builds their environment from os.Environ(). With
-// Request.InheritEnvironment false, AgentRun instead gives the processes it can control
-// only the system variables below, plus what the configuration passes explicitly
-// (a toolset's `env`, and Request.Env for command hooks):
+// The processes docker-agent starts for a configuration inherit the environment of the
+// process that runs it, a run child (childenv.go): docker-agent builds their environment from
+// os.Environ(), which holds Request.Env there. AgentRun therefore builds the environment of
+// the processes it can control from the provider's environment (providerEnviron), which
+// Request.Env is not part of, plus what the configuration passes explicitly (a toolset's
+// `env`, and Request.Env for command hooks):
 //
-//   - command hooks: runtime.WithEnv;
-//   - `shell`, `script` and `background_jobs` toolsets: docker-agent appends the toolset's
-//     `env` after os.Environ() and the last value wins, so every other variable is
-//     overridden with an empty value;
-//   - stdio MCP servers (`command`): started with exactly that environment;
-//   - LSP servers (`command`): like `shell`, other variables are emptied.
+//   - command hooks: runtime.WithEnv, with Request.Env;
+//   - `shell`, `script` and `background_jobs` toolsets: with Request.InheritEnvironment,
+//     AgentRun builds them as docker-agent does, with the provider's environment in place of
+//     os.Environ() (inheritedToolset), so a variable that only Request.Env sets is unset for
+//     their processes, as it was in process. Otherwise, and for the options only docker-agent's
+//     constructor can set (shell's sudo_askpass, background_jobs' recall), docker-agent
+//     appends the toolset's `env` after os.Environ() and the last value wins: each variable of
+//     Request.Env is overridden with the provider's value or an empty value;
+//   - stdio MCP servers (`command`): started with exactly the environment AgentRun builds;
+//   - LSP servers (`command`): docker-agent puts os.Environ() first when it starts the server,
+//     so a variable can only be overridden, as for `shell` without Request.InheritEnvironment:
+//     a variable that only Request.Env sets is empty, not unset. Empty is the safe choice: its
+//     value must not reach the server.
+//
+// With Request.InheritEnvironment they get the provider's environment. Without it, only the
+// system variables below: every other variable is overridden with an empty value, or not
+// passed at all to stdio MCP servers. The cookies of the supervisors (descendants.go) are kept
+// in both cases.
 //
 // Not controllable: `docker:` MCP servers (the Docker MCP Gateway starts with the whole
 // environment), filesystem `post_edit` commands, the `open_url` browser launcher and
@@ -55,45 +70,49 @@ func isSystemEnvVar(name string) bool {
 	return slices.ContainsFunc(systemEnvVars, func(s string) bool { return strings.EqualFold(s, name) })
 }
 
-// systemEnv returns the system variables of the provider's environment.
+// systemEnv returns the system variables of the provider's environment, and the cookies.
 func systemEnv() []string {
 	var out []string
-	for _, kv := range os.Environ() {
-		if k, _, ok := strings.Cut(kv, "="); ok && isSystemEnvVar(k) {
+	for _, kv := range providerEnviron() {
+		if k, _, ok := strings.Cut(kv, "="); ok && (isSystemEnvVar(k) || isCookieVar(k)) {
 			out = append(out, kv)
 		}
 	}
 	return out
 }
 
-// emptiedEnv maps every other variable of the provider's environment to "".
-func emptiedEnv() map[string]string {
+// emptiedEnv maps every other variable of the provider's environment to "", and each variable
+// of Request.Env to the provider's value of a system variable or a cookie, or to "".
+func emptiedEnv(req Request) map[string]string {
 	out := map[string]string{}
-	for _, kv := range os.Environ() {
+	for _, kv := range providerEnviron() {
 		k, _, ok := strings.Cut(kv, "=")
-		if !ok || k == "" || isSystemEnvVar(k) || strings.ContainsAny(k, "=\x00") {
+		if !ok || k == "" || isSystemEnvVar(k) || isCookieVar(k) || strings.ContainsAny(k, "=\x00") {
 			continue
 		}
 		out[k] = ""
 	}
+	maps.Copy(out, requestEnvOverrides(req.Env, false))
 	return out
 }
 
-func emptiedEnvList() []string {
-	m := emptiedEnv()
+// envList returns a map as KEY=VALUE entries, sorted by name.
+func envList(m map[string]string) []string {
 	out := make([]string, 0, len(m))
 	for _, k := range sortedKeys(m) {
-		out = append(out, k+"=")
+		out = append(out, k+"="+m[k])
 	}
 	return out
 }
+
+func emptiedEnvList(req Request) []string { return envList(emptiedEnv(req)) }
 
 // hookEnv is the environment of command hooks: Request.Env over the provider's
 // environment, or over its system variables only.
 func hookEnv(req Request) []string {
 	var env []string
 	if req.InheritEnvironment {
-		env = os.Environ()
+		env = providerEnviron()
 	} else {
 		env = systemEnv()
 	}
@@ -113,9 +132,11 @@ func hookEnv(req Request) []string {
 //  1. the provider's environment, or, without Request.InheritEnvironment, its system
 //     variables plus the Claude configuration locations of claudeKeptEnvVars when they are
 //     set. They select the login (the macOS keychain entry and ~/.claude/.credentials.json
-//     depend on CLAUDE_CONFIG_DIR) and are not credentials;
-//  2. without the variables a parent Claude Code session sets (claudeSessionEnvVars), so the
-//     CLI starts a top-level session also when `pulumi up` runs inside Claude Code;
+//     depend on CLAUDE_CONFIG_DIR) and are not credentials. The cookies of the supervisors
+//     are kept too (descendants.go);
+//  2. without the variables a parent Claude Code or Codex session sets (parentSessionEnvVars),
+//     so the CLI starts a top-level session of its own, outside the parent's trace, also when
+//     `pulumi up` runs inside Claude Code or Codex;
 //  3. without an inherited ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN when Request.Env sets
 //     CLAUDE_CODE_OAUTH_TOKEN: Claude Code prefers them to the token in print mode, which
 //     would silently bill API usage instead of the subscription the token belongs to;
@@ -139,6 +160,17 @@ var claudeSessionEnvVars = []string{
 	"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_PID",
 	"CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN", "AI_AGENT", "CLAUDE_EFFORT",
 	"TRACEPARENT", "CLAUDE_CODE_EXECPATH", "CLAUDE_CODE_TMPDIR", "CLAUDE_CODE_INVOKED_SKILLS",
+}
+
+// traceEnvVars carry the W3C trace context of the process that started `pulumi up` (a Claude
+// Code or Codex session, or any traced tool): both CLIs continue that trace, and Codex forwards
+// it to OpenAI with every request.
+var traceEnvVars = []string{"TRACEPARENT", "TRACESTATE"}
+
+// parentSessionEnvVars are the variables of a parent coding-agent session that neither CLI
+// gets: the markers of a Claude Code and of a Codex session, and the trace context.
+func parentSessionEnvVars() []string {
+	return slices.Concat(claudeSessionEnvVars, codexSessionEnvVars, traceEnvVars)
 }
 
 const claudeOAuthTokenVar = "CLAUDE_CODE_OAUTH_TOKEN" //nolint:gosec // the name of a variable, not a credential
@@ -168,9 +200,15 @@ type claudeEnvironment struct {
 // withheldTokenNote says why the CLI does not use the Pulumi CLI's CLAUDE_CODE_OAUTH_TOKEN.
 const withheldTokenNote = "inheritEnvironment: false did not pass the Pulumi CLI's " + claudeOAuthTokenVar
 
-// claudeEnv is the environment of the Claude Code CLI of a run working in dir.
+// claudeEnv is the environment of the Claude Code CLI of a run working in dir. In a run
+// child without an inherited environment, the provider's CLAUDE_CODE_OAUTH_TOKEN is not in
+// the child's environment: the parent reports it (Request.withheldToken).
 func claudeEnv(req Request, dir string) claudeEnvironment {
-	return newClaudeEnvironment(os.Environ(), req.Env, req.InheritEnvironment, dir)
+	e := newClaudeEnvironment(providerEnviron(), req.Env, req.InheritEnvironment, dir)
+	if _, set := req.Env[claudeOAuthTokenVar]; req.withheldToken && !req.InheritEnvironment && !set {
+		e.withheldToken = true
+	}
+	return e
 }
 
 // newClaudeEnvironment builds the environment of a Claude Code CLI from the provider's
@@ -183,11 +221,11 @@ func newClaudeEnvironment(environ []string, env map[string]string, inherit bool,
 		if !ok || k == "" || strings.ContainsAny(k, "=\x00") {
 			continue
 		}
-		if inherit || isSystemEnvVar(k) || slices.Contains(claudeKeptEnvVars, k) {
+		if inherit || isSystemEnvVar(k) || slices.Contains(claudeKeptEnvVars, k) || isCookieVar(k) {
 			e.vars[k] = v
 		}
 	}
-	for _, k := range claudeSessionEnvVars {
+	for _, k := range parentSessionEnvVars() {
 		delete(e.vars, k)
 	}
 	if _, set := env[claudeOAuthTokenVar]; !inherit && !set {
@@ -357,22 +395,20 @@ func (e claudeEnvironment) sandboxed() bool { return e.vars["IS_SANDBOX"] == "1"
 func (e claudeEnvironment) path() string { return e.vars["PATH"] }
 
 // toolsetCreators returns docker-agent's toolset registry for one run: every toolset is
-// guarded by the run's approval policy, and without an inherited environment the
-// process-starting toolsets get a scrubbed environment.
+// guarded by the run's approval policy, and the process-starting toolsets get the environment
+// described at the top of this file.
 func toolsetCreators(req Request, policy *approvalPolicy) map[string]teamloader.ToolsetCreator {
 	creators := toolsets.DefaultToolsetCreators()
-	if !req.InheritEnvironment {
-		for _, typ := range []string{"shell", "script", "background_jobs"} {
-			if c, ok := creators[typ]; ok {
-				creators[typ] = withEmptiedEnv(c)
-			}
+	for _, typ := range []string{"shell", "script", "background_jobs"} {
+		if c, ok := creators[typ]; ok {
+			creators[typ] = withToolEnv(c, req, typ)
 		}
-		if c, ok := creators["mcp"]; ok {
-			creators["mcp"] = mcpWithSystemEnv(c)
-		}
-		if _, ok := creators["lsp"]; ok {
-			creators["lsp"] = lspWithEmptiedEnv
-		}
+	}
+	if c, ok := creators["mcp"]; ok {
+		creators["mcp"] = mcpWithEnv(c, req)
+	}
+	if _, ok := creators["lsp"]; ok {
+		creators["lsp"] = lspWithEnv(req)
 	}
 	for typ, c := range creators {
 		creators[typ] = guarded(c, policy)
@@ -390,21 +426,92 @@ func guarded(create teamloader.ToolsetCreator, policy *approvalPolicy) teamloade
 	}
 }
 
-// withEmptiedEnv overrides every non-system variable with "" through the toolset's own
-// `env`, which docker-agent appends after os.Environ(). The toolset's `env` still wins.
-func withEmptiedEnv(create teamloader.ToolsetCreator) teamloader.ToolsetCreator {
+// toolEnvOverrides are the variables a `shell`, `script` or `background_jobs` toolset gets
+// through its own `env` on top of the process environment: Request.Env replaced by the
+// provider's values or blanked, and without Request.InheritEnvironment every non-system
+// variable blanked. docker-agent expands the toolset's `env` (`$NAME`), so a provider's value
+// with a `$` is blanked too.
+func toolEnvOverrides(req Request) map[string]string {
+	var env map[string]string
+	if req.InheritEnvironment {
+		env = requestEnvOverrides(req.Env, true)
+	} else {
+		env = emptiedEnv(req)
+	}
+	for k, v := range env {
+		if strings.Contains(v, "$") {
+			env[k] = ""
+		}
+	}
+	return env
+}
+
+// withToolEnv builds a `shell`, `script` or `background_jobs` toolset (typ) with the
+// provider's environment when Request.InheritEnvironment is set (inheritedToolset). Otherwise
+// it overrides variables through the toolset's own `env`, which docker-agent appends after
+// os.Environ() (see toolEnvOverrides). The toolset's `env` still wins.
+func withToolEnv(create teamloader.ToolsetCreator, req Request, typ string) teamloader.ToolsetCreator {
 	return func(ctx context.Context, ts latest.Toolset, parentDir string, rc *config.RuntimeConfig, name string) (tools.ToolSet, error) {
-		env := emptiedEnv()
+		if req.InheritEnvironment {
+			if set, ok, err := inheritedToolset(ctx, typ, ts, rc); ok {
+				return set, err
+			}
+		}
+		env := toolEnvOverrides(req)
+		if len(env) == 0 {
+			return create(ctx, ts, parentDir, rc, name)
+		}
 		maps.Copy(env, ts.Env)
 		ts.Env = env
 		return create(ctx, ts, parentDir, rc, name)
 	}
 }
 
-// mcpWithSystemEnv starts stdio MCP servers with the system variables and the toolset's
-// `env`, mirroring docker-agent's mcp.CreateToolSet. Other MCP toolsets (remote servers,
-// `docker:` references) are created by docker-agent.
-func mcpWithSystemEnv(create teamloader.ToolsetCreator) teamloader.ToolsetCreator {
+// inheritedToolset builds a `shell`, `script` or `background_jobs` toolset as docker-agent's
+// CreateToolSet and CreateScriptToolSet do (keep them in step when docker-agent is upgraded),
+// with providerEnviron() in place of os.Environ(): Request.Env then reaches none of its
+// processes, and a variable that only Request.Env sets is unset for them, not empty. ok is
+// false for an option that only docker-agent's constructor can set (shell's sudo_askpass,
+// background_jobs' recall): the caller then overrides the variables instead.
+func inheritedToolset(ctx context.Context, typ string, ts latest.Toolset, rc *config.RuntimeConfig,
+) (set tools.ToolSet, ok bool, err error) {
+	what := "toolset's"
+	switch {
+	case typ == "shell" && (ts.SudoAskpass == nil || !*ts.SudoAskpass):
+	case typ == "background_jobs" && (ts.Recall == nil || !*ts.Recall):
+	case typ == "script":
+		if len(ts.Shell) == 0 {
+			return nil, true, errors.New("shell is required for script toolset")
+		}
+		what = "tool's"
+	default:
+		return nil, false, nil
+	}
+	env, err := environment.ExpandAll(ctx, environment.ToValues(ts.Env), rc.EnvProvider())
+	if err != nil {
+		return nil, true, fmt.Errorf("failed to expand the %s environment variables: %w", what, err)
+	}
+	// The toolset's `env` wins on a key collision, as in docker-agent (exec.Cmd keeps the last).
+	env = append(providerEnviron(), env...)
+	switch typ {
+	case "shell":
+		return shell.New(env, rc), true, nil
+	case "background_jobs":
+		return backgroundjobs.New(env, rc), true, nil
+	}
+	script, err := shell.NewScript(ts.Shell, env)
+	if err != nil {
+		return nil, true, err
+	}
+	return script, true, nil
+}
+
+// mcpWithEnv starts stdio MCP servers with the environment docker-agent's mcp.CreateToolSet
+// gives them, with the provider's environment instead of the process's: the toolset's `env`
+// followed by the provider's environment, or without Request.InheritEnvironment the system
+// variables followed by the toolset's `env`. Other MCP toolsets (remote servers, `docker:`
+// references) are created by docker-agent.
+func mcpWithEnv(create teamloader.ToolsetCreator, req Request) teamloader.ToolsetCreator {
 	return func(ctx context.Context, ts latest.Toolset, parentDir string, rc *config.RuntimeConfig, name string) (tools.ToolSet, error) {
 		if ts.Ref != "" || ts.Command == "" {
 			return create(ctx, ts, parentDir, rc, name)
@@ -424,33 +531,46 @@ func mcpWithSystemEnv(create teamloader.ToolsetCreator) teamloader.ToolsetCreato
 		if err != nil {
 			return nil, fmt.Errorf("failed to expand the tool's environment variables: %w", err)
 		}
-		env = toolinstall.PrependBinDirToEnv(append(systemEnv(), env...))
+		if req.InheritEnvironment {
+			env = append(env, providerEnviron()...)
+		} else {
+			env = append(systemEnv(), env...)
+		}
+		env = toolinstall.PrependBinDirToEnv(env)
 		return mcp.NewToolsetCommand(ts.Name, command, ts.Args, env, cwd, lifecycle.PolicyFromConfig(ts.Name, ts.Lifecycle)), nil
 	}
 }
 
-// lspWithEmptiedEnv mirrors docker-agent's lsp.CreateToolSet. docker-agent starts the
-// server with os.Environ() followed by this environment, so the non-system variables are
-// emptied here.
-func lspWithEmptiedEnv(ctx context.Context, ts latest.Toolset, _ string, rc *config.RuntimeConfig, _ string) (tools.ToolSet, error) {
-	command, err := toolinstall.EnsureCommand(ctx, ts.Command, ts.Version)
-	if err != nil {
-		return nil, fmt.Errorf("resolving command %q: %w", ts.Command, err)
-	}
-	env, err := environment.ExpandAll(ctx, environment.ToValues(ts.Env), rc.EnvProvider())
-	if err != nil {
-		return nil, fmt.Errorf("failed to expand the tool's environment variables: %w", err)
-	}
-	env = toolinstall.PrependBinDirToEnv(slices.Concat(emptiedEnvList(), systemEnv(), env))
-	cwd := workingdir.Resolve(ts.WorkingDir, rc.WorkingDir)
-	if ts.WorkingDir != "" {
-		if err := workingdir.CheckDirExists(cwd, "lsp"); err != nil {
-			return nil, err
+// lspWithEnv mirrors docker-agent's lsp.CreateToolSet. docker-agent starts the server with
+// os.Environ() followed by this environment: with Request.InheritEnvironment, Request.Env
+// blanked, the toolset's `env` and the provider's environment (as docker-agent orders them);
+// without it, the non-system variables emptied, the system variables and the toolset's `env`.
+func lspWithEnv(req Request) teamloader.ToolsetCreator {
+	return func(ctx context.Context, ts latest.Toolset, _ string, rc *config.RuntimeConfig, _ string) (tools.ToolSet, error) {
+		command, err := toolinstall.EnsureCommand(ctx, ts.Command, ts.Version)
+		if err != nil {
+			return nil, fmt.Errorf("resolving command %q: %w", ts.Command, err)
 		}
+		env, err := environment.ExpandAll(ctx, environment.ToValues(ts.Env), rc.EnvProvider())
+		if err != nil {
+			return nil, fmt.Errorf("failed to expand the tool's environment variables: %w", err)
+		}
+		if req.InheritEnvironment {
+			env = slices.Concat(envList(requestEnvOverrides(req.Env, false)), env, providerEnviron())
+		} else {
+			env = slices.Concat(emptiedEnvList(req), systemEnv(), env)
+		}
+		env = toolinstall.PrependBinDirToEnv(env)
+		cwd := workingdir.Resolve(ts.WorkingDir, rc.WorkingDir)
+		if ts.WorkingDir != "" {
+			if err := workingdir.CheckDirExists(cwd, "lsp"); err != nil {
+				return nil, err
+			}
+		}
+		tool := lsp.New(command, ts.Args, env, cwd, lifecycle.PolicyFromConfig(ts.Name, ts.Lifecycle))
+		if len(ts.FileTypes) > 0 {
+			tool.SetFileTypes(ts.FileTypes)
+		}
+		return tool, nil
 	}
-	tool := lsp.New(command, ts.Args, env, cwd, lifecycle.PolicyFromConfig(ts.Name, ts.Lifecycle))
-	if len(ts.FileTypes) > 0 {
-		tool.SetFileTypes(ts.FileTypes)
-	}
-	return tool, nil
 }

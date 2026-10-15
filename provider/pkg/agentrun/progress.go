@@ -6,6 +6,7 @@ package agentrun
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -65,6 +66,16 @@ type progress struct {
 	started   time.Time
 	sessions  map[string]bool
 	calls     map[string]string // tool call ID -> arguments
+	// extra returns the secrets found during the run (harnessInfo.extraSecrets); nil for none.
+	extra func() []string
+}
+
+// secretSet is the redaction set of the messages: secrets and the secrets found so far.
+func (p *progress) secretSet() []string {
+	if p.extra == nil {
+		return p.secrets
+	}
+	return append(slices.Clone(p.secrets), p.extra()...)
 }
 
 func newProgress(req Request, secrets []string, names *nameHider) *progress {
@@ -87,17 +98,18 @@ func (p *progress) at(level Logging) bool {
 }
 
 func (p *progress) status(format string, args ...any) {
-	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secrets)})
+	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secretSet())})
 }
 
 func (p *progress) record(format string, args ...any) {
-	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secrets), Persistent: true})
+	p.emit(Progress{Message: redact(fmt.Sprintf(format, args...), p.secretSet()), Persistent: true})
 }
 
-// quote returns s, without hidden names, redacted, on one line and shortened to n runes.
-// Redacting first keeps a secret that the shortening would cut from slipping through.
+// quote returns s, redacted, without hidden names, on one line and shortened to n runes.
+// Redacting first keeps a secret that the shortening would cut, or a hidden name inside it
+// would split, from slipping through.
 func (p *progress) quote(s string, n int) string {
-	return truncate(redact(p.names.hide(s), p.secrets), n)
+	return truncate(p.names.hide(redact(s, p.secretSet())), n)
 }
 
 // name returns a name of the configuration, or what it stands for ("an agent") when names are
@@ -208,9 +220,15 @@ func (p *progress) summary(res *Result) {
 	if len(res.RejectedToolCalls) > 0 {
 		calls += fmt.Sprintf(" (%d rejected)", len(res.RejectedToolCalls))
 	}
+	// The cost counts usage billed per token; the plans that paid for the rest are named after it.
 	cost := "no cost estimate (no known pricing for the models)"
-	if res.Usage.Cost > 0 {
+	switch {
+	case res.Usage.Cost > 0 && res.costNote != "":
+		cost = fmt.Sprintf("estimated cost $%.4f, and usage %s", res.Usage.Cost, res.costNote)
+	case res.Usage.Cost > 0:
 		cost = fmt.Sprintf("estimated cost $%.4f", res.Usage.Cost)
+	case res.costNote != "":
+		cost = "no per-token cost: " + res.costNote
 	}
 	took := time.Since(p.started)
 	if took < time.Second {
@@ -219,7 +237,7 @@ func (p *progress) summary(res *Result) {
 		took = took.Round(100 * time.Millisecond)
 	}
 	p.emit(Progress{Message: redact(fmt.Sprintf("agent run finished in %s: %s answered after %s; %d input and %d "+
-		"output tokens; %s", took, agent, calls, res.Usage.InputTokens, res.Usage.OutputTokens, cost), p.secrets),
+		"output tokens; %s", took, agent, calls, res.Usage.InputTokens, res.Usage.OutputTokens, cost), p.secretSet()),
 		Persistent: true, Summary: true})
 }
 

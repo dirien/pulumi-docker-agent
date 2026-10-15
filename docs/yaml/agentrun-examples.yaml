@@ -127,6 +127,83 @@ outputs:
   summary: ${notes.output}
   usage: ${notes.usage}
 ---
+description: A ChatGPT subscription model
+name: chatgpt-subscription
+runtime: yaml
+resources:
+  # A docker-agent agent on a ChatGPT plan (Plus, Pro or Business). Sign in once with
+  # `docker agent setup` (choose ChatGPT) on the machine that runs `pulumi up`; no API key.
+  # The models available depend on the plan: use one that `codex` lists for your account
+  # (run `codex`, then /model).
+  reviewer:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          model: chatgpt/gpt-5.5
+          instruction: You review Pulumi programs for security issues. Answer in at most five bullet points.
+          toolsets:
+            - type: filesystem
+  # Reads the files of ./infra with the read-only filesystem tools: toolApproval: deny (the
+  # default) rejects writes. The ChatGPT login is not an environment variable, so the run uses
+  # it also with inheritEnvironment: false.
+  review:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${reviewer.yaml}
+      workingDir: ./infra
+      prompt: Review the Pulumi program in this directory.
+      inheritEnvironment: false
+outputs:
+  findings: ${review.output}
+  # The run is billed to the ChatGPT plan, so usage.cost is 0.
+  usage: ${review.usage}
+---
+description: Codex on a ChatGPT plan
+name: codex
+runtime: yaml
+config:
+  # A Codex home of AgentRun's own, logged in once with a ChatGPT plan:
+  # `mkdir ~/.codex-agentrun && CODEX_HOME=~/.codex-agentrun codex login`. Set it with
+  # `pulumi config set codexHome $HOME/.codex-agentrun`.
+  codexHome:
+    type: string
+resources:
+  # The agent: Codex as a coding harness. Without harness.model, Codex uses the model of its
+  # config.toml, or its default.
+  coder:
+    type: docker-agent:index:AgentConfig
+    properties:
+      agents:
+        - name: root
+          description: Maintains the notes of a repository with Codex
+          harness:
+            type: codex
+  # Starts the codex CLI during `pulumi up` in the existing directory ./workspace. With
+  # toolApproval: deny (the default), Codex runs its commands in its workspace-write sandbox:
+  # they can write only in workingDir and the temporary directories and reach no network, but
+  # they can read every file of the user.
+  notes:
+    type: docker-agent:index:AgentRun
+    properties:
+      yaml: ${coder.yaml}
+      allowHarnessAgents: true
+      workingDir: ./workspace
+      prompt: Write NOTES.md with three bullet points about the files in this directory.
+      # Sent on reruns while `prompt` is unchanged, for example after a change of `triggers`.
+      updatePrompt: NOTES.md exists. Bring it up to date and keep its format.
+      # The CLI gets the system variables, the Codex and network variables of the environment,
+      # and `env`, so a CODEX_API_KEY of the environment cannot switch it to API billing.
+      inheritEnvironment: false
+      env:
+        CODEX_HOME: ${codexHome}
+      timeoutSeconds: 900
+outputs:
+  # Codex's final message.
+  summary: ${notes.output}
+  # usage.cost is 0 with a ChatGPT login.
+  usage: ${notes.usage}
+---
 description: One agent, several runs
 name: several-runs
 runtime: yaml

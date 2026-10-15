@@ -4,6 +4,7 @@
 package agentrun
 
 import (
+	"net/url"
 	"os"
 	"regexp"
 	"slices"
@@ -17,12 +18,17 @@ import (
 // A run's errors, warnings and logs (and the decision whether its answer is secret) use
 // a redaction set of:
 //
-//   - the values of Request.Env and Request.Secrets (secret Pulumi inputs);
+//   - the values of Request.Env, except those that are configuration, not credentials
+//     (NonSecretEnvValue), and of Request.Secrets (secret Pulumi inputs);
 //   - the values of the provider's environment variables whose names look like
 //     credentials (API keys, tokens, secrets, passwords), inherited or not, because the
 //     processes a configuration starts can see them;
 //   - the values of the variables the configuration names as `token_key` (models and
 //     providers), from Request.Env or, when inherited, the provider's environment.
+//
+// A run child (child.go) computes the set from its own environment, which without
+// Request.InheritEnvironment holds none of the provider's credentials; the provider redacts
+// everything the child sends again with its own set.
 
 // credentialName matches environment variable names that hold credentials.
 var credentialName = regexp.MustCompile(`(?i)(API_?KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASSPHRASE|CREDENTIAL|ACCESS_?KEY|PRIVATE_?KEY)`)
@@ -33,8 +39,10 @@ const minInheritedSecret = 8
 
 func redactionSet(req Request) []string {
 	out := slices.Clone(req.Secrets)
-	for _, v := range req.Env {
-		out = append(out, v)
+	for k, v := range req.Env {
+		if !NonSecretEnvValue(k, v) {
+			out = append(out, v)
+		}
 	}
 	for _, kv := range os.Environ() {
 		k, v, ok := strings.Cut(kv, "=")
@@ -50,6 +58,69 @@ func redactionSet(req Request) []string {
 		}
 	}
 	return out
+}
+
+// nonSecretEnvNames are `env` variables whose values are configuration, not credentials (a
+// region, a profile or project name, a routing flag, model auto's model, the configuration
+// directory of a coding harness), by exact name.
+var nonSecretEnvNames = []string{
+	"AWS_REGION", "AWS_DEFAULT_REGION", "AWS_PROFILE",
+	"GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION", "GOOGLE_CLOUD_REGION", "GOOGLE_GENAI_USE_VERTEXAI",
+	"CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY",
+	"DOCKER_AGENT_DEFAULT_MODEL", "CAGENT_DEFAULT_MODEL",
+	"CODEX_HOME", "CLAUDE_CONFIG_DIR",
+}
+
+// nonSecretEnvURLs are `env` variables whose values are endpoints: not credentials unless the URL
+// carries some (userinfo, a query, a fragment).
+var nonSecretEnvURLs = []string{
+	"OPENAI_BASE_URL", "ANTHROPIC_BASE_URL", "GOOGLE_GEMINI_BASE_URL", "GOOGLE_VERTEX_BASE_URL", "MODEL_RUNNER_HOST",
+	"OLLAMA_HOST",
+}
+
+// NonSecretEnvValue reports whether the value of an `env` variable is configuration, not a
+// credential, and is therefore neither redacted nor a reason to store an answer as a secret: a
+// boolean (true, false, yes, no, on, off), the value of a variable of nonSecretEnvNames, or a
+// URL without userinfo, query, fragment or a path segment that looks like a token in a variable
+// of nonSecretEnvURLs. A variable whose name looks like a credential (credentialName) never
+// qualifies. Pulumi SDKs mark the whole `env` map secret, so the provider exempts only values
+// the program did not mark secret themselves, and a value of Request.Secrets stays redacted.
+func NonSecretEnvValue(name, value string) bool {
+	if credentialName.MatchString(name) || value == "" {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "false", "yes", "no", "on", "off":
+		return true
+	}
+	if slices.Contains(nonSecretEnvNames, name) {
+		return true
+	}
+	return slices.Contains(nonSecretEnvURLs, name) && plainURL(value)
+}
+
+// plainURL reports whether s is an http(s) URL with a host and without userinfo, query,
+// fragment or a path segment that looks like a token (some gateways take their key in the path,
+// https://gw.example/v1/<key>/openai), which could carry credentials.
+func plainURL(s string) bool {
+	u, err := url.Parse(strings.TrimSpace(s))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil ||
+		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.ContainsAny(s, "@?#") {
+		return false
+	}
+	return !slices.ContainsFunc(strings.Split(u.EscapedPath(), "/"), tokenLike)
+}
+
+// tokenLike reports whether a URL path segment may be a credential: 32 characters or more, or
+// 20 or more that mix letters and digits (a key, a UUID, a hash), unlike a version, a route or
+// a model name.
+func tokenLike(seg string) bool {
+	if len(seg) >= 32 {
+		return true
+	}
+	letters := strings.ContainsFunc(seg, func(r rune) bool { return 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' })
+	digits := strings.ContainsFunc(seg, func(r rune) bool { return '0' <= r && r <= '9' })
+	return len(seg) >= 20 && letters && digits
 }
 
 // tokenKeys returns the `token_key` names of a configuration's models and providers.

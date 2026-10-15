@@ -3,7 +3,9 @@ module github.com/dirien/pulumi-docker-agent/provider
 go 1.27
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/docker/cli v29.8.1+incompatible
 	github.com/docker/docker-agent v1.150.0
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/goccy/go-yaml v1.19.2
@@ -27,7 +29,6 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
-	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/JohannesKaufmann/dom v0.3.1 // indirect
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
@@ -77,7 +78,6 @@ require (
 	github.com/djherbis/times v1.5.0 // indirect
 	github.com/dlclark/regexp2/v2 v2.5.2 // indirect
 	github.com/docker/aijson v0.1.0 // indirect
-	github.com/docker/cli v29.8.1+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/docker/portcullis v1.1.0 // indirect
 	github.com/dop251/goja v0.0.0-20260917113740-793a2a65c13b // indirect

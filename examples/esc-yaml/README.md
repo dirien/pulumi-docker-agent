@@ -14,8 +14,8 @@ configuration or the shell:
     `inheritEnvironment: false`, so credentials resolve only from `env`.
   - `summary` uses an `amazon-bedrock` model with the default `inheritEnvironment: true`. `pulumi up` exports the
     environment's `environmentVariables` to the Pulumi CLI and its plugins, so the provider has the AWS credentials
-    and `AWS_REGION`. The AWS SDK that docker-agent uses for Bedrock reads its credentials from the provider's
-    process environment.
+    and `AWS_REGION`, and the run inherits them. With `inheritEnvironment: false`, pass them in `env` instead: since
+    v0.2.0 the AWS SDK that docker-agent uses for Bedrock sees only `env` then.
 
 Environments need the Pulumi Cloud backend: stacks in a file or object-storage backend cannot import them.
 

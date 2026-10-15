@@ -561,8 +561,9 @@ func TestAgentRunSecretDeletePrompt(t *testing.T) {
 	rec.reset()
 	require.NoError(t, s.Delete(p.DeleteRequest{ID: created.ID, Urn: runURN("secret-delete"), Properties: created.Properties}))
 	info := rec.messages("info")
-	require.Len(t, info, 1, "only the summary: %s", rec.all())
-	assert.Contains(t, info[0], "agent run finished")
+	require.Len(t, info, 2, "only the credential line and the summary: %s", rec.all())
+	assert.Equal(t, "models: fake/fake-model (FAKE_API_KEY from env)", info[0])
+	assert.Contains(t, info[1], "agent run finished")
 }
 
 func TestAgentRunDeleteBeforeReplace(t *testing.T) {
@@ -750,7 +751,8 @@ func TestAgentRunHarness(t *testing.T) {
 	assert.True(t, state.Get("env").Secret())
 	assert.Equal(t, "Write", state.Get("toolCalls").AsArray().Get(0).AsString())
 	assert.Equal(t, 15040.0, state.Get("usage").AsMap().Get("inputTokens").AsNumber())
-	assert.Equal(t, 0.0123, state.Get("usage").AsMap().Get("cost").AsNumber())
+	// CLAUDE_CODE_OAUTH_TOKEN: a Claude subscription bills no per-token cost (codex review #1).
+	assert.Equal(t, 0.0, state.Get("usage").AsMap().Get("cost").AsNumber())
 	assert.FileExists(t, filepath.Join(dir, "NOTES.md"))
 	logged, err := os.ReadFile(claudeLog)
 	require.NoError(t, err, "the fake claude ran")

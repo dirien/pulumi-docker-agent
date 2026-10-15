@@ -86,7 +86,12 @@ func kinfoEntry(k *unix.KinfoProc) procEntry {
 }
 
 // sessionOf returns the session of a process, -1 when it cannot be read (the process ended,
-// or is a zombie).
+// or is a zombie). XNU's getsid reads the session of any process, also of one in another
+// session or of another user: it fails only with ESRCH, and does not use POSIX's permission to
+// refuse a process of another session with EPERM (bsd/kern/kern_prot.c). kinfo_proc carries
+// no session ID (only a kernel pointer, e_sess), so getsid is the source; a session that
+// cannot be read leaves the process out of the run child's session sweep (descendants.go),
+// which logs that at debug level.
 func sessionOf(pid int) int {
 	sid, err := unix.Getsid(pid)
 	if err != nil {
