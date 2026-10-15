@@ -45,20 +45,20 @@ The tokens are `docker-agent:index:<Name>`. The provider configuration is `regis
 | Python | [`ediri_docker_agent`](https://pypi.org/project/ediri_docker_agent/) | `pip install ediri_docker_agent` |
 | Go | [`github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent`](https://pkg.go.dev/github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent) | `go get github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent` |
 | .NET | [`ediri.DockerAgent`](https://www.nuget.org/packages/ediri.DockerAgent) | `dotnet add package ediri.DockerAgent` |
-| Java | [`io.github.dirien:docker-agent`](https://central.sonatype.com/artifact/io.github.dirien/docker-agent), package `io.github.dirien.dockeragent` | Gradle `implementation "io.github.dirien:docker-agent:0.1.0"`, or the same coordinates in Maven. Not on Maven Central yet: until Java publishing is turned on, generate the SDK locally ([details](https://github.com/dirien/pulumi-docker-agent/blob/main/docs/installation-configuration.md#java)). |
+| Java | [`io.github.dirien:docker-agent`](https://central.sonatype.com/artifact/io.github.dirien/docker-agent), package `io.github.dirien.dockeragent` | Gradle `implementation "io.github.dirien:docker-agent:0.2.0"`, or the same coordinates in Maven. Not on Maven Central yet: until Java publishing is turned on, generate the SDK locally ([details](https://github.com/dirien/pulumi-docker-agent/blob/main/docs/installation-configuration.md#java)). |
 | Pulumi YAML | none | Install the plugin (below) and use the `docker-agent:index:<Name>` tokens. |
-| Pulumi HCL | none | Declare `docker-agent = { source = "pulumi/docker-agent", version = "0.1.0" }` in `required_providers`, install the plugin (below), then run `pulumi install` ([details](https://github.com/dirien/pulumi-docker-agent/blob/main/docs/installation-configuration.md#hcl)). |
+| Pulumi HCL | none | Declare `docker-agent = { source = "pulumi/docker-agent", version = "0.2.0" }` in `required_providers`, install the plugin (below), then run `pulumi install` ([details](https://github.com/dirien/pulumi-docker-agent/blob/main/docs/installation-configuration.md#hcl)). |
 
 The SDKs download the provider plugin from the GitHub release on first use. Pulumi HCL programs need it installed once by hand, because a `required_providers` source does not say where the plugin is published (or a committed package descriptor, see [HCL](https://github.com/dirien/pulumi-docker-agent/blob/main/docs/installation-configuration.md#hcl)). The same command preinstalls it in a CI image:
 
 ```bash
-pulumi plugin install resource docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi plugin install resource docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent
 ```
 
 The converter for `pulumi convert --from docker-agent` and `pulumi import --from docker-agent` is a separate plugin of the same release:
 
 ```bash
-pulumi plugin install converter docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi plugin install converter docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent
 ```
 
 ## Quick start

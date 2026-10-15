@@ -52,7 +52,7 @@ The Java SDK is published to Maven Central as `io.github.dirien:docker-agent`; i
 
 ```groovy
 dependencies {
-    implementation "io.github.dirien:docker-agent:0.1.0"
+    implementation "io.github.dirien:docker-agent:0.2.0"
 }
 ```
 
@@ -62,7 +62,7 @@ With Maven (`pom.xml`):
 <dependency>
     <groupId>io.github.dirien</groupId>
     <artifactId>docker-agent</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 
@@ -71,8 +71,8 @@ The SDK needs Java 11 or later and depends on `com.pulumi:pulumi` 1.x; a Pulumi 
 Java publishing starts with the first release that has the Maven Central credentials set up, so a release may exist without a Java package. If `io.github.dirien:docker-agent` is not on [Maven Central](https://central.sonatype.com/artifact/io.github.dirien/docker-agent) yet, install the plugin and generate the SDK locally from your project directory instead. `pulumi package add` records the package in `Pulumi.yaml` and prints how to use the generated SDK:
 
 ```bash
-pulumi plugin install resource docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
-pulumi package add docker-agent@0.1.0
+pulumi plugin install resource docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi package add docker-agent@0.2.0
 ```
 
 ### HCL
@@ -84,7 +84,7 @@ terraform {
   required_providers {
     docker-agent = {
       source  = "pulumi/docker-agent"
-      version = "0.1.0"
+      version = "0.2.0"
     }
   }
 }
@@ -95,11 +95,11 @@ terraform {
 The `source` names the package but not where its plugin is published, so install the plugin from the GitHub release once, then run `pulumi install`:
 
 ```bash
-pulumi plugin install resource docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi plugin install resource docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent
 pulumi install
 ```
 
-So that teammates and CI only need `pulumi install`, run `pulumi package add docker-agent@0.1.0` once after installing the plugin. It writes `sdks/dirien-docker-agent/hcl.sdk.json`, a package descriptor that records the version and the GitHub download URL; commit it, as the Pulumi HCL documentation recommends for everything under `sdks/`. `pulumi install` then downloads the plugin from that URL. A `plugin_download_url` in a `provider` block's `pulumi { }` block does not help here: it is not used when plugins are installed.
+So that teammates and CI only need `pulumi install`, run `pulumi package add docker-agent@0.2.0` once after installing the plugin. It writes `sdks/dirien-docker-agent/hcl.sdk.json`, a package descriptor that records the version and the GitHub download URL; commit it, as the Pulumi HCL documentation recommends for everything under `sdks/`. `pulumi install` then downloads the plugin from that URL. A `plugin_download_url` in a `provider` block's `pulumi { }` block does not help here: it is not used when plugins are installed.
 
 Resource and function names follow the Terraform convention, `<package>_<name in snake_case>`, and functions drop their `get` prefix:
 
@@ -187,7 +187,7 @@ The SDKs download the provider plugin from the [GitHub releases](https://github.
 pulumi plugin install resource docker-agent <version> --server github://api.github.com/dirien/pulumi-docker-agent
 ```
 
-For example, `pulumi plugin install resource docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent`. Release archives are published for Linux, macOS and Windows on `amd64` and `arm64`. The converter plugin for `pulumi convert --from docker-agent` is a separate download from the same release; see [Converting existing agent files](#converting-existing-agent-files).
+For example, `pulumi plugin install resource docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent`. Release archives are published for Linux, macOS and Windows on `amd64` and `arm64`. The converter plugin for `pulumi convert --from docker-agent` is a separate download from the same release; see [Converting existing agent files](#converting-existing-agent-files).
 
 ## Configuration
 
@@ -405,7 +405,7 @@ Relative paths are relative to the Pulumi project directory, like every other pa
 The converter is a separate plugin, released with the provider. `pulumi convert` only downloads converters that Pulumi publishes, so install it once, with the same version as the provider:
 
 ```bash
-pulumi plugin install converter docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi plugin install converter docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent
 ```
 
 Then run it in the directory that holds your agent files:

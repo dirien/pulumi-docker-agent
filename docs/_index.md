@@ -46,7 +46,7 @@ Add `io.github.dirien:docker-agent` from Maven Central to your build. The Java p
 ```groovy
 // build.gradle
 dependencies {
-    implementation "io.github.dirien:docker-agent:0.1.0"
+    implementation "io.github.dirien:docker-agent:0.2.0"
 }
 ```
 
@@ -55,15 +55,15 @@ dependencies {
 <dependency>
     <groupId>io.github.dirien</groupId>
     <artifactId>docker-agent</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 
 The Java SDK is published starting with the first release that has Maven Central publishing enabled. If `io.github.dirien:docker-agent` is not on [Maven Central](https://central.sonatype.com/artifact/io.github.dirien/docker-agent) yet, install the plugin and generate the SDK locally from your project directory instead:
 
 ```bash
-pulumi plugin install resource docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
-pulumi package add docker-agent@0.1.0
+pulumi plugin install resource docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi package add docker-agent@0.2.0
 ```
 
 {{% /choosable %}}
@@ -83,7 +83,7 @@ terraform {
   required_providers {
     docker-agent = {
       source  = "pulumi/docker-agent"
-      version = "0.1.0"
+      version = "0.2.0"
     }
   }
 }
@@ -92,7 +92,7 @@ terraform {
 Then install the plugin from its GitHub release and run `pulumi install`:
 
 ```bash
-pulumi plugin install resource docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi plugin install resource docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent
 pulumi install
 ```
 
@@ -2808,7 +2808,7 @@ pulumi import docker-agent:index:AgentArtifact published ghcr.io/my-org/agents/a
 `pulumi convert --from docker-agent` turns a whole directory of agent files (YAML and HCL) into a new project, with one `AgentConfig` per file and the comments of the files. It can also add an `AgentArtifact` and an `AgentRun` for each configuration. The converter is a separate plugin; install it once:
 
 ```bash
-pulumi plugin install converter docker-agent v0.1.0 --server github://api.github.com/dirien/pulumi-docker-agent
+pulumi plugin install converter docker-agent v0.2.0 --server github://api.github.com/dirien/pulumi-docker-agent
 pulumi convert --from docker-agent --language typescript --out ../my-agents
 ```
 
