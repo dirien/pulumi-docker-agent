@@ -5,7 +5,7 @@ go 1.27
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/docker/cli v29.8.1+incompatible
+	github.com/docker/cli v29.9.0+incompatible
 	github.com/docker/docker-agent v1.150.0
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/goccy/go-yaml v1.19.2
