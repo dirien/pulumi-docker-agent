@@ -457,8 +457,8 @@ github.com/pulumi/pulumi-go-provider v1.7.0 h1:wrkDxqcHQTO3CjAjDqjBfYxQCMUNaYLbK
 github.com/pulumi/pulumi-go-provider v1.7.0/go.mod h1:FIiR3Z9U1Qqk/qAGkctluJDFqMK9NWhj9qDJ9+AIVzs=
 github.com/pulumi/pulumi/pkg/v3 v3.268.0 h1:8l5w5cMakmndyGuiJ4zvtqwAN3bikfNq86vwtQSNkYE=
 github.com/pulumi/pulumi/pkg/v3 v3.268.0/go.mod h1:dx502XfNvWUqvSStxoCKA7QeEVh6+Q7jg/p+kHiCyos=
-github.com/pulumi/pulumi/sdk/v3 v3.268.0 h1:j9XuukM7q4Y3cqAxVXr9LCx82Nn7OxqsNrB8y7Y+jUg=
-github.com/pulumi/pulumi/sdk/v3 v3.268.0/go.mod h1:dRCRPrTZKXAp5XwcX+rKzrSBvDqmoCcrPVB1zwzIpao=
+github.com/pulumi/pulumi/sdk/v3 v3.269.0 h1:15v/0HLz/j/A45d2P8l0xNumPcxOBXX3CeWGxMcpHmo=
+github.com/pulumi/pulumi/sdk/v3 v3.269.0/go.mod h1:aUQk7DpZpqUsxLSUUWUCzIapJNb4+Smgh81ONxIdfCo=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/rivo/uniseg v0.4.7 h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=

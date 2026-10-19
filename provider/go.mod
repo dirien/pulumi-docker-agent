@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/pulumi/pulumi-go-provider v1.7.0
 	github.com/pulumi/pulumi/pkg/v3 v3.268.0
-	github.com/pulumi/pulumi/sdk/v3 v3.268.0
+	github.com/pulumi/pulumi/sdk/v3 v3.269.0
 	github.com/rumpl/harness v0.0.0-20261007225003-7683a7eab445
 	github.com/stretchr/testify v1.12.1
 	github.com/zclconf/go-cty v1.19.0
