@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/per_tool_model_routing.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.151.0 examples/per_tool_model_routing.yaml by `make generate_config_types`. Do not edit.
 //
 // Per-Tool Model Routing Example
 //

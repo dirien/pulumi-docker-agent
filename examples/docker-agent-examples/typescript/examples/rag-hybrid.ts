@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/rag/hybrid.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.151.0 examples/rag/hybrid.yaml by `make generate_config_types`. Do not edit.
 //
 // This example demonstrates:
 // 1. Running multiple retrieval strategies in a single RAG source

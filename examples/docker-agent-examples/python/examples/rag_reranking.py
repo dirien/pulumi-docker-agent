@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/rag/reranking.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.151.0 examples/rag/reranking.yaml by `make generate_config_types`. Do not edit.
 #
 # This example demonstrates a chunked embeddings rag with final reranking of results
 #

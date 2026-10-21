@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/remote_mcp_oauth_callback_redirect.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.151.0 examples/remote_mcp_oauth_callback_redirect.yaml by `make generate_config_types`. Do not edit.
 //
 // Example: Remote MCP server with a custom OAuth callback redirect URL.
 //

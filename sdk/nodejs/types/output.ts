@@ -205,7 +205,7 @@ export interface AgentRouting {
  */
 export interface AgentRunUsage {
     /**
-     * Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+     * Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.151.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
      */
     cost: number;
     /**
@@ -1246,7 +1246,7 @@ export interface ProviderDef {
      */
     presencePenalty?: number;
     /**
-     * The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+     * The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
      */
     provider?: string;
     /**

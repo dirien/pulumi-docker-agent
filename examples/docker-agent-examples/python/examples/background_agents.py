@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/background_agents.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.151.0 examples/background_agents.yaml by `make generate_config_types`. Do not edit.
 #
 # This example demonstrates the background_agents toolset, which lets a
 # coordinator dispatch work to multiple sub-agents in parallel rather than

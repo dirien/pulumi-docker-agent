@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/remote_mcp_allow_private_ips.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.151.0 examples/remote_mcp_allow_private_ips.yaml by `make generate_config_types`. Do not edit.
 //
 // Example: Remote MCP server whose OAuth endpoints intentionally resolve to
 // internal/private addresses. Use allow_private_ips only for trusted servers.

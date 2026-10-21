@@ -771,7 +771,7 @@ class AgentRunUsage(dict):
         """
         Token usage and cost of an agent run, including sub-agents.
 
-        :param _builtins.float cost: Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+        :param _builtins.float cost: Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.151.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
         :param _builtins.int input_tokens: Prompt tokens, including cached input tokens.
         :param _builtins.int output_tokens: Completion tokens.
         """
@@ -783,7 +783,7 @@ class AgentRunUsage(dict):
     @pulumi.getter
     def cost(self) -> _builtins.float:
         """
-        Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+        Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.151.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
         """
         return pulumi.get(self, "cost")
 
@@ -4052,7 +4052,7 @@ class ProviderDef(dict):
         :param _builtins.int max_tokens: Default maximum output tokens per response for models using this provider. This is the completion budget, NOT the context window: OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
         :param _builtins.bool parallel_tool_calls: Whether to enable parallel tool calls by default.
         :param _builtins.float presence_penalty: Default presence penalty.
-        :param _builtins.str provider: The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+        :param _builtins.str provider: The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
         :param Mapping[str, Any] provider_opts: Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
         :param _builtins.int task_budget: Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
         :param _builtins.float temperature: Default sampling temperature for models using this provider.
@@ -4178,7 +4178,7 @@ class ProviderDef(dict):
     @pulumi.getter
     def provider(self) -> Optional[_builtins.str]:
         """
-        The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+        The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
         """
         return pulumi.get(self, "provider")
 

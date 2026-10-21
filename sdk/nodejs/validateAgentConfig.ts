@@ -6,7 +6,7 @@ import * as utilities from "./utilities";
 
 /**
  * Validates a Docker Agent YAML document with the docker-agent library the provider
- * is built with (v1.150.0), the same checks `docker agent debug config` runs plus a check
+ * is built with (v1.151.0), the same checks `docker agent debug config` runs plus a check
  * for unknown toolset types and model providers.
  *
  * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
@@ -89,7 +89,7 @@ export interface ValidateAgentConfigResult {
 }
 /**
  * Validates a Docker Agent YAML document with the docker-agent library the provider
- * is built with (v1.150.0), the same checks `docker agent debug config` runs plus a check
+ * is built with (v1.151.0), the same checks `docker agent debug config` runs plus a check
  * for unknown toolset types and model providers.
  *
  * Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns

@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/doc_generator.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.151.0 examples/doc_generator.yaml by `make generate_config_types`. Do not edit.
 
 import * as dockeragent from "@ediri/pulumi-docker-agent";
 

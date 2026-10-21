@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/structured-output-tool-mode.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.151.0 examples/structured-output-tool-mode.yaml by `make generate_config_types`. Do not edit.
 //
 // Tool-mode structured output: instead of asking the provider for native
 // structured output, the runtime exposes an internal tool whose parameters

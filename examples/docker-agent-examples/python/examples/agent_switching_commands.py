@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/agent_switching_commands.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.151.0 examples/agent_switching_commands.yaml by `make generate_config_types`. Do not edit.
 #
 # This example demonstrates slash commands that switch the active agent.
 # Type "/plan" in the TUI to hand the conversation off to the planner sub-agent,

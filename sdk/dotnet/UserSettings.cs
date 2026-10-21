@@ -275,7 +275,7 @@ namespace ediri.DockerAgent
         public Output<string> Sha256 { get; private set; } = null!;
 
         /// <summary>
-        /// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+        /// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
         /// </summary>
         [Output("skipValidation")]
         public Output<bool?> SkipValidation { get; private set; } = null!;
@@ -423,7 +423,7 @@ namespace ediri.DockerAgent
         public Input<Inputs.UserGlobalSettingsArgs>? Settings { get; set; }
 
         /// <summary>
-        /// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+        /// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
         /// </summary>
         [Input("skipValidation")]
         public Input<bool>? SkipValidation { get; set; }

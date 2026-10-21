@@ -15,3 +15,8 @@ models:
     model: gpt-6-astra
     provider_opts:
       service_tier: ultrafast
+  ultrafast-sol:
+    provider: openai
+    model: gpt-6.1-sol
+    provider_opts:
+      service_tier: ultrafast

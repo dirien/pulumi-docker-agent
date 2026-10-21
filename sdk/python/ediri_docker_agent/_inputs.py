@@ -5648,7 +5648,7 @@ class ProviderDefArgsDict(TypedDict):
     """
     provider: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+    The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
     """
     provider_opts: NotRequired[pulumi.Input[Optional[Mapping[str, Any]]]]
     """
@@ -5721,7 +5721,7 @@ class ProviderDefArgs:
         :param pulumi.Input[_builtins.int] max_tokens: Default maximum output tokens per response for models using this provider. This is the completion budget, NOT the context window: OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
         :param pulumi.Input[_builtins.bool] parallel_tool_calls: Whether to enable parallel tool calls by default.
         :param pulumi.Input[_builtins.float] presence_penalty: Default presence penalty.
-        :param pulumi.Input[_builtins.str] provider: The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+        :param pulumi.Input[_builtins.str] provider: The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
         :param pulumi.Input[Mapping[str, Any]] provider_opts: Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
         :param pulumi.Input[_builtins.int] task_budget: Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
         :param pulumi.Input[_builtins.float] temperature: Default sampling temperature for models using this provider.
@@ -5883,7 +5883,7 @@ class ProviderDefArgs:
     @pulumi.getter
     def provider(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+        The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
         """
         return pulumi.get(self, "provider")
 

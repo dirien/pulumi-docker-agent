@@ -662,7 +662,7 @@ func (o AgentRoutingPtrOutput) Extra() pulumi.MapOutput {
 
 // Token usage and cost of an agent run, including sub-agents.
 type AgentRunUsage struct {
-	// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+	// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.151.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
 	Cost float64 `pulumi:"cost"`
 	// Prompt tokens, including cached input tokens.
 	InputTokens int `pulumi:"inputTokens"`
@@ -685,7 +685,7 @@ func (o AgentRunUsageOutput) ToAgentRunUsageOutputWithContext(ctx context.Contex
 	return o
 }
 
-// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.151.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
 func (o AgentRunUsageOutput) Cost() pulumi.Float64Output {
 	return o.ApplyT(func(v AgentRunUsage) float64 { return v.Cost }).(pulumi.Float64Output)
 }
@@ -6434,7 +6434,7 @@ type ProviderDef struct {
 	ParallelToolCalls *bool `pulumi:"parallelToolCalls"`
 	// Default presence penalty.
 	PresencePenalty *float64 `pulumi:"presencePenalty"`
-	// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+	// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
 	Provider *string `pulumi:"provider"`
 	// Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
 	ProviderOpts map[string]interface{} `pulumi:"providerOpts"`
@@ -6487,7 +6487,7 @@ type ProviderDefArgs struct {
 	ParallelToolCalls pulumi.BoolPtrInput `pulumi:"parallelToolCalls"`
 	// Default presence penalty.
 	PresencePenalty pulumi.Float64PtrInput `pulumi:"presencePenalty"`
-	// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+	// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
 	Provider pulumi.StringPtrInput `pulumi:"provider"`
 	// Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
 	ProviderOpts pulumi.MapInput `pulumi:"providerOpts"`
@@ -6606,7 +6606,7 @@ func (o ProviderDefOutput) PresencePenalty() pulumi.Float64PtrOutput {
 	return o.ApplyT(func(v ProviderDef) *float64 { return v.PresencePenalty }).(pulumi.Float64PtrOutput)
 }
 
-// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, api-route, atlascloud, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
 func (o ProviderDefOutput) Provider() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v ProviderDef) *string { return v.Provider }).(pulumi.StringPtrOutput)
 }

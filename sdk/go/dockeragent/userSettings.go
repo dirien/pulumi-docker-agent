@@ -205,7 +205,7 @@ type UserSettings struct {
 	Settings UserGlobalSettingsPtrOutput `pulumi:"settings"`
 	// The hex-encoded SHA-256 of `yaml`.
 	Sha256 pulumi.StringOutput `pulumi:"sha256"`
-	// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+	// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
 	SkipValidation pulumi.BoolPtrOutput `pulumi:"skipValidation"`
 	// The rendered configuration file, exactly as docker-agent itself writes it. After a refresh it holds the file's current content, so drift shows up in the next diff.
 	Yaml pulumi.StringOutput `pulumi:"yaml"`
@@ -276,7 +276,7 @@ type userSettingsArgs struct {
 	SandboxAllowlist []string `pulumi:"sandboxAllowlist"`
 	// Global preferences (`settings:`): TUI appearance and behaviour, notifications, the default safety mode, global permissions, hooks, keybindings and layout.
 	Settings *UserGlobalSettings `pulumi:"settings"`
-	// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+	// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
 	SkipValidation *bool `pulumi:"skipValidation"`
 }
 
@@ -304,7 +304,7 @@ type UserSettingsArgs struct {
 	SandboxAllowlist pulumi.StringArrayInput
 	// Global preferences (`settings:`): TUI appearance and behaviour, notifications, the default safety mode, global permissions, hooks, keybindings and layout.
 	Settings UserGlobalSettingsPtrInput
-	// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+	// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
 	SkipValidation pulumi.BoolPtrInput
 }
 
@@ -465,7 +465,7 @@ func (o UserSettingsOutput) Sha256() pulumi.StringOutput {
 	return o.ApplyT(func(v *UserSettings) pulumi.StringOutput { return v.Sha256 }).(pulumi.StringOutput)
 }
 
-// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+// Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
 func (o UserSettingsOutput) SkipValidation() pulumi.BoolPtrOutput {
 	return o.ApplyT(func(v *UserSettings) pulumi.BoolPtrOutput { return v.SkipValidation }).(pulumi.BoolPtrOutput)
 }

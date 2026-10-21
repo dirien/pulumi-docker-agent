@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/remote_mcp_reconnect.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.151.0 examples/remote_mcp_reconnect.yaml by `make generate_config_types`. Do not edit.
 //
 // Remote MCP streams reconnect after clean idle closes by default.
 // Set lifecycle.restart: never to opt out for a server that should not reconnect.

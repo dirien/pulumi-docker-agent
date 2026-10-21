@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/mcp_catalog.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.151.0 examples/mcp_catalog.yaml by `make generate_config_types`. Do not edit.
 #
 # An agent that can discover, enable and use any remote streamable-http
 # MCP server from the Docker MCP Catalog on demand.

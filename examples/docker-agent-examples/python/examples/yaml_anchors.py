@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/yaml-anchors.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.151.0 examples/yaml-anchors.yaml by `make generate_config_types`. Do not edit.
 #
 # This example demonstrates YAML anchors (&name), aliases (*name) and merge
 # keys (<<). Declare a value once and reuse it across agents instead of

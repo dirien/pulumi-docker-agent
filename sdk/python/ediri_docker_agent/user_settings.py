@@ -48,7 +48,7 @@ class UserSettingsArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input['UserProviderArgs']]] providers: Global model providers (`providers:`), keyed by name. docker-agent merges them into every agent configuration it loads; an agent file's own definition wins on a name conflict.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] sandbox_allowlist: Hosts (with an optional `:port`) opened in the sandbox network proxy on every sandboxed run (`sandbox_allowlist:`), in addition to the hosts docker-agent opens itself and the agent's `runtime.network_allowlist`. Commas and whitespace are rejected.
         :param pulumi.Input['UserGlobalSettingsArgs'] settings: Global preferences (`settings:`): TUI appearance and behaviour, notifications, the default safety mode, global permissions, hooks, keybindings and layout.
-        :param pulumi.Input[_builtins.bool] skip_validation: Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+        :param pulumi.Input[_builtins.bool] skip_validation: Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
         """
         if aliases is not None:
             pulumi.set(__self__, "aliases", aliases)
@@ -213,7 +213,7 @@ class UserSettingsArgs:
     @pulumi.getter(name="skipValidation")
     def skip_validation(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
-        Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+        Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
         """
         return pulumi.get(self, "skip_validation")
 
@@ -373,7 +373,7 @@ class UserSettings(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[Union['UserProviderArgs', 'UserProviderArgsDict', 'outputs.UserProvider']]]] providers: Global model providers (`providers:`), keyed by name. docker-agent merges them into every agent configuration it loads; an agent file's own definition wins on a name conflict.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] sandbox_allowlist: Hosts (with an optional `:port`) opened in the sandbox network proxy on every sandboxed run (`sandbox_allowlist:`), in addition to the hosts docker-agent opens itself and the agent's `runtime.network_allowlist`. Commas and whitespace are rejected.
         :param pulumi.Input[Union['UserGlobalSettingsArgs', 'UserGlobalSettingsArgsDict', 'outputs.UserGlobalSettings']] settings: Global preferences (`settings:`): TUI appearance and behaviour, notifications, the default safety mode, global permissions, hooks, keybindings and layout.
-        :param pulumi.Input[_builtins.bool] skip_validation: Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+        :param pulumi.Input[_builtins.bool] skip_validation: Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
         """
         ...
     @overload
@@ -710,7 +710,7 @@ class UserSettings(pulumi.CustomResource):
     @pulumi.getter(name="skipValidation")
     def skip_validation(self) -> pulumi.Output[Optional[_builtins.bool]]:
         """
-        Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+        Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.151.0.
         """
         return pulumi.get(self, "skip_validation")
 

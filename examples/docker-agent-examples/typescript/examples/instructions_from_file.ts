@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/instructions_from_file.hcl by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.151.0 examples/instructions_from_file.hcl by `make generate_config_types`. Do not edit.
 
 import * as fs from "fs";
 import * as path from "path";

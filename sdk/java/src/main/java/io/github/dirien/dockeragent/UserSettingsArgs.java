@@ -192,14 +192,14 @@ public final class UserSettingsArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.151.0.
      * 
      */
     @Import(name="skipValidation")
     private @Nullable Output<Boolean> skipValidation;
 
     /**
-     * @return Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * @return Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.151.0.
      * 
      */
     public Optional<Output<Boolean>> skipValidation() {
@@ -483,7 +483,7 @@ public final class UserSettingsArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param skipValidation Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+         * @param skipValidation Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.151.0.
          * 
          * @return builder
          * 
@@ -494,7 +494,7 @@ public final class UserSettingsArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param skipValidation Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+         * @param skipValidation Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.151.0.
          * 
          * @return builder
          * 

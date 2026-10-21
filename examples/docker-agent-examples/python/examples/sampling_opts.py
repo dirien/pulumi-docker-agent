@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/sampling-opts.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.151.0 examples/sampling-opts.yaml by `make generate_config_types`. Do not edit.
 #
 # This example shows how to use provider_opts to pass sampling parameters
 # like top_k and repetition_penalty to different providers.

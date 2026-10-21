@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/pirate.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.151.0 examples/pirate.yaml by `make generate_config_types`. Do not edit.
 # examples/pirate.hcl is the same configuration in HCL.
 
 import ediri_docker_agent as dockeragent
