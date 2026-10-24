@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/compaction_threshold.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.152.0 examples/compaction_threshold.yaml by `make generate_config_types`. Do not edit.
 //
 // Compaction Threshold Example
 //

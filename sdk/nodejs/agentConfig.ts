@@ -282,7 +282,7 @@ export class AgentConfig extends pulumi.CustomResource {
      */
     declare public readonly skills: pulumi.Output<{[key: string]: outputs.SkillSet} | undefined>;
     /**
-     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
      */
     declare public readonly skipValidation: pulumi.Output<boolean | undefined>;
     /**
@@ -432,7 +432,7 @@ export interface AgentConfigArgs {
      */
     skills?: pulumi.Input<{[key: string]: pulumi.Input<inputs.SkillSetArgs>} | undefined>;
     /**
-     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
      */
     skipValidation?: pulumi.Input<boolean | undefined>;
     /**
@@ -440,7 +440,7 @@ export interface AgentConfigArgs {
      */
     toolsets?: pulumi.Input<{[key: string]: pulumi.Input<inputs.ToolsetArgs>} | undefined>;
     /**
-     * The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
+     * The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.152.0.
      */
     version?: pulumi.Input<string | undefined>;
 }

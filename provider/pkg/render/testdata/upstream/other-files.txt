@@ -1,4 +1,4 @@
-# The example files of github.com/docker/docker-agent v1.150.0 that are not copied here.
+# The example files of github.com/docker/docker-agent v1.152.0 that are not copied here.
 README.md
 chat/main.go
 chatgpt-images.png

@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/toolset_instructions.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.152.0 examples/toolset_instructions.yaml by `make generate_config_types`. Do not edit.
 //
 // This example demonstrates how to use {ORIGINAL_INSTRUCTIONS} in a
 // toolset instruction to *enrich* the built-in instructions instead of

@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/gemini_service_tier.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.152.0 examples/gemini_service_tier.yaml by `make generate_config_types`. Do not edit.
 //
 // Gemini service tiers: flex (discounted, queued), standard, or priority.
 // Flex requests may wait up to 15 minutes before the first byte.

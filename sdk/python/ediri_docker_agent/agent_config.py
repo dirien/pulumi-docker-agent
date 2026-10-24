@@ -58,9 +58,9 @@ class AgentConfigArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input['RagSourceArgs']]] rag: Map of reusable RAG source definitions. Define RAG sources here and reference them by name from agent toolsets to avoid duplication.
         :param pulumi.Input['RuntimeDefaultsArgs'] runtime: Execution-time defaults the agent author wants applied. Values act as defaults only — explicit CLI flags or user-config settings always win.
         :param pulumi.Input[Mapping[str, pulumi.Input['SkillSetArgs']]] skills: Map of reusable, named skill groups. Define skill sets here and reference them by name from an agent's use_skills to avoid duplication.
-        :param pulumi.Input[_builtins.bool] skip_validation: Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        :param pulumi.Input[_builtins.bool] skip_validation: Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
         :param pulumi.Input[Mapping[str, pulumi.Input['ToolsetArgs']]] toolsets: Map of reusable, named toolset definitions. Define a toolset here and reference it by name from an agent's use_toolsets to share the same toolset across multiple agents.
-        :param pulumi.Input[_builtins.str] version: The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
+        :param pulumi.Input[_builtins.str] version: The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.152.0.
         """
         pulumi.set(__self__, "agents", agents)
         if budget is not None:
@@ -284,7 +284,7 @@ class AgentConfigArgs:
     @pulumi.getter(name="skipValidation")
     def skip_validation(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
-        Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
         """
         return pulumi.get(self, "skip_validation")
 
@@ -308,7 +308,7 @@ class AgentConfigArgs:
     @pulumi.getter
     def version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
+        The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.152.0.
         """
         return pulumi.get(self, "version")
 
@@ -520,9 +520,9 @@ class AgentConfig(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[Union['RagSourceArgs', 'RagSourceArgsDict', 'outputs.RagSource']]]] rag: Map of reusable RAG source definitions. Define RAG sources here and reference them by name from agent toolsets to avoid duplication.
         :param pulumi.Input[Union['RuntimeDefaultsArgs', 'RuntimeDefaultsArgsDict', 'outputs.RuntimeDefaults']] runtime: Execution-time defaults the agent author wants applied. Values act as defaults only — explicit CLI flags or user-config settings always win.
         :param pulumi.Input[Mapping[str, pulumi.Input[Union['SkillSetArgs', 'SkillSetArgsDict', 'outputs.SkillSet']]]] skills: Map of reusable, named skill groups. Define skill sets here and reference them by name from an agent's use_skills to avoid duplication.
-        :param pulumi.Input[_builtins.bool] skip_validation: Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        :param pulumi.Input[_builtins.bool] skip_validation: Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
         :param pulumi.Input[Mapping[str, pulumi.Input[Union['ToolsetArgs', 'ToolsetArgsDict', 'outputs.Toolset']]]] toolsets: Map of reusable, named toolset definitions. Define a toolset here and reference it by name from an agent's use_toolsets to share the same toolset across multiple agents.
-        :param pulumi.Input[_builtins.str] version: The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
+        :param pulumi.Input[_builtins.str] version: The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.152.0.
         """
         ...
     @overload
@@ -973,7 +973,7 @@ class AgentConfig(pulumi.CustomResource):
     @pulumi.getter(name="skipValidation")
     def skip_validation(self) -> pulumi.Output[Optional[_builtins.bool]]:
         """
-        Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
         """
         return pulumi.get(self, "skip_validation")
 

@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/github-copilot.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.152.0 examples/github-copilot.yaml by `make generate_config_types`. Do not edit.
 //
 // GitHub Copilot requires a `Copilot-Integration-Id` header on every request
 // to https://api.githubcopilot.com. docker-agent sends `copilot-developer-cli`

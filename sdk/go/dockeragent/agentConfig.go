@@ -274,7 +274,7 @@ type AgentConfig struct {
 	Sha256 pulumi.StringOutput `pulumi:"sha256"`
 	// Map of reusable, named skill groups. Define skill sets here and reference them by name from an agent's use_skills to avoid duplication.
 	Skills SkillSetMapOutput `pulumi:"skills"`
-	// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+	// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
 	SkipValidation pulumi.BoolPtrOutput `pulumi:"skipValidation"`
 	// Map of reusable, named toolset definitions. Define a toolset here and reference it by name from an agent's use_toolsets to share the same toolset across multiple agents.
 	Toolsets ToolsetMapOutput `pulumi:"toolsets"`
@@ -360,11 +360,11 @@ type agentConfigArgs struct {
 	Runtime *RuntimeDefaults `pulumi:"runtime"`
 	// Map of reusable, named skill groups. Define skill sets here and reference them by name from an agent's use_skills to avoid duplication.
 	Skills map[string]SkillSet `pulumi:"skills"`
-	// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+	// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
 	SkipValidation *bool `pulumi:"skipValidation"`
 	// Map of reusable, named toolset definitions. Define a toolset here and reference it by name from an agent's use_toolsets to share the same toolset across multiple agents.
 	Toolsets map[string]Toolset `pulumi:"toolsets"`
-	// The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
+	// The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.152.0.
 	Version *string `pulumi:"version"`
 }
 
@@ -400,11 +400,11 @@ type AgentConfigArgs struct {
 	Runtime RuntimeDefaultsPtrInput
 	// Map of reusable, named skill groups. Define skill sets here and reference them by name from an agent's use_skills to avoid duplication.
 	Skills SkillSetMapInput
-	// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+	// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
 	SkipValidation pulumi.BoolPtrInput
 	// Map of reusable, named toolset definitions. Define a toolset here and reference it by name from an agent's use_toolsets to share the same toolset across multiple agents.
 	Toolsets ToolsetMapInput
-	// The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
+	// The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.152.0.
 	Version pulumi.StringPtrInput
 }
 
@@ -595,7 +595,7 @@ func (o AgentConfigOutput) Skills() SkillSetMapOutput {
 	return o.ApplyT(func(v *AgentConfig) SkillSetMapOutput { return v.Skills }).(SkillSetMapOutput)
 }
 
-// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
 func (o AgentConfigOutput) SkipValidation() pulumi.BoolPtrOutput {
 	return o.ApplyT(func(v *AgentConfig) pulumi.BoolPtrOutput { return v.SkipValidation }).(pulumi.BoolPtrOutput)
 }
