@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/sub-agents-from-registry.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.152.0 examples/sub-agents-from-registry.yaml by `make generate_config_types`. Do not edit.
 #
 # This example demonstrates using agents from OCI registries as sub-agents.
 # Sub-agents can be defined locally in the same config, or referenced from

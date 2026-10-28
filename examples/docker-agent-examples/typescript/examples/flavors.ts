@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/flavors.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.152.0 examples/flavors.yaml by `make generate_config_types`. Do not edit.
 //
 // Flavors are named YAML patches applied on top of the rest of the file when
 // enabled at run time, in the order they are requested:

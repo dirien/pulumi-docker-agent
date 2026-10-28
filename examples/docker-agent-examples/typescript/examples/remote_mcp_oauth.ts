@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/remote_mcp_oauth.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.152.0 examples/remote_mcp_oauth.yaml by `make generate_config_types`. Do not edit.
 //
 // Example: Remote MCP server with explicit OAuth credentials.
 // Use this when connecting to MCP servers that do NOT support

@@ -368,7 +368,7 @@ namespace ediri.DockerAgent
         public Output<ImmutableDictionary<string, Outputs.SkillSet>?> Skills { get; private set; } = null!;
 
         /// <summary>
-        /// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        /// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
         /// </summary>
         [Output("skipValidation")]
         public Output<bool?> SkipValidation { get; private set; } = null!;
@@ -594,7 +594,7 @@ namespace ediri.DockerAgent
         }
 
         /// <summary>
-        /// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+        /// Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.152.0.
         /// </summary>
         [Input("skipValidation")]
         public Input<bool>? SkipValidation { get; set; }
@@ -612,7 +612,7 @@ namespace ediri.DockerAgent
         }
 
         /// <summary>
-        /// The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.150.0.
+        /// The docker-agent configuration schema version. Defaults to `"16"`, the latest version understood by docker-agent v1.152.0.
         /// </summary>
         [Input("version")]
         public Input<string>? Version { get; set; }

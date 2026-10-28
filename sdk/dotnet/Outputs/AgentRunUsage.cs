@@ -18,7 +18,7 @@ namespace ediri.DockerAgent.Outputs
     public sealed class AgentRunUsage
     {
         /// <summary>
-        /// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+        /// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.152.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
         /// </summary>
         public readonly double Cost;
         /// <summary>

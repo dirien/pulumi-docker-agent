@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/fetch_escape_html.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.152.0 examples/fetch_escape_html.yaml by `make generate_config_types`. Do not edit.
 #
 # Restore legacy HTML escaping in multi-URL JSON results.
 # Omit escape_html (or set it to false) for the token-efficient default.

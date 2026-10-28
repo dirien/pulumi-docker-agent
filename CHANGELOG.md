@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade docker-agent from v1.150.0 to v1.152.0 (configuration version `"16"`): 1 enum changed, 2 descriptions changed.
+
 ## [0.2.0] - 2026-10-15
 
 `AgentRun` runs every model provider that docker-agent v1.150.0 supports, with the credentials and SDK behaviour of `docker agent run`: API-key providers and all 26 aliases, Amazon Bedrock, Google Vertex AI, Docker Model Runner, Ollama (local and Ollama Cloud), custom OpenAI-compatible endpoints, and a ChatGPT subscription through `chatgpt/<model>`. Codex agents (`harness: {type: codex}`) run next to Claude Code agents. Each run now runs in a child process of the provider, so `inheritEnvironment: false` also holds for the model SDKs.

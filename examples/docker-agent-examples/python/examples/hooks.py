@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/hooks.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.152.0 examples/hooks.yaml by `make generate_config_types`. Do not edit.
 #
 # Hooks - one-stop example
 # ==========================================================================

@@ -214,7 +214,7 @@ export class UserSettings extends pulumi.CustomResource {
      */
     declare public /*out*/ readonly sha256: pulumi.Output<string>;
     /**
-     * Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.152.0.
      */
     declare public readonly skipValidation: pulumi.Output<boolean | undefined>;
     /**
@@ -321,7 +321,7 @@ export interface UserSettingsArgs {
      */
     settings?: pulumi.Input<inputs.UserGlobalSettingsArgs | undefined>;
     /**
-     * Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.152.0.
      */
     skipValidation?: pulumi.Input<boolean | undefined>;
 }

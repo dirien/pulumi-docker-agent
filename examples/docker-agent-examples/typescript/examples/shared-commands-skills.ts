@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/shared-commands-skills.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.152.0 examples/shared-commands-skills.yaml by `make generate_config_types`. Do not edit.
 //
 // This example demonstrates the top-level `commands` and `skills` sections.
 // Define reusable command and skill groups once, then reference them by name

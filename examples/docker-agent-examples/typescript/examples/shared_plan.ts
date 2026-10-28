@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/shared_plan.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.152.0 examples/shared_plan.yaml by `make generate_config_types`. Do not edit.
 //
 // Two agents collaborate on shared, named plans stored in a global folder
 // under the docker-agent data directory.
