@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/fetch_headers.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.154.0 examples/fetch_headers.yaml by `make generate_config_types`. Do not edit.
 //
 // Demonstrates the `headers` field on the fetch toolset. Headers are
 // attached to every request, with `${env.VAR}` expansion so secrets stay

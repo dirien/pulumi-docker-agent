@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/model_picker.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/model_picker.yaml by `make generate_config_types`. Do not edit.
 #
 # This example demonstrates the model_picker toolset, which lets the agent
 # dynamically switch between models mid-conversation. The agent can pick the

@@ -1,6 +1,6 @@
-# Generated from docker-agent v1.150.0 examples/openai-service-tier.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/openai-service-tier.yaml by `make generate_config_types`. Do not edit.
 #
-# Cost estimates use the actual response tier for supported OpenAI models.
+# Cost estimates use the actual response tier, not the requested tier or model name.
 # https://developers.openai.com/api/docs/guides/fast-mode
 # https://developers.openai.com/api/docs/guides/ultrafast-mode
 
@@ -11,7 +11,7 @@ config = dockeragent.AgentConfig(
     agents=[
         {
             "name": "root",
-            "model": "fast-gpt",  # Switch to ultrafast-astra to use Ultrafast mode.
+            "model": "fast-gpt",  # Switch to ultrafast-astra or ultrafast-sol for Ultrafast mode.
             "description": "An assistant using OpenAI Fast mode.",
             "instruction": "You are a helpful assistant.",
         },
@@ -27,6 +27,11 @@ config = dockeragent.AgentConfig(
         "ultrafast-astra": {
             "provider": "openai",
             "model": "gpt-6-astra",
+            "provider_opts": {"service_tier": "ultrafast"},
+        },
+        "ultrafast-sol": {
+            "provider": "openai",
+            "model": "gpt-6.1-sol",
             "provider_opts": {"service_tier": "ultrafast"},
         },
     },

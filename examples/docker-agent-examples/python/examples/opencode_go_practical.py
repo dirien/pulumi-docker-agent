@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/opencode-go-practical.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/opencode-go-practical.yaml by `make generate_config_types`. Do not edit.
 #
 # OpenCode Go — Practical Example
 #
@@ -9,7 +9,7 @@
 #
 # Available models:
 #   OpenAI-compatible (/v1/chat/completions):
-#     deepseek-v4-flash, deepseek-v4-pro, kimi-k2.7-code, kimi-k2.6,
+#     deepseek-v4.1-flash, deepseek-v4-pro, kimi-k2.7-code, kimi-k2.6,
 #     glm-5.2, glm-5.1, mimo-v2.5, mimo-v2.5-pro
 #
 #   Anthropic-compatible (/v1/messages) — requires a custom provider:
@@ -22,7 +22,7 @@ config = dockeragent.AgentConfig(
     agents=[
         {
             "name": "root",
-            "model": "opencode-go/deepseek-v4-flash",
+            "model": "opencode-go/deepseek-v4.1-flash",
             "description": "Go assistant for programming tasks",
             "instruction": """\
 You are an expert programming assistant.

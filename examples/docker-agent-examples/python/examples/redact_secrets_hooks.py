@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/redact_secrets_hooks.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/redact_secrets_hooks.yaml by `make generate_config_types`. Do not edit.
 #
 # Demonstrates wiring the redact_secrets builtin from YAML hooks
 # directly, instead of through the agent-level `redact_secrets` flag

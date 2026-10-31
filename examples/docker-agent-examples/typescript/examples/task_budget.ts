@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/task_budget.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.154.0 examples/task_budget.yaml by `make generate_config_types`. Do not edit.
 //
 // Anthropic `task_budget` caps the total tokens a model spends across a
 // multi-step agentic task (thinking + tool calls + final output). docker-agent

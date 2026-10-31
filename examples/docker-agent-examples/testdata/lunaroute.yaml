@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  root:
+    model: lunaroute_glm
+    description: Assistant using Lunaroute
+    instruction: |
+      You are a helpful assistant.
+    toolsets:
+      - type: filesystem
+      - type: shell
+      - type: think
+models:
+  lunaroute_glm:
+    provider: lunaroute
+    model: glm-5.3

@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/unload_on_switch.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/unload_on_switch.yaml by `make generate_config_types`. Do not edit.
 #
 # Demonstrates the `unload` on_agent_switch builtin hook.
 #

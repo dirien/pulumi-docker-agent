@@ -1,7 +1,7 @@
 version: "16"
 agents:
   root:
-    model: opencode-go/deepseek-v4-flash
+    model: opencode-go/deepseek-v4.1-flash
     description: Go assistant for programming tasks
     instruction: |
       You are an expert programming assistant.

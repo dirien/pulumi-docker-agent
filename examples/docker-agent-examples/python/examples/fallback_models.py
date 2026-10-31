@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/fallback_models.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/fallback_models.yaml by `make generate_config_types`. Do not edit.
 #
 # Example: Fallback Models for High Availability
 #

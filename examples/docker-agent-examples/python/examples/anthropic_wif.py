@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/anthropic_wif.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/anthropic_wif.yaml by `make generate_config_types`. Do not edit.
 #
 # Example: Anthropic Workload Identity Federation (WIF)
 #

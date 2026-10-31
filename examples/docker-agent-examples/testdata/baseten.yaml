@@ -12,4 +12,4 @@ agents:
 models:
   baseten_model:
     provider: baseten
-    model: deepseek-ai/DeepSeek-V3.1
+    model: deepseek-ai/DeepSeek-V4-Pro-0813

@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/env_placeholders.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.154.0 examples/env_placeholders.yaml by `make generate_config_types`. Do not edit.
 //
 // Example demonstrating environment variable placeholder expansion in commands
 //

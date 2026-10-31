@@ -1,9 +1,9 @@
-// Generated from docker-agent v1.150.0 examples/baseten.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.154.0 examples/baseten.yaml by `make generate_config_types`. Do not edit.
 
 import * as dockeragent from "@ediri/pulumi-docker-agent";
 
 export const config = new dockeragent.AgentConfig("baseten", {
-    models: { baseten_model: { provider: "baseten", model: "deepseek-ai/DeepSeek-V3.1" } },
+    models: { baseten_model: { provider: "baseten", model: "deepseek-ai/DeepSeek-V4-Pro-0813" } },
     agents: [
         {
             name: "root",

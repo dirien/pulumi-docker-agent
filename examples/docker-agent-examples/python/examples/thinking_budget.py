@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/thinking_budget.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/thinking_budget.yaml by `make generate_config_types`. Do not edit.
 #
 # Run the demo command with:
 # docker agent run thinking_budget.yaml -c demo
