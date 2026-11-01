@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/chatgpt-images.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/chatgpt-images.yaml by `make generate_config_types`. Do not edit.
 #
 # ChatGPT image input with automatic capability detection.
 # Requires ChatGPT sign-in and access to the selected model.

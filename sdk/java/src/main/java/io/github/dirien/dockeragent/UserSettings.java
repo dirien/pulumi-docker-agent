@@ -397,14 +397,14 @@ public class UserSettings extends com.pulumi.resources.CustomResource {
         return this.sha256;
     }
     /**
-     * Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.154.0.
      * 
      */
     @Export(name="skipValidation", refs={Boolean.class}, tree="[0]")
     private Output</* @Nullable */ Boolean> skipValidation;
 
     /**
-     * @return Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * @return Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.154.0.
      * 
      */
     public Output<Optional<Boolean>> skipValidation() {

@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/mcp_catalog_filtered.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.154.0 examples/mcp_catalog_filtered.yaml by `make generate_config_types`. Do not edit.
 //
 // An agent that exposes only a curated subset of the Docker MCP Catalog.
 //

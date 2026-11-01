@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/url_commands.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.154.0 examples/url_commands.yaml by `make generate_config_types`. Do not edit.
 //
 // This example demonstrates slash commands that open a URL in the user's
 // default browser instead of sending a prompt to the agent.

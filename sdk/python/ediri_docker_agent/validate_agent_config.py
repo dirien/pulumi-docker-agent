@@ -98,7 +98,7 @@ def validate_agent_config(yaml: Optional[_builtins.str] = None,
                           opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableValidateAgentConfigResult:
     """
     Validates a Docker Agent YAML document with the docker-agent library the provider
-    is built with (v1.150.0), the same checks `docker agent debug config` runs plus a check
+    is built with (v1.154.0), the same checks `docker agent debug config` runs plus a check
     for unknown toolset types and model providers.
 
     Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns
@@ -151,7 +151,7 @@ def validate_agent_config_output(yaml: pulumi.Input[Optional[_builtins.str]] = N
                                  opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[ValidateAgentConfigResult]:
     """
     Validates a Docker Agent YAML document with the docker-agent library the provider
-    is built with (v1.150.0), the same checks `docker agent debug config` runs plus a check
+    is built with (v1.154.0), the same checks `docker agent debug config` runs plus a check
     for unknown toolset types and model providers.
 
     Use it for agent files you keep as raw YAML. The function never fails on an invalid document; it returns

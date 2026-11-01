@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/shared-toolsets.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/shared-toolsets.yaml by `make generate_config_types`. Do not edit.
 #
 # This example demonstrates how to use the top-level `toolsets` section to
 # define toolsets once and reuse them across multiple agents via `use_toolsets`,

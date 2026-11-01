@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/pr-reviewer-bedrock.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.154.0 examples/pr-reviewer-bedrock.yaml by `make generate_config_types`. Do not edit.
 //
 // PR Review Toolkit - mirrors Claude Code's pr-review-toolkit plugin
 // Usage: docker agent run examples/pr-reviewer-bedrock.yaml "please review my PR: https://github.com/docker/docker-agent/pull/1045"

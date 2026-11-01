@@ -13,7 +13,8 @@ import java.util.StringJoiner;
         ClaudeCode("claude-code"),
         Codex("codex"),
         Pi("pi"),
-        OpenCode("opencode");
+        OpenCode("opencode"),
+        CommandCode("command-code");
 
         private final String value;
 

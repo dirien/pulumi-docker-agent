@@ -99,6 +99,7 @@ class HarnessType(_builtins.str, Enum):
     CODEX = "codex"
     PI = "pi"
     OPEN_CODE = "opencode"
+    COMMAND_CODE = "command-code"
 
 
 @pulumi.type_token("docker-agent:index:HookErrorPolicy")

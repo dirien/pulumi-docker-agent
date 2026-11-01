@@ -1,4 +1,4 @@
-// Generated from docker-agent v1.150.0 examples/fetch_domain_filtering.yaml by `make generate_config_types`. Do not edit.
+// Generated from docker-agent v1.154.0 examples/fetch_domain_filtering.yaml by `make generate_config_types`. Do not edit.
 //
 // Demonstrates domain filtering for the fetch tool. The agent is only allowed
 // to fetch URLs whose host matches one of the entries in `allowed_domains`

@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/gopher.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/gopher.yaml by `make generate_config_types`. Do not edit.
 # examples/gopher.hcl is the same configuration in HCL.
 
 import ediri_docker_agent as dockeragent

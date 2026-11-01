@@ -1,11 +1,14 @@
-# Generated from docker-agent v1.150.0 examples/baseten.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.154.0 examples/baseten.yaml by `make generate_config_types`. Do not edit.
 
 import ediri_docker_agent as dockeragent
 
 config = dockeragent.AgentConfig(
     "baseten",
     models={
-        "baseten_model": {"provider": "baseten", "model": "deepseek-ai/DeepSeek-V3.1"},
+        "baseten_model": {
+            "provider": "baseten",
+            "model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+        },
     },
     agents=[
         {
