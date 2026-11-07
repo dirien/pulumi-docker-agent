@@ -1,0 +1,28 @@
+version: "16"
+agents:
+  root:
+    model: qwen_replay
+    description: Main assistant, replaying its own reasoning
+    instruction: |
+      You are a helpful AI assistant. Be concise and helpful in your responses.
+  analyst:
+    model: qwen_no_replay
+    description: Sub-agent that starts each turn from scratch
+    instruction: |
+      You are a specialized assistant for specific tasks.
+models:
+  qwen_no_replay:
+    provider: local_vllm
+    model: qwen3-30b-a3b
+    provider_opts:
+      replay_reasoning: false
+  qwen_replay:
+    provider: local_vllm
+    model: qwen3-30b-a3b
+    provider_opts:
+      replay_reasoning: true
+providers:
+  local_vllm:
+    provider: openai
+    api_type: openai_chatcompletions
+    base_url: http://localhost:8000/v1
