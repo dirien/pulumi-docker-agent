@@ -123,12 +123,12 @@ jobs:
             provider/go.sum
             sdk/go.sum
       - name: Install pulumictl
-        uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8 # v3.0.0
+        uses: jaxxstorm/action-install-gh-release@b82b2052fdf822192f2119b7e289a6f63e668bc8 # v4.0.0
         with:
           repo: pulumi/pulumictl
           tag: v0.0.50
       - name: Install Pulumi CLI
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           pulumi-version-file: .pulumi.version
       - name: Setup Node
@@ -136,11 +136,11 @@ jobs:
         with:
           node-version: 22.x
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
 
@@ -215,7 +215,7 @@ jobs:
           persist-credentials: false
       - name: Download the upgrade result
         continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: upgrade-docker-agent
           path: ${{ runner.temp }}/upgrade
