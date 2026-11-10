@@ -5,7 +5,7 @@ go 1.27
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/docker/cli v29.8.1+incompatible
+	github.com/docker/cli v29.9.3+incompatible
 	github.com/docker/docker-agent v1.150.0
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/goccy/go-yaml v1.19.2
@@ -16,9 +16,9 @@ require (
 	github.com/pulumi/pulumi/sdk/v3 v3.268.0
 	github.com/rumpl/harness v0.0.0-20261007225003-7683a7eab445
 	github.com/stretchr/testify v1.12.1
-	github.com/zclconf/go-cty v1.19.0
-	golang.org/x/sys v0.49.0
-	google.golang.org/grpc v1.84.0
+	github.com/zclconf/go-cty v1.20.0
+	golang.org/x/sys v0.50.0
+	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -213,7 +213,7 @@ require (
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
