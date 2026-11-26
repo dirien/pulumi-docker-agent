@@ -1163,7 +1163,7 @@ namespace ediri.DockerAgent
     public sealed class GetAgentsIgnoreResult
     {
         /// <summary>
-        /// The comment block at the top of the file, without the ` #  ` prefixes.
+        /// The comment block at the top of the file, without the `# ` prefixes.
         /// </summary>
         public readonly string? Comment;
         /// <summary>

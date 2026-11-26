@@ -121,7 +121,7 @@ namespace ediri.DockerAgent
         public Output<string?> BackupPath { get; private set; } = null!;
 
         /// <summary>
-        /// A comment written at the top of the file. Each line is prefixed with ` #  `.
+        /// A comment written at the top of the file. Each line is prefixed with `# `.
         /// </summary>
         [Output("comment")]
         public Output<string?> Comment { get; private set; } = null!;
@@ -209,7 +209,7 @@ namespace ediri.DockerAgent
     public sealed class AgentsIgnoreArgs : global::Pulumi.ResourceArgs
     {
         /// <summary>
-        /// A comment written at the top of the file. Each line is prefixed with ` #  `.
+        /// A comment written at the top of the file. Each line is prefixed with `# `.
         /// </summary>
         [Input("comment")]
         public Input<string>? Comment { get; set; }
