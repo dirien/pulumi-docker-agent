@@ -33,6 +33,14 @@ namespace ediri.DockerAgent.Outputs
         /// When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
         /// </summary>
         public readonly bool? Sandbox;
+        /// <summary>
+        /// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+        /// </summary>
+        public readonly string? StreamIdleTimeout;
+        /// <summary>
+        /// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+        /// </summary>
+        public readonly int? StreamIdleTimeoutInt;
 
         [OutputConstructor]
         private RuntimeDefaults(
@@ -42,12 +50,18 @@ namespace ediri.DockerAgent.Outputs
 
             ediri.DockerAgent.SafetyMode? safety,
 
-            bool? sandbox)
+            bool? sandbox,
+
+            string? streamIdleTimeout,
+
+            int? streamIdleTimeoutInt)
         {
             Extra = extra;
             NetworkAllowlist = networkAllowlist;
             Safety = safety;
             Sandbox = sandbox;
+            StreamIdleTimeout = streamIdleTimeout;
+            StreamIdleTimeoutInt = streamIdleTimeoutInt;
         }
     }
 }

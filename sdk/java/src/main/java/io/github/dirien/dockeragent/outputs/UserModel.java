@@ -9,6 +9,7 @@ import io.github.dirien.dockeragent.outputs.UserModelCapabilities;
 import io.github.dirien.dockeragent.outputs.UserModelCost;
 import io.github.dirien.dockeragent.outputs.UserModelOutputCapabilities;
 import io.github.dirien.dockeragent.outputs.UserModelRoutingRule;
+import io.github.dirien.dockeragent.outputs.UserStreamIdleTimeout;
 import io.github.dirien.dockeragent.outputs.UserTaskBudget;
 import io.github.dirien.dockeragent.outputs.UserThinkingBudget;
 import java.lang.Boolean;
@@ -54,6 +55,11 @@ public final class UserModel {
      * 
      */
     private @Nullable Double compactionThreshold;
+    /**
+     * @return The context window of the model in tokens, overriding the built-in catalog.
+     * 
+     */
+    private @Nullable Integer contextWindow;
     /**
      * @return Prices per million tokens, used for cost tracking.
      * 
@@ -114,6 +120,11 @@ public final class UserModel {
      * 
      */
     private @Nullable List<UserModelRoutingRule> routing;
+    /**
+     * @return The maximum idle time between two chunks of the model&#39;s stream.
+     * 
+     */
+    private @Nullable UserStreamIdleTimeout streamIdleTimeout;
     /**
      * @return Total token budget for an agentic task (Anthropic `task_budget`).
      * 
@@ -192,6 +203,13 @@ public final class UserModel {
      */
     public Optional<Double> compactionThreshold() {
         return Optional.ofNullable(this.compactionThreshold);
+    }
+    /**
+     * @return The context window of the model in tokens, overriding the built-in catalog.
+     * 
+     */
+    public Optional<Integer> contextWindow() {
+        return Optional.ofNullable(this.contextWindow);
     }
     /**
      * @return Prices per million tokens, used for cost tracking.
@@ -278,6 +296,13 @@ public final class UserModel {
         return this.routing == null ? List.of() : this.routing;
     }
     /**
+     * @return The maximum idle time between two chunks of the model&#39;s stream.
+     * 
+     */
+    public Optional<UserStreamIdleTimeout> streamIdleTimeout() {
+        return Optional.ofNullable(this.streamIdleTimeout);
+    }
+    /**
      * @return Total token budget for an agentic task (Anthropic `task_budget`).
      * 
      */
@@ -342,6 +367,7 @@ public final class UserModel {
         private @Nullable UserModelCapabilities capabilities;
         private @Nullable String compactionModel;
         private @Nullable Double compactionThreshold;
+        private @Nullable Integer contextWindow;
         private @Nullable UserModelCost cost;
         private @Nullable String description;
         private @Nullable List<String> firstAvailable;
@@ -354,6 +380,7 @@ public final class UserModel {
         private @Nullable String provider;
         private @Nullable Map<String,Object> providerOpts;
         private @Nullable List<UserModelRoutingRule> routing;
+        private @Nullable UserStreamIdleTimeout streamIdleTimeout;
         private @Nullable UserTaskBudget taskBudget;
         private @Nullable Double temperature;
         private @Nullable UserThinkingBudget thinkingBudget;
@@ -370,6 +397,7 @@ public final class UserModel {
     	      this.capabilities = defaults.capabilities;
     	      this.compactionModel = defaults.compactionModel;
     	      this.compactionThreshold = defaults.compactionThreshold;
+    	      this.contextWindow = defaults.contextWindow;
     	      this.cost = defaults.cost;
     	      this.description = defaults.description;
     	      this.firstAvailable = defaults.firstAvailable;
@@ -382,6 +410,7 @@ public final class UserModel {
     	      this.provider = defaults.provider;
     	      this.providerOpts = defaults.providerOpts;
     	      this.routing = defaults.routing;
+    	      this.streamIdleTimeout = defaults.streamIdleTimeout;
     	      this.taskBudget = defaults.taskBudget;
     	      this.temperature = defaults.temperature;
     	      this.thinkingBudget = defaults.thinkingBudget;
@@ -425,6 +454,12 @@ public final class UserModel {
         public Builder compactionThreshold(@Nullable Double compactionThreshold) {
 
             this.compactionThreshold = compactionThreshold;
+            return this;
+        }
+        @CustomType.Setter
+        public Builder contextWindow(@Nullable Integer contextWindow) {
+
+            this.contextWindow = contextWindow;
             return this;
         }
         @CustomType.Setter
@@ -506,6 +541,12 @@ public final class UserModel {
             return routing(List.of(routing));
         }
         @CustomType.Setter
+        public Builder streamIdleTimeout(@Nullable UserStreamIdleTimeout streamIdleTimeout) {
+
+            this.streamIdleTimeout = streamIdleTimeout;
+            return this;
+        }
+        @CustomType.Setter
         public Builder taskBudget(@Nullable UserTaskBudget taskBudget) {
 
             this.taskBudget = taskBudget;
@@ -555,6 +596,7 @@ public final class UserModel {
             _resultValue.capabilities = capabilities;
             _resultValue.compactionModel = compactionModel;
             _resultValue.compactionThreshold = compactionThreshold;
+            _resultValue.contextWindow = contextWindow;
             _resultValue.cost = cost;
             _resultValue.description = description;
             _resultValue.firstAvailable = firstAvailable;
@@ -567,6 +609,7 @@ public final class UserModel {
             _resultValue.provider = provider;
             _resultValue.providerOpts = providerOpts;
             _resultValue.routing = routing;
+            _resultValue.streamIdleTimeout = streamIdleTimeout;
             _resultValue.taskBudget = taskBudget;
             _resultValue.temperature = temperature;
             _resultValue.thinkingBudget = thinkingBudget;

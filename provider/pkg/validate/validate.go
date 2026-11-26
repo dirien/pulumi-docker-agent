@@ -15,6 +15,7 @@ import (
 
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	"github.com/docker/docker-agent/pkg/environment"
 	"gopkg.in/yaml.v3"
 )
@@ -66,7 +67,7 @@ func Validate(ctx context.Context, name string, yamlDoc []byte) (res Result) {
 
 func validate(ctx context.Context, name string, yamlDoc []byte) Result {
 	res := Result{}
-	cfg, err := config.Load(ctx, config.NewBytesSource(name, yamlDoc))
+	cfg, err := config.Load(ctx, config.NewBytesSource(name, yamlDoc), config.WithVersions(legacy.Register))
 	if err != nil {
 		res.setProblems(problems(ctx, name, yamlDoc, err))
 		// Still report the agent names when the document is at least well-formed YAML.
@@ -125,7 +126,7 @@ func hasToolset(t string) bool {
 // environment so that the result does not depend on the machine running Pulumi.
 func requiredEnvVars(ctx context.Context, cfg *latest.Config) []string {
 	vars := config.GatherEnvVarsForModels(ctx, cfg, environment.NewNoEnvProvider())
-	vars = append(vars, config.GatherEnvVarsForEvaluators(cfg)...)
+	vars = append(vars, config.RequiredEvaluatorEnvVars(cfg)...)
 	vars = slices.DeleteFunc(vars, func(s string) bool { return s == "" })
 	slices.Sort(vars)
 	return slices.Compact(vars)

@@ -18,6 +18,14 @@ namespace ediri.DockerAgent.Outputs
     public sealed class UserGlobalSettings
     {
         /// <summary>
+        /// Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+        /// </summary>
+        public readonly bool? BackgroundCompaction;
+        /// <summary>
+        /// The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+        /// </summary>
+        public readonly int? BackgroundCompactionThreshold;
+        /// <summary>
         /// What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         /// </summary>
         public readonly ediri.DockerAgent.BusySendMode? BusySendMode;
@@ -30,9 +38,17 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly bool? ExpandThinking;
         /// <summary>
+        /// Opt-in experimental features (`experimental`). Every feature is off by default.
+        /// </summary>
+        public readonly Outputs.UserExperimentalSettings? Experimental;
+        /// <summary>
         /// Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
         /// </summary>
         public readonly ImmutableDictionary<string, object>? Extra;
+        /// <summary>
+        /// Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+        /// </summary>
+        public readonly bool? FadeScrollEdges;
         /// <summary>
         /// Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
         /// </summary>
@@ -46,6 +62,10 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly ediri.DockerAgent.InterruptConfirmation? InterruptConfirmation;
         /// <summary>
+        /// Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+        /// </summary>
+        public readonly bool? KeepAwake;
+        /// <summary>
         /// Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
         /// </summary>
         public readonly ImmutableArray<Outputs.UserKeybinding> Keybindings;
@@ -57,6 +77,10 @@ namespace ediri.DockerAgent.Outputs
         /// Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
         /// </summary>
         public readonly bool? Lean;
+        /// <summary>
+        /// In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+        /// </summary>
+        public readonly bool? LeanFullFilePreview;
         /// <summary>
         /// Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
         /// </summary>
@@ -110,6 +134,10 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly string? ThemeLight;
         /// <summary>
+        /// Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+        /// </summary>
+        public readonly bool? TopMargin;
+        /// <summary>
         /// Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
         /// </summary>
         public readonly bool? WarnOnCacheMiss;
@@ -120,13 +148,21 @@ namespace ediri.DockerAgent.Outputs
 
         [OutputConstructor]
         private UserGlobalSettings(
+            bool? backgroundCompaction,
+
+            int? backgroundCompactionThreshold,
+
             ediri.DockerAgent.BusySendMode? busySendMode,
 
             bool? cacheStablePrompts,
 
             bool? expandThinking,
 
+            Outputs.UserExperimentalSettings? experimental,
+
             ImmutableDictionary<string, object>? extra,
+
+            bool? fadeScrollEdges,
 
             bool? hideToolResults,
 
@@ -134,11 +170,15 @@ namespace ediri.DockerAgent.Outputs
 
             ediri.DockerAgent.InterruptConfirmation? interruptConfirmation,
 
+            bool? keepAwake,
+
             ImmutableArray<Outputs.UserKeybinding> keybindings,
 
             Outputs.UserLayoutSettings? layout,
 
             bool? lean,
+
+            bool? leanFullFilePreview,
 
             Outputs.UserPermissions? permissions,
 
@@ -166,20 +206,28 @@ namespace ediri.DockerAgent.Outputs
 
             string? themeLight,
 
+            bool? topMargin,
+
             bool? warnOnCacheMiss,
 
             bool? yolo)
         {
+            BackgroundCompaction = backgroundCompaction;
+            BackgroundCompactionThreshold = backgroundCompactionThreshold;
             BusySendMode = busySendMode;
             CacheStablePrompts = cacheStablePrompts;
             ExpandThinking = expandThinking;
+            Experimental = experimental;
             Extra = extra;
+            FadeScrollEdges = fadeScrollEdges;
             HideToolResults = hideToolResults;
             Hooks = hooks;
             InterruptConfirmation = interruptConfirmation;
+            KeepAwake = keepAwake;
             Keybindings = keybindings;
             Layout = layout;
             Lean = lean;
+            LeanFullFilePreview = leanFullFilePreview;
             Permissions = permissions;
             RenderImages = renderImages;
             RestoreTabs = restoreTabs;
@@ -193,6 +241,7 @@ namespace ediri.DockerAgent.Outputs
             Theme = theme;
             ThemeDark = themeDark;
             ThemeLight = themeLight;
+            TopMargin = topMargin;
             WarnOnCacheMiss = warnOnCacheMiss;
             Yolo = yolo;
         }

@@ -190,8 +190,6 @@ import javax.annotation.Nullable;
  * import io.github.dirien.dockeragent.inputs.HooksArgs;
  * import io.github.dirien.dockeragent.inputs.HookDefinitionArgs;
  * import io.github.dirien.dockeragent.inputs.BudgetArgs;
- * import io.github.dirien.dockeragent.enums.HookType;
- * import io.github.dirien.dockeragent.enums.SafetyMode;
  * import java.util.ArrayList;
  * import java.util.Arrays;
  * import java.util.Map;
@@ -209,7 +207,7 @@ import javax.annotation.Nullable;
  *         var sandboxed = new AgentConfig("sandboxed", AgentConfigArgs.builder()
  *             .runtime(RuntimeDefaultsArgs.builder()
  *                 .sandbox(true)
- *                 .safety(SafetyMode.Restricted)
+ *                 .safety(io.github.dirien.dockeragent.enums.SafetyMode.Restricted)
  *                 .networkAllowlist(
  *                     "api.github.com",
  *                     "registry.npmjs.org:443")
@@ -230,7 +228,7 @@ import javax.annotation.Nullable;
  *                         .build())
  *                 .hooks(HooksArgs.builder()
  *                     .sessionStart(HookDefinitionArgs.builder()
- *                         .type(HookType.Builtin)
+ *                         .type(io.github.dirien.dockeragent.enums.HookType.Builtin)
  *                         .command("add_environment_info")
  *                         .build())
  *                     .build())
@@ -551,14 +549,14 @@ public class AgentConfig extends com.pulumi.resources.CustomResource {
         return Codegen.optional(this.skills);
     }
     /**
-     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.166.0.
      * 
      */
     @Export(name="skipValidation", refs={Boolean.class}, tree="[0]")
     private Output</* @Nullable */ Boolean> skipValidation;
 
     /**
-     * @return Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.150.0.
+     * @return Skip validating the rendered YAML with the docker-agent library, and accept enum values (such as a `safety` mode) that this provider version does not list. Use it for configurations that rely on docker-agent features newer than v1.166.0.
      * 
      */
     public Output<Optional<Boolean>> skipValidation() {

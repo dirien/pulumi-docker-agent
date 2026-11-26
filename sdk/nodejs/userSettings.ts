@@ -143,6 +143,16 @@ export class UserSettings extends pulumi.CustomResource {
         return new UserSettings(name, undefined as any, { ...opts, id: id });
     }
 
+    /**
+     * Check whether an existing UserSettings resource with the given ID exists.
+     *
+     * @param id The _unique_ provider ID of the resource to check.
+     * @param opts Optional settings to control the behavior of the CustomResource.
+     */
+    public static exists(id: pulumi.Input<string>, opts?: pulumi.CustomResourceOptions): pulumi.Output<boolean> {
+        return pulumi.runtime.existsResource("docker-agent:index:UserSettings", id, {}, { ...opts }, undefined);
+    }
+
     /** @internal */
     public static readonly __pulumiType = 'docker-agent:index:UserSettings';
 
@@ -214,7 +224,7 @@ export class UserSettings extends pulumi.CustomResource {
      */
     declare public /*out*/ readonly sha256: pulumi.Output<string>;
     /**
-     * Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.166.0.
      */
     declare public readonly skipValidation: pulumi.Output<boolean | undefined>;
     /**
@@ -321,7 +331,7 @@ export interface UserSettingsArgs {
      */
     settings?: pulumi.Input<inputs.UserGlobalSettingsArgs | undefined>;
     /**
-     * Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * Skip docker-agent's semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent's types. Use it for values introduced by a docker-agent release newer than v1.166.0.
      */
     skipValidation?: pulumi.Input<boolean | undefined>;
 }

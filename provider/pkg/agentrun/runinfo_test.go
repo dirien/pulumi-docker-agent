@@ -89,14 +89,20 @@ func TestCredentialLine(t *testing.T) {
 		assert.Equal(t, []string{"models: first_available: google/gemini-2.5-flash (GOOGLE_API_KEY from env)"}, recs)
 	})
 	t.Run("SDK fallbacks", func(t *testing.T) {
-		// An openai model with a base_url and no token_key: openai-go sends OPENAI_API_KEY of the
-		// process environment, which with inheritEnvironment is the Pulumi CLI's.
+		// An openai model with a base_url and no token_key: since docker-agent v1.166.0 it needs
+		// OPENAI_API_KEY (the catalog's key of the openai provider), which with inheritEnvironment
+		// comes from the Pulumi CLI's environment.
 		t.Setenv("OPENAI_API_KEY", inheritedKey)
 		recs := run(t, baseURLModel("openai", "gpt-4o-mini", f.URL+"/v1"), "", Request{Env: isolation,
 			InheritEnvironment: true})
 		assert.Equal(t, []string{"models: openai/gpt-4o-mini (OPENAI_API_KEY from the environment of the Pulumi CLI)"}, recs)
-		recs = run(t, baseURLModel("openai", "gpt-4o-mini", f.URL+"/v1"), "", Request{Env: isolation})
-		assert.Equal(t, []string{"models: openai/gpt-4o-mini (no key)"}, recs)
+		_, _, err := progressRecords(t, Request{Name: "line", Prompt: "Say hello", Env: isolation,
+			YAML: []byte(providerCase{models: func(string) string {
+				return baseURLModel("openai", "gpt-4o-mini", f.URL+"/v1")
+			}}.yaml(f.URL, ""))})
+		var missing *MissingCredentialsError
+		require.ErrorAs(t, err, &missing)
+		assert.Equal(t, []string{"OPENAI_API_KEY"}, missing.Variables)
 
 		// anthropic-sdk-go adds ANTHROPIC_AUTH_TOKEN when the process environment has no
 		// ANTHROPIC_API_KEY.
@@ -292,7 +298,7 @@ func TestDescribeAutoError(t *testing.T) {
 	assert.Equal(t, "loading the agent configuration: model auto resolved to anthropic/claude-haiku-4-5 (selected by "+
 		"DOCKER_AGENT_DEFAULT_MODEL from env), which failed: failed to load AWS config: profile nope",
 		describe(map[string]string{"DOCKER_AGENT_DEFAULT_MODEL": "anthropic/claude-haiku-4-5"}, false))
-	assert.Equal(t, "loading the agent configuration: model auto resolved to google/gemini-3.8-flash (this machine's "+
+	assert.Equal(t, "loading the agent configuration: model auto resolved to google/gemini-4-hydrogen (this machine's "+
 		"Google application default credentials (the gcloud login, or the metadata server)), which failed: failed to load "+
 		"AWS config: profile nope", describe(map[string]string{"GOOGLE_GENAI_USE_VERTEXAI": "true"}, false))
 	assert.Equal(t, "loading the agent configuration: model auto resolved to a model (MISTRAL_API_KEY from env), which "+

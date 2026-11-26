@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker-agent/pkg/codingharness"
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 )
 
 // CheckOptions are the inputs of an AgentRun that CheckConfig needs.
@@ -57,7 +58,7 @@ type CheckOptions struct {
 //
 // A configuration that does not load is reported by the validator, not here.
 func CheckConfig(ctx context.Context, name string, yamlDoc []byte, opts CheckOptions) (problems, warnings []string) {
-	cfg, err := config.Load(ctx, config.NewBytesSource(name, yamlDoc))
+	cfg, err := config.Load(ctx, config.NewBytesSource(name, yamlDoc), config.WithVersions(legacy.Register))
 	if err != nil {
 		return nil, nil
 	}

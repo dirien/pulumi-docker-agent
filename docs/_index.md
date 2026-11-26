@@ -1987,7 +1987,7 @@ In HCL, `AgentRun` is the `docker-agent_agent_run` resource, and its properties 
 
 ### Models and credentials
 
-`AgentRun` runs every model provider of docker-agent v1.150.0 with the same code and SDKs as `docker agent run`. What a run needs depends on the model:
+`AgentRun` runs every model provider of docker-agent v1.166.0 with the same code and SDKs as `docker agent run`. What a run needs depends on the model:
 
 | Model | What the run needs |
 |---|---|

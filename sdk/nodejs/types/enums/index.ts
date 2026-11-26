@@ -73,6 +73,7 @@ export const HarnessType = {
     Codex: "codex",
     Pi: "pi",
     OpenCode: "opencode",
+    CommandCode: "command-code",
 } as const;
 
 export type HarnessType = (typeof HarnessType)[keyof typeof HarnessType];

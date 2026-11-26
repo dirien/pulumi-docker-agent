@@ -103,7 +103,6 @@ import javax.annotation.Nullable;
  * import com.pulumi.core.Output;
  * import io.github.dirien.dockeragent.AgentArtifact;
  * import io.github.dirien.dockeragent.AgentArtifactArgs;
- * import io.github.dirien.dockeragent.enums.DeleteBehavior;
  * import java.io.IOException;
  * import java.io.UncheckedIOException;
  * import java.nio.file.Files;
@@ -127,7 +126,7 @@ import javax.annotation.Nullable;
  *             .reference("localhost:5000/agents/pirate:latest")
  *             .yaml(agentFile)
  *             .annotations(Map.of("org.opencontainers.image.source", "https://github.com/my-org/agents"))
- *             .deleteBehavior(DeleteBehavior.Delete)
+ *             .deleteBehavior(io.github.dirien.dockeragent.enums.DeleteBehavior.Delete)
  *             .build());
  * 
  *         ctx.export("pinnedReference", pirate.pinnedReference());

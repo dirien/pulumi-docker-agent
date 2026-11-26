@@ -10,3 +10,4 @@ models:
     model: gemini-2.5-flash
     provider_opts:
       service_tier: flex
+    stream_idle_timeout: 20m

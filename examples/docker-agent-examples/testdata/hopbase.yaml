@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  root:
+    model: hopbase_model
+    description: Assistant using HopBase
+    instruction: |
+      You are a helpful assistant.
+    toolsets:
+      - type: filesystem
+      - type: shell
+      - type: think
+models:
+  hopbase_model:
+    provider: hopbase
+    model: glm-5.3

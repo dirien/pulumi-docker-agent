@@ -47,6 +47,12 @@ namespace ediri.DockerAgent.Inputs
         public Input<Inputs.RemoteOAuthArgs>? Oauth { get; set; }
 
         /// <summary>
+        /// Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+        /// </summary>
+        [Input("standaloneSse")]
+        public Input<bool>? StandaloneSse { get; set; }
+
+        /// <summary>
         /// Transport type for the remote connection
         /// </summary>
         [Input("transportType")]

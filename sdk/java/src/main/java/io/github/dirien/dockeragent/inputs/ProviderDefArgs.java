@@ -162,14 +162,14 @@ public final class ProviderDefArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+     * The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
      * 
      */
     @Import(name="provider")
     private @Nullable Output<String> provider;
 
     /**
-     * @return The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+     * @return The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
      * 
      */
     public Optional<Output<String>> provider() {
@@ -177,14 +177,14 @@ public final class ProviderDefArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
+     * Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed (&#39;fast&#39; or &#39;standard&#39;; &#39;fast&#39; requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
      * 
      */
     @Import(name="providerOpts")
     private @Nullable Output<Map<String,Object>> providerOpts;
 
     /**
-     * @return Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
+     * @return Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed (&#39;fast&#39; or &#39;standard&#39;; &#39;fast&#39; requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
      * 
      */
     public Optional<Output<Map<String,Object>>> providerOpts() {
@@ -543,7 +543,7 @@ public final class ProviderDefArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param provider The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+         * @param provider The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
          * 
          * @return builder
          * 
@@ -554,7 +554,7 @@ public final class ProviderDefArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param provider The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+         * @param provider The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
          * 
          * @return builder
          * 
@@ -564,7 +564,7 @@ public final class ProviderDefArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param providerOpts Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
+         * @param providerOpts Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed (&#39;fast&#39; or &#39;standard&#39;; &#39;fast&#39; requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
          * 
          * @return builder
          * 
@@ -575,7 +575,7 @@ public final class ProviderDefArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param providerOpts Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
+         * @param providerOpts Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed (&#39;fast&#39; or &#39;standard&#39;; &#39;fast&#39; requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
          * 
          * @return builder
          * 

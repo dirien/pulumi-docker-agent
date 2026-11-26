@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade docker-agent from v1.150.0 to v1.166.0 (configuration version `"16"`). New typed inputs: `contextWindow` and `streamIdleTimeout` on models (`ModelDef`), `streamIdleTimeout` on `runtime`, and `standaloneSse` on remote MCP servers; `streamIdleTimeoutInt: -1` turns the stream idle timer off. The `command-code` harness type is accepted in configurations, and `AgentRun` rejects it during preview like `pi` and `opencode`.
+- `UserSettings` types the settings docker-agent v1.166.0 added: `topMargin`, `fadeScrollEdges`, `leanFullFilePreview`, `keepAwake`, `backgroundCompaction`, `backgroundCompactionThreshold` and `experimental` (`mcpEvents`, `mcpSkills`, `mcpTasks`), and `contextWindow` and `streamIdleTimeout` on `defaultModel`.
+- `AgentRun` runs the 11 OpenAI-compatible providers docker-agent v1.166.0 added: `api-route`, `atlascloud`, `cloudgpu`, `hopbase`, `lunaroute`, `obscurify`, `opper`, `orcarouter`, `popnow`, `runcrate` and `straitly`. The credentials table lists their endpoints and key variables, and the `nebius` endpoint is now `https://api.tokenfactory.nebius.com/v1`.
+
+### Upgrade notes
+
+- An `openai` model with a `baseUrl` and no `tokenKey` now needs `OPENAI_API_KEY` when it runs, as in `docker agent run` v1.166.0: docker-agent gives every catalog provider its key variable. Before, such a model ran without a key when the variable was unset. Set `tokenKey` to the variable that holds the endpoint's key, or define a custom provider with `apiType` for an endpoint without authentication.
+- `model: auto` with only `GOOGLE_API_KEY` set resolves to `google/gemini-4-hydrogen`, docker-agent's new default Gemini model.
+- docker-agent v1.166.0 only loads the latest configuration version unless legacy versions are enabled. The provider enables them everywhere it loads a configuration (validation, `AgentConfig` import, `getAgent`, `validateAgentConfig` and `AgentRun`), like the `docker agent` CLI, so files and artifacts with an older `version` keep working.
+
 ## [0.2.0] - 2026-10-15
 
 `AgentRun` runs every model provider that docker-agent v1.150.0 supports, with the credentials and SDK behaviour of `docker agent run`: API-key providers and all 26 aliases, Amazon Bedrock, Google Vertex AI, Docker Model Runner, Ollama (local and Ollama Cloud), custom OpenAI-compatible endpoints, and a ChatGPT subscription through `chatgpt/<model>`. Codex agents (`harness: {type: codex}`) run next to Claude Code agents. Each run now runs in a child process of the provider, so `inheritEnvironment: false` also holds for the model SDKs.

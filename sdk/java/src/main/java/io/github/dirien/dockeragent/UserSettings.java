@@ -71,8 +71,6 @@ import javax.annotation.Nullable;
  * import io.github.dirien.dockeragent.inputs.UserPermissionsArgs;
  * import io.github.dirien.dockeragent.inputs.UserKeybindingArgs;
  * import io.github.dirien.dockeragent.inputs.UserAliasArgs;
- * import io.github.dirien.dockeragent.enums.SafetyMode;
- * import io.github.dirien.dockeragent.enums.SidebarPosition;
  * import java.util.ArrayList;
  * import java.util.Arrays;
  * import java.util.Map;
@@ -92,10 +90,10 @@ import javax.annotation.Nullable;
  *             .settings(UserGlobalSettingsArgs.builder()
  *                 .theme("auto")
  *                 .themeDark("dracula")
- *                 .safety(SafetyMode.Balanced)
+ *                 .safety(io.github.dirien.dockeragent.enums.SafetyMode.Balanced)
  *                 .sound(true)
  *                 .layout(UserLayoutSettingsArgs.builder()
- *                     .sidebarPosition(SidebarPosition.Left)
+ *                     .sidebarPosition(io.github.dirien.dockeragent.enums.SidebarPosition.Left)
  *                     .hideUsage(true)
  *                     .build())
  *                 .permissions(UserPermissionsArgs.builder()
@@ -111,7 +109,7 @@ import javax.annotation.Nullable;
  *                 .build())
  *             .aliases(Map.of("reviewer", UserAliasArgs.builder()
  *                 .path("docker.io/myorg/reviewer:latest")
- *                 .safety(SafetyMode.Restricted)
+ *                 .safety(io.github.dirien.dockeragent.enums.SafetyMode.Restricted)
  *                 .build()))
  *             .build());
  * 
@@ -137,7 +135,6 @@ import javax.annotation.Nullable;
  * import io.github.dirien.dockeragent.inputs.UserHooksArgs;
  * import io.github.dirien.dockeragent.inputs.UserHookArgs;
  * import io.github.dirien.dockeragent.inputs.UserHookMatcherArgs;
- * import io.github.dirien.dockeragent.enums.HookType;
  * import java.util.ArrayList;
  * import java.util.Arrays;
  * import java.util.Map;
@@ -165,13 +162,13 @@ import javax.annotation.Nullable;
  *             .settings(UserGlobalSettingsArgs.builder()
  *                 .hooks(UserHooksArgs.builder()
  *                     .sessionStart(UserHookArgs.builder()
- *                         .type(HookType.Command)
+ *                         .type(io.github.dirien.dockeragent.enums.HookType.Command)
  *                         .command("~/.config/cagent/hooks/session-start.sh")
  *                         .build())
  *                     .preToolUse(UserHookMatcherArgs.builder()
  *                         .matcher("shell")
  *                         .hooks(UserHookArgs.builder()
- *                             .type(HookType.Builtin)
+ *                             .type(io.github.dirien.dockeragent.enums.HookType.Builtin)
  *                             .command("redact_secrets")
  *                             .build())
  *                         .build())
@@ -397,14 +394,14 @@ public class UserSettings extends com.pulumi.resources.CustomResource {
         return this.sha256;
     }
     /**
-     * Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.166.0.
      * 
      */
     @Export(name="skipValidation", refs={Boolean.class}, tree="[0]")
     private Output</* @Nullable */ Boolean> skipValidation;
 
     /**
-     * @return Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.150.0.
+     * @return Skip docker-agent&#39;s semantic checks (safety modes, alias names, providers, hooks, TUI options). The document must still decode into docker-agent&#39;s types. Use it for values introduced by a docker-agent release newer than v1.166.0.
      * 
      */
     public Output<Optional<Boolean>> skipValidation() {

@@ -7,6 +7,7 @@ import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
 import io.github.dirien.dockeragent.inputs.RemoteOAuthArgs;
+import java.lang.Boolean;
 import java.lang.Object;
 import java.lang.String;
 import java.util.Map;
@@ -69,6 +70,21 @@ public final class RemoteArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
+     * Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+     * 
+     */
+    @Import(name="standaloneSse")
+    private @Nullable Output<Boolean> standaloneSse;
+
+    /**
+     * @return Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+     * 
+     */
+    public Optional<Output<Boolean>> standaloneSse() {
+        return Optional.ofNullable(this.standaloneSse);
+    }
+
+    /**
      * Transport type for the remote connection
      * 
      */
@@ -104,6 +120,7 @@ public final class RemoteArgs extends com.pulumi.resources.ResourceArgs {
         this.extra = $.extra;
         this.headers = $.headers;
         this.oauth = $.oauth;
+        this.standaloneSse = $.standaloneSse;
         this.transportType = $.transportType;
         this.url = $.url;
     }
@@ -187,6 +204,27 @@ public final class RemoteArgs extends com.pulumi.resources.ResourceArgs {
          */
         public Builder oauth(RemoteOAuthArgs oauth) {
             return oauth(Output.of(oauth));
+        }
+
+        /**
+         * @param standaloneSse Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder standaloneSse(@Nullable Output<Boolean> standaloneSse) {
+            $.standaloneSse = standaloneSse;
+            return this;
+        }
+
+        /**
+         * @param standaloneSse Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder standaloneSse(Boolean standaloneSse) {
+            return standaloneSse(Output.of(standaloneSse));
         }
 
         /**

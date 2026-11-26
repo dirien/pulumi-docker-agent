@@ -6,6 +6,7 @@ package io.github.dirien.dockeragent.outputs;
 import com.pulumi.core.annotations.CustomType;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
 import io.github.dirien.dockeragent.outputs.RemoteOAuth;
+import java.lang.Boolean;
 import java.lang.Object;
 import java.lang.String;
 import java.util.Map;
@@ -30,6 +31,11 @@ public final class Remote {
      * 
      */
     private @Nullable RemoteOAuth oauth;
+    /**
+     * @return Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+     * 
+     */
+    private @Nullable Boolean standaloneSse;
     /**
      * @return Transport type for the remote connection
      * 
@@ -64,6 +70,13 @@ public final class Remote {
         return Optional.ofNullable(this.oauth);
     }
     /**
+     * @return Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+     * 
+     */
+    public Optional<Boolean> standaloneSse() {
+        return Optional.ofNullable(this.standaloneSse);
+    }
+    /**
      * @return Transport type for the remote connection
      * 
      */
@@ -90,6 +103,7 @@ public final class Remote {
         private @Nullable Map<String,Object> extra;
         private @Nullable Map<String,String> headers;
         private @Nullable RemoteOAuth oauth;
+        private @Nullable Boolean standaloneSse;
         private @Nullable String transportType;
         private String url;
         public Builder() {}
@@ -98,6 +112,7 @@ public final class Remote {
     	      this.extra = defaults.extra;
     	      this.headers = defaults.headers;
     	      this.oauth = defaults.oauth;
+    	      this.standaloneSse = defaults.standaloneSse;
     	      this.transportType = defaults.transportType;
     	      this.url = defaults.url;
         }
@@ -121,6 +136,12 @@ public final class Remote {
             return this;
         }
         @CustomType.Setter
+        public Builder standaloneSse(@Nullable Boolean standaloneSse) {
+
+            this.standaloneSse = standaloneSse;
+            return this;
+        }
+        @CustomType.Setter
         public Builder transportType(@Nullable String transportType) {
 
             this.transportType = transportType;
@@ -139,6 +160,7 @@ public final class Remote {
             _resultValue.extra = extra;
             _resultValue.headers = headers;
             _resultValue.oauth = oauth;
+            _resultValue.standaloneSse = standaloneSse;
             _resultValue.transportType = transportType;
             _resultValue.url = url;
             return _resultValue;

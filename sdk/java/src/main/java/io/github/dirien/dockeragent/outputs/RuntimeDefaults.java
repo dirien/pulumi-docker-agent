@@ -6,6 +6,7 @@ package io.github.dirien.dockeragent.outputs;
 import com.pulumi.core.annotations.CustomType;
 import io.github.dirien.dockeragent.enums.SafetyMode;
 import java.lang.Boolean;
+import java.lang.Integer;
 import java.lang.Object;
 import java.lang.String;
 import java.util.List;
@@ -36,6 +37,16 @@ public final class RuntimeDefaults {
      * 
      */
     private @Nullable Boolean sandbox;
+    /**
+     * @return Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+     * 
+     */
+    private @Nullable String streamIdleTimeout;
+    /**
+     * @return The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+     * 
+     */
+    private @Nullable Integer streamIdleTimeoutInt;
 
     private RuntimeDefaults() {}
     /**
@@ -66,6 +77,20 @@ public final class RuntimeDefaults {
     public Optional<Boolean> sandbox() {
         return Optional.ofNullable(this.sandbox);
     }
+    /**
+     * @return Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+     * 
+     */
+    public Optional<String> streamIdleTimeout() {
+        return Optional.ofNullable(this.streamIdleTimeout);
+    }
+    /**
+     * @return The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+     * 
+     */
+    public Optional<Integer> streamIdleTimeoutInt() {
+        return Optional.ofNullable(this.streamIdleTimeoutInt);
+    }
 
     public static Builder builder() {
         return new Builder();
@@ -80,6 +105,8 @@ public final class RuntimeDefaults {
         private @Nullable List<String> networkAllowlist;
         private @Nullable SafetyMode safety;
         private @Nullable Boolean sandbox;
+        private @Nullable String streamIdleTimeout;
+        private @Nullable Integer streamIdleTimeoutInt;
         public Builder() {}
         public Builder(RuntimeDefaults defaults) {
     	      Objects.requireNonNull(defaults);
@@ -87,6 +114,8 @@ public final class RuntimeDefaults {
     	      this.networkAllowlist = defaults.networkAllowlist;
     	      this.safety = defaults.safety;
     	      this.sandbox = defaults.sandbox;
+    	      this.streamIdleTimeout = defaults.streamIdleTimeout;
+    	      this.streamIdleTimeoutInt = defaults.streamIdleTimeoutInt;
         }
 
         @CustomType.Setter
@@ -116,12 +145,26 @@ public final class RuntimeDefaults {
             this.sandbox = sandbox;
             return this;
         }
+        @CustomType.Setter
+        public Builder streamIdleTimeout(@Nullable String streamIdleTimeout) {
+
+            this.streamIdleTimeout = streamIdleTimeout;
+            return this;
+        }
+        @CustomType.Setter
+        public Builder streamIdleTimeoutInt(@Nullable Integer streamIdleTimeoutInt) {
+
+            this.streamIdleTimeoutInt = streamIdleTimeoutInt;
+            return this;
+        }
         public RuntimeDefaults build() {
             final var _resultValue = new RuntimeDefaults();
             _resultValue.extra = extra;
             _resultValue.networkAllowlist = networkAllowlist;
             _resultValue.safety = safety;
             _resultValue.sandbox = sandbox;
+            _resultValue.streamIdleTimeout = streamIdleTimeout;
+            _resultValue.streamIdleTimeoutInt = streamIdleTimeoutInt;
             return _resultValue;
         }
     }

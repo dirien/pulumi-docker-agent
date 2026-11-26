@@ -23,6 +23,7 @@ import (
 	"github.com/docker/docker-agent/pkg/config/latest"
 	"github.com/docker/docker-agent/pkg/harness"
 	"github.com/docker/docker-agent/pkg/modelsdev"
+	"github.com/docker/docker-agent/pkg/modelsdev/embedded"
 	"github.com/docker/docker-agent/pkg/team"
 )
 
@@ -547,7 +548,7 @@ func codexCost(model, tier string, u *harness.Usage) (cost float64, known bool) 
 	if m == "" {
 		return 0, false
 	}
-	mdl, ok := modelsdev.EmbeddedSnapshot().Providers["openai"].Models[m]
+	mdl, ok := embedded.Snapshot().Providers["openai"].Models[m]
 	if !ok || mdl.Cost == nil {
 		return 0, false
 	}

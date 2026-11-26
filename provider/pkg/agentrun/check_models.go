@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker-agent/pkg/chatgpt"
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	"github.com/docker/docker-agent/pkg/environment"
 )
 
@@ -24,7 +25,7 @@ import (
 //
 //   - warnings: variables the models need that the run's environment does not set (docker-agent's
 //     own preflight: config.ResolveFirstAvailableModels, config.GatherEnvVarsForModels and
-//     config.GatherEnvVarsForEvaluators), a chatgpt model without a ChatGPT login; variables
+//     config.RequiredEvaluatorEnvVars), a chatgpt model without a ChatGPT login; variables
 //     of the model SDKs that the environment of the Pulumi CLI sets: with inheritEnvironment
 //     false the ones that no longer reach the models since v0.2.0 (base URLs first), with
 //     inheritEnvironment true the ones that reach them as with docker agent run although
@@ -41,7 +42,7 @@ import (
 // refresh. The provider calls it only when the operation runs the agent. Without known env
 // values (EnvUnknown), only the checks that do not depend on them run.
 func CheckModels(ctx context.Context, name string, yamlDoc []byte, opts CheckOptions) (warnings, infos []string) {
-	cfg, err := config.Load(ctx, config.NewBytesSource(name, yamlDoc))
+	cfg, err := config.Load(ctx, config.NewBytesSource(name, yamlDoc), config.WithVersions(legacy.Register))
 	if err != nil {
 		return nil, nil
 	}
@@ -67,7 +68,7 @@ func CheckModels(ctx context.Context, name string, yamlDoc []byte, opts CheckOpt
 				credentialHints(vars, v.inherit, v.provider)))
 		}
 	}
-	required := slices.Concat(requiredModelVars(ctx, cfg, v, prov), config.GatherEnvVarsForEvaluators(cfg))
+	required := slices.Concat(requiredModelVars(ctx, cfg, v, prov), config.RequiredEvaluatorEnvVars(cfg))
 	var missing []string
 	for _, r := range required {
 		if val, _ := prov.Get(ctx, r); r != "" && r != chatgpt.TokenEnvVar && val == "" && !slices.Contains(missing, r) {
@@ -717,7 +718,7 @@ func connectionNotes(ctx context.Context, req Request) []string {
 	if req.InheritEnvironment {
 		return nil
 	}
-	cfg, err := config.Load(ctx, config.NewBytesSource(orDefault(req.Name, "agent")+".yaml", req.YAML))
+	cfg, err := config.Load(ctx, config.NewBytesSource(orDefault(req.Name, "agent")+".yaml", req.YAML), config.WithVersions(legacy.Register))
 	if err != nil {
 		return nil
 	}

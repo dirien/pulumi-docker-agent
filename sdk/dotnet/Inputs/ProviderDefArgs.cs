@@ -77,7 +77,7 @@ namespace ediri.DockerAgent.Inputs
         public Input<double>? PresencePenalty { get; set; }
 
         /// <summary>
-        /// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+        /// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
         /// </summary>
         [Input("provider")]
         public Input<string>? Provider { get; set; }
@@ -86,7 +86,7 @@ namespace ediri.DockerAgent.Inputs
         private InputMap<object>? _providerOpts;
 
         /// <summary>
-        /// Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
+        /// Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed ('fast' or 'standard'; 'fast' requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
         /// </summary>
         public InputMap<object> ProviderOpts
         {

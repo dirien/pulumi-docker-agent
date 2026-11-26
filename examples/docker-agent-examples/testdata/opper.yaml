@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  root:
+    model: opper_model
+    description: Assistant using Opper
+    instruction: |
+      You are a helpful assistant.
+    toolsets:
+      - type: filesystem
+      - type: shell
+      - type: think
+models:
+  opper_model:
+    provider: opper
+    model: claude-sonnet-4-6

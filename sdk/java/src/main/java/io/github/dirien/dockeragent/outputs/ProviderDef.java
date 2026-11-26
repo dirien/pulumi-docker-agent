@@ -64,12 +64,12 @@ public final class ProviderDef {
      */
     private @Nullable Double presencePenalty;
     /**
-     * @return The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+     * @return The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
      * 
      */
     private @Nullable String provider;
     /**
-     * @return Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
+     * @return Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed (&#39;fast&#39; or &#39;standard&#39;; &#39;fast&#39; requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
      * 
      */
     private @Nullable Map<String,Object> providerOpts;
@@ -179,14 +179,14 @@ public final class ProviderDef {
         return Optional.ofNullable(this.presencePenalty);
     }
     /**
-     * @return The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+     * @return The underlying provider type. Defaults to &#34;openai&#34; when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
      * 
      */
     public Optional<String> provider() {
         return Optional.ofNullable(this.provider);
     }
     /**
-     * @return Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
+     * @return Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed (&#39;fast&#39; or &#39;standard&#39;; &#39;fast&#39; requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use &#39;fast&#39; or &#39;priority&#39; for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier (&#39;flex&#39;, &#39;standard&#39;, or &#39;priority&#39;). Model-level options override these defaults.
      * 
      */
     public Map<String,Object> providerOpts() {

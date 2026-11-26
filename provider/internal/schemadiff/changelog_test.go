@@ -165,6 +165,17 @@ func TestPrependChangelogRepositoryFile(t *testing.T) {
 	if err != nil {
 		t.Skipf("CHANGELOG.md not available: %v", err)
 	}
+	// Start from an empty Unreleased section: the file may already have unreleased entries,
+	// for example the one this function added in an upgrade pull request.
+	const unreleased = "## [Unreleased]\n\n"
+	start := strings.Index(string(raw), unreleased)
+	if start < 0 {
+		t.Fatal("CHANGELOG.md has no ## [Unreleased] section")
+	}
+	start += len(unreleased)
+	if end := strings.Index(string(raw[start:]), "## "); end > 0 {
+		raw = append(raw[:start:start], raw[start+end:]...)
+	}
 	got := prepend(t, string(raw), entry1)
 	i := strings.Index(got, "## [Unreleased]\n\n### Changed\n\n"+entry1+"\n\n## ")
 	if i < 0 {

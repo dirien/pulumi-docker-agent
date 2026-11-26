@@ -1,0 +1,16 @@
+version: "16"
+agents:
+  root:
+    model: nebius_model
+    description: Assistant using Nebius Token Factory
+    instruction: |
+      You are a helpful assistant.
+    toolsets:
+      - type: filesystem
+      - type: shell
+      - type: think
+models:
+  nebius_model:
+    provider: nebius
+    model: openai/gpt-oss-120b
+    max_tokens: 8192

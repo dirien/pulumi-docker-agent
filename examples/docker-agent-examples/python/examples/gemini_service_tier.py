@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/gemini_service_tier.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.166.0 examples/gemini_service_tier.yaml by `make generate_config_types`. Do not edit.
 #
 # Gemini service tiers: flex (discounted, queued), standard, or priority.
 # Flex requests may wait up to 15 minutes before the first byte.
@@ -21,6 +21,9 @@ config = dockeragent.AgentConfig(
         "gemini-flex": {
             "provider": "google",
             "model": "gemini-2.5-flash",
+            # A model override takes precedence over runtime.stream_idle_timeout.
+            # Keep at least 15m for Flex, which may queue before streaming.
+            "stream_idle_timeout": "20m",
             "provider_opts": {
                 "service_tier": "flex",  # standard and priority are also accepted
             },

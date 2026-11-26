@@ -1227,10 +1227,11 @@ func (in *harnessEffortPtr) ToHarnessEffortPtrOutputWithContext(ctx context.Cont
 type HarnessType string
 
 const (
-	HarnessTypeClaudeCode = HarnessType("claude-code")
-	HarnessTypeCodex      = HarnessType("codex")
-	HarnessTypePi         = HarnessType("pi")
-	HarnessTypeOpenCode   = HarnessType("opencode")
+	HarnessTypeClaudeCode  = HarnessType("claude-code")
+	HarnessTypeCodex       = HarnessType("codex")
+	HarnessTypePi          = HarnessType("pi")
+	HarnessTypeOpenCode    = HarnessType("opencode")
+	HarnessTypeCommandCode = HarnessType("command-code")
 )
 
 func (HarnessType) ElementType() reflect.Type {
@@ -1359,6 +1360,7 @@ func (o HarnessTypePtrOutput) ToStringPtrOutputWithContext(ctx context.Context) 
 //	HarnessTypeCodex
 //	HarnessTypePi
 //	HarnessTypeOpenCode
+//	HarnessTypeCommandCode
 type HarnessTypeInput interface {
 	pulumi.Input
 

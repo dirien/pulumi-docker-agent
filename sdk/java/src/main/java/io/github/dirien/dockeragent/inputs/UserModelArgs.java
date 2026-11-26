@@ -10,6 +10,7 @@ import io.github.dirien.dockeragent.inputs.UserModelCapabilitiesArgs;
 import io.github.dirien.dockeragent.inputs.UserModelCostArgs;
 import io.github.dirien.dockeragent.inputs.UserModelOutputCapabilitiesArgs;
 import io.github.dirien.dockeragent.inputs.UserModelRoutingRuleArgs;
+import io.github.dirien.dockeragent.inputs.UserStreamIdleTimeoutArgs;
 import io.github.dirien.dockeragent.inputs.UserTaskBudgetArgs;
 import io.github.dirien.dockeragent.inputs.UserThinkingBudgetArgs;
 import java.lang.Boolean;
@@ -120,6 +121,21 @@ public final class UserModelArgs extends com.pulumi.resources.ResourceArgs {
      */
     public Optional<Output<Double>> compactionThreshold() {
         return Optional.ofNullable(this.compactionThreshold);
+    }
+
+    /**
+     * The context window of the model in tokens, overriding the built-in catalog.
+     * 
+     */
+    @Import(name="contextWindow")
+    private @Nullable Output<Integer> contextWindow;
+
+    /**
+     * @return The context window of the model in tokens, overriding the built-in catalog.
+     * 
+     */
+    public Optional<Output<Integer>> contextWindow() {
+        return Optional.ofNullable(this.contextWindow);
     }
 
     /**
@@ -303,6 +319,21 @@ public final class UserModelArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
+     * The maximum idle time between two chunks of the model&#39;s stream.
+     * 
+     */
+    @Import(name="streamIdleTimeout")
+    private @Nullable Output<UserStreamIdleTimeoutArgs> streamIdleTimeout;
+
+    /**
+     * @return The maximum idle time between two chunks of the model&#39;s stream.
+     * 
+     */
+    public Optional<Output<UserStreamIdleTimeoutArgs>> streamIdleTimeout() {
+        return Optional.ofNullable(this.streamIdleTimeout);
+    }
+
+    /**
      * Total token budget for an agentic task (Anthropic `task_budget`).
      * 
      */
@@ -416,6 +447,7 @@ public final class UserModelArgs extends com.pulumi.resources.ResourceArgs {
         this.capabilities = $.capabilities;
         this.compactionModel = $.compactionModel;
         this.compactionThreshold = $.compactionThreshold;
+        this.contextWindow = $.contextWindow;
         this.cost = $.cost;
         this.description = $.description;
         this.firstAvailable = $.firstAvailable;
@@ -428,6 +460,7 @@ public final class UserModelArgs extends com.pulumi.resources.ResourceArgs {
         this.provider = $.provider;
         this.providerOpts = $.providerOpts;
         this.routing = $.routing;
+        this.streamIdleTimeout = $.streamIdleTimeout;
         this.taskBudget = $.taskBudget;
         this.temperature = $.temperature;
         this.thinkingBudget = $.thinkingBudget;
@@ -579,6 +612,27 @@ public final class UserModelArgs extends com.pulumi.resources.ResourceArgs {
          */
         public Builder compactionThreshold(Double compactionThreshold) {
             return compactionThreshold(Output.of(compactionThreshold));
+        }
+
+        /**
+         * @param contextWindow The context window of the model in tokens, overriding the built-in catalog.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder contextWindow(@Nullable Output<Integer> contextWindow) {
+            $.contextWindow = contextWindow;
+            return this;
+        }
+
+        /**
+         * @param contextWindow The context window of the model in tokens, overriding the built-in catalog.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder contextWindow(Integer contextWindow) {
+            return contextWindow(Output.of(contextWindow));
         }
 
         /**
@@ -851,6 +905,27 @@ public final class UserModelArgs extends com.pulumi.resources.ResourceArgs {
          */
         public Builder routing(UserModelRoutingRuleArgs... routing) {
             return routing(List.of(routing));
+        }
+
+        /**
+         * @param streamIdleTimeout The maximum idle time between two chunks of the model&#39;s stream.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder streamIdleTimeout(@Nullable Output<UserStreamIdleTimeoutArgs> streamIdleTimeout) {
+            $.streamIdleTimeout = streamIdleTimeout;
+            return this;
+        }
+
+        /**
+         * @param streamIdleTimeout The maximum idle time between two chunks of the model&#39;s stream.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder streamIdleTimeout(UserStreamIdleTimeoutArgs streamIdleTimeout) {
+            return streamIdleTimeout(Output.of(streamIdleTimeout));
         }
 
         /**

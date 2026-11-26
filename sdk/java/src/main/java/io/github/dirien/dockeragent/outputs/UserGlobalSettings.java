@@ -7,6 +7,7 @@ import com.pulumi.core.annotations.CustomType;
 import io.github.dirien.dockeragent.enums.BusySendMode;
 import io.github.dirien.dockeragent.enums.InterruptConfirmation;
 import io.github.dirien.dockeragent.enums.SafetyMode;
+import io.github.dirien.dockeragent.outputs.UserExperimentalSettings;
 import io.github.dirien.dockeragent.outputs.UserHooks;
 import io.github.dirien.dockeragent.outputs.UserKeybinding;
 import io.github.dirien.dockeragent.outputs.UserLayoutSettings;
@@ -24,6 +25,16 @@ import javax.annotation.Nullable;
 @CustomType
 public final class UserGlobalSettings {
     /**
+     * @return Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+     * 
+     */
+    private @Nullable Boolean backgroundCompaction;
+    /**
+     * @return The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+     * 
+     */
+    private @Nullable Integer backgroundCompactionThreshold;
+    /**
      * @return What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
      * 
      */
@@ -39,10 +50,20 @@ public final class UserGlobalSettings {
      */
     private @Nullable Boolean expandThinking;
     /**
+     * @return Opt-in experimental features (`experimental`). Every feature is off by default.
+     * 
+     */
+    private @Nullable UserExperimentalSettings experimental;
+    /**
      * @return Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
      * 
      */
     private @Nullable Map<String,Object> extra;
+    /**
+     * @return Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+     * 
+     */
+    private @Nullable Boolean fadeScrollEdges;
     /**
      * @return Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
      * 
@@ -59,6 +80,11 @@ public final class UserGlobalSettings {
      */
     private @Nullable InterruptConfirmation interruptConfirmation;
     /**
+     * @return Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+     * 
+     */
+    private @Nullable Boolean keepAwake;
+    /**
      * @return Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
      * 
      */
@@ -73,6 +99,11 @@ public final class UserGlobalSettings {
      * 
      */
     private @Nullable Boolean lean;
+    /**
+     * @return In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+     * 
+     */
+    private @Nullable Boolean leanFullFilePreview;
     /**
      * @return Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
      * 
@@ -139,6 +170,11 @@ public final class UserGlobalSettings {
      */
     private @Nullable String themeLight;
     /**
+     * @return Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+     * 
+     */
+    private @Nullable Boolean topMargin;
+    /**
      * @return Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
      * 
      */
@@ -150,6 +186,20 @@ public final class UserGlobalSettings {
     private @Nullable Boolean yolo;
 
     private UserGlobalSettings() {}
+    /**
+     * @return Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+     * 
+     */
+    public Optional<Boolean> backgroundCompaction() {
+        return Optional.ofNullable(this.backgroundCompaction);
+    }
+    /**
+     * @return The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+     * 
+     */
+    public Optional<Integer> backgroundCompactionThreshold() {
+        return Optional.ofNullable(this.backgroundCompactionThreshold);
+    }
     /**
      * @return What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
      * 
@@ -172,11 +222,25 @@ public final class UserGlobalSettings {
         return Optional.ofNullable(this.expandThinking);
     }
     /**
+     * @return Opt-in experimental features (`experimental`). Every feature is off by default.
+     * 
+     */
+    public Optional<UserExperimentalSettings> experimental() {
+        return Optional.ofNullable(this.experimental);
+    }
+    /**
      * @return Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
      * 
      */
     public Map<String,Object> extra() {
         return this.extra == null ? Map.of() : this.extra;
+    }
+    /**
+     * @return Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+     * 
+     */
+    public Optional<Boolean> fadeScrollEdges() {
+        return Optional.ofNullable(this.fadeScrollEdges);
     }
     /**
      * @return Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
@@ -200,6 +264,13 @@ public final class UserGlobalSettings {
         return Optional.ofNullable(this.interruptConfirmation);
     }
     /**
+     * @return Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+     * 
+     */
+    public Optional<Boolean> keepAwake() {
+        return Optional.ofNullable(this.keepAwake);
+    }
+    /**
      * @return Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
      * 
      */
@@ -219,6 +290,13 @@ public final class UserGlobalSettings {
      */
     public Optional<Boolean> lean() {
         return Optional.ofNullable(this.lean);
+    }
+    /**
+     * @return In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+     * 
+     */
+    public Optional<Boolean> leanFullFilePreview() {
+        return Optional.ofNullable(this.leanFullFilePreview);
     }
     /**
      * @return Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
@@ -312,6 +390,13 @@ public final class UserGlobalSettings {
         return Optional.ofNullable(this.themeLight);
     }
     /**
+     * @return Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+     * 
+     */
+    public Optional<Boolean> topMargin() {
+        return Optional.ofNullable(this.topMargin);
+    }
+    /**
      * @return Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
      * 
      */
@@ -335,16 +420,22 @@ public final class UserGlobalSettings {
     }
     @CustomType.Builder
     public static final class Builder {
+        private @Nullable Boolean backgroundCompaction;
+        private @Nullable Integer backgroundCompactionThreshold;
         private @Nullable BusySendMode busySendMode;
         private @Nullable Boolean cacheStablePrompts;
         private @Nullable Boolean expandThinking;
+        private @Nullable UserExperimentalSettings experimental;
         private @Nullable Map<String,Object> extra;
+        private @Nullable Boolean fadeScrollEdges;
         private @Nullable Boolean hideToolResults;
         private @Nullable UserHooks hooks;
         private @Nullable InterruptConfirmation interruptConfirmation;
+        private @Nullable Boolean keepAwake;
         private @Nullable List<UserKeybinding> keybindings;
         private @Nullable UserLayoutSettings layout;
         private @Nullable Boolean lean;
+        private @Nullable Boolean leanFullFilePreview;
         private @Nullable UserPermissions permissions;
         private @Nullable Boolean renderImages;
         private @Nullable Boolean restoreTabs;
@@ -358,21 +449,28 @@ public final class UserGlobalSettings {
         private @Nullable String theme;
         private @Nullable String themeDark;
         private @Nullable String themeLight;
+        private @Nullable Boolean topMargin;
         private @Nullable Boolean warnOnCacheMiss;
         private @Nullable Boolean yolo;
         public Builder() {}
         public Builder(UserGlobalSettings defaults) {
     	      Objects.requireNonNull(defaults);
+    	      this.backgroundCompaction = defaults.backgroundCompaction;
+    	      this.backgroundCompactionThreshold = defaults.backgroundCompactionThreshold;
     	      this.busySendMode = defaults.busySendMode;
     	      this.cacheStablePrompts = defaults.cacheStablePrompts;
     	      this.expandThinking = defaults.expandThinking;
+    	      this.experimental = defaults.experimental;
     	      this.extra = defaults.extra;
+    	      this.fadeScrollEdges = defaults.fadeScrollEdges;
     	      this.hideToolResults = defaults.hideToolResults;
     	      this.hooks = defaults.hooks;
     	      this.interruptConfirmation = defaults.interruptConfirmation;
+    	      this.keepAwake = defaults.keepAwake;
     	      this.keybindings = defaults.keybindings;
     	      this.layout = defaults.layout;
     	      this.lean = defaults.lean;
+    	      this.leanFullFilePreview = defaults.leanFullFilePreview;
     	      this.permissions = defaults.permissions;
     	      this.renderImages = defaults.renderImages;
     	      this.restoreTabs = defaults.restoreTabs;
@@ -386,10 +484,23 @@ public final class UserGlobalSettings {
     	      this.theme = defaults.theme;
     	      this.themeDark = defaults.themeDark;
     	      this.themeLight = defaults.themeLight;
+    	      this.topMargin = defaults.topMargin;
     	      this.warnOnCacheMiss = defaults.warnOnCacheMiss;
     	      this.yolo = defaults.yolo;
         }
 
+        @CustomType.Setter
+        public Builder backgroundCompaction(@Nullable Boolean backgroundCompaction) {
+
+            this.backgroundCompaction = backgroundCompaction;
+            return this;
+        }
+        @CustomType.Setter
+        public Builder backgroundCompactionThreshold(@Nullable Integer backgroundCompactionThreshold) {
+
+            this.backgroundCompactionThreshold = backgroundCompactionThreshold;
+            return this;
+        }
         @CustomType.Setter
         public Builder busySendMode(@Nullable BusySendMode busySendMode) {
 
@@ -409,9 +520,21 @@ public final class UserGlobalSettings {
             return this;
         }
         @CustomType.Setter
+        public Builder experimental(@Nullable UserExperimentalSettings experimental) {
+
+            this.experimental = experimental;
+            return this;
+        }
+        @CustomType.Setter
         public Builder extra(@Nullable Map<String,Object> extra) {
 
             this.extra = extra;
+            return this;
+        }
+        @CustomType.Setter
+        public Builder fadeScrollEdges(@Nullable Boolean fadeScrollEdges) {
+
+            this.fadeScrollEdges = fadeScrollEdges;
             return this;
         }
         @CustomType.Setter
@@ -433,6 +556,12 @@ public final class UserGlobalSettings {
             return this;
         }
         @CustomType.Setter
+        public Builder keepAwake(@Nullable Boolean keepAwake) {
+
+            this.keepAwake = keepAwake;
+            return this;
+        }
+        @CustomType.Setter
         public Builder keybindings(@Nullable List<UserKeybinding> keybindings) {
 
             this.keybindings = keybindings;
@@ -451,6 +580,12 @@ public final class UserGlobalSettings {
         public Builder lean(@Nullable Boolean lean) {
 
             this.lean = lean;
+            return this;
+        }
+        @CustomType.Setter
+        public Builder leanFullFilePreview(@Nullable Boolean leanFullFilePreview) {
+
+            this.leanFullFilePreview = leanFullFilePreview;
             return this;
         }
         @CustomType.Setter
@@ -532,6 +667,12 @@ public final class UserGlobalSettings {
             return this;
         }
         @CustomType.Setter
+        public Builder topMargin(@Nullable Boolean topMargin) {
+
+            this.topMargin = topMargin;
+            return this;
+        }
+        @CustomType.Setter
         public Builder warnOnCacheMiss(@Nullable Boolean warnOnCacheMiss) {
 
             this.warnOnCacheMiss = warnOnCacheMiss;
@@ -545,16 +686,22 @@ public final class UserGlobalSettings {
         }
         public UserGlobalSettings build() {
             final var _resultValue = new UserGlobalSettings();
+            _resultValue.backgroundCompaction = backgroundCompaction;
+            _resultValue.backgroundCompactionThreshold = backgroundCompactionThreshold;
             _resultValue.busySendMode = busySendMode;
             _resultValue.cacheStablePrompts = cacheStablePrompts;
             _resultValue.expandThinking = expandThinking;
+            _resultValue.experimental = experimental;
             _resultValue.extra = extra;
+            _resultValue.fadeScrollEdges = fadeScrollEdges;
             _resultValue.hideToolResults = hideToolResults;
             _resultValue.hooks = hooks;
             _resultValue.interruptConfirmation = interruptConfirmation;
+            _resultValue.keepAwake = keepAwake;
             _resultValue.keybindings = keybindings;
             _resultValue.layout = layout;
             _resultValue.lean = lean;
+            _resultValue.leanFullFilePreview = leanFullFilePreview;
             _resultValue.permissions = permissions;
             _resultValue.renderImages = renderImages;
             _resultValue.restoreTabs = restoreTabs;
@@ -568,6 +715,7 @@ public final class UserGlobalSettings {
             _resultValue.theme = theme;
             _resultValue.themeDark = themeDark;
             _resultValue.themeLight = themeLight;
+            _resultValue.topMargin = topMargin;
             _resultValue.warnOnCacheMiss = warnOnCacheMiss;
             _resultValue.yolo = yolo;
             return _resultValue;

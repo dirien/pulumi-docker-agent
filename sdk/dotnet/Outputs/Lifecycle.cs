@@ -22,7 +22,7 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly Outputs.LifecycleBackoff? Backoff;
         /// <summary>
-        /// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
+        /// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
         /// </summary>
         public readonly string? CallTimeout;
         /// <summary>

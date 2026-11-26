@@ -7,6 +7,7 @@ import com.pulumi.core.Output;
 import com.pulumi.core.annotations.Import;
 import io.github.dirien.dockeragent.enums.SafetyMode;
 import java.lang.Boolean;
+import java.lang.Integer;
 import java.lang.Object;
 import java.lang.String;
 import java.util.List;
@@ -84,6 +85,36 @@ public final class RuntimeDefaultsArgs extends com.pulumi.resources.ResourceArgs
         return Optional.ofNullable(this.sandbox);
     }
 
+    /**
+     * Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+     * 
+     */
+    @Import(name="streamIdleTimeout")
+    private @Nullable Output<String> streamIdleTimeout;
+
+    /**
+     * @return Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+     * 
+     */
+    public Optional<Output<String>> streamIdleTimeout() {
+        return Optional.ofNullable(this.streamIdleTimeout);
+    }
+
+    /**
+     * The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+     * 
+     */
+    @Import(name="streamIdleTimeoutInt")
+    private @Nullable Output<Integer> streamIdleTimeoutInt;
+
+    /**
+     * @return The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+     * 
+     */
+    public Optional<Output<Integer>> streamIdleTimeoutInt() {
+        return Optional.ofNullable(this.streamIdleTimeoutInt);
+    }
+
     private RuntimeDefaultsArgs() {}
 
     private RuntimeDefaultsArgs(RuntimeDefaultsArgs $) {
@@ -91,6 +122,8 @@ public final class RuntimeDefaultsArgs extends com.pulumi.resources.ResourceArgs
         this.networkAllowlist = $.networkAllowlist;
         this.safety = $.safety;
         this.sandbox = $.sandbox;
+        this.streamIdleTimeout = $.streamIdleTimeout;
+        this.streamIdleTimeoutInt = $.streamIdleTimeoutInt;
     }
 
     public static Builder builder() {
@@ -203,6 +236,48 @@ public final class RuntimeDefaultsArgs extends com.pulumi.resources.ResourceArgs
          */
         public Builder sandbox(Boolean sandbox) {
             return sandbox(Output.of(sandbox));
+        }
+
+        /**
+         * @param streamIdleTimeout Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder streamIdleTimeout(@Nullable Output<String> streamIdleTimeout) {
+            $.streamIdleTimeout = streamIdleTimeout;
+            return this;
+        }
+
+        /**
+         * @param streamIdleTimeout Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder streamIdleTimeout(String streamIdleTimeout) {
+            return streamIdleTimeout(Output.of(streamIdleTimeout));
+        }
+
+        /**
+         * @param streamIdleTimeoutInt The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder streamIdleTimeoutInt(@Nullable Output<Integer> streamIdleTimeoutInt) {
+            $.streamIdleTimeoutInt = streamIdleTimeoutInt;
+            return this;
+        }
+
+        /**
+         * @param streamIdleTimeoutInt The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder streamIdleTimeoutInt(Integer streamIdleTimeoutInt) {
+            return streamIdleTimeoutInt(Output.of(streamIdleTimeoutInt));
         }
 
         public RuntimeDefaultsArgs build() {

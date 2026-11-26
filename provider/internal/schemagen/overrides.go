@@ -83,6 +83,12 @@ var aliases = map[string]string{
 	"RoutingHookDefinition":         hookDef,
 }
 
+// inlinedDefs are scalar union definitions without a Pulumi type of their own: every
+// property that refers to one has a rule in unionFields.
+var inlinedDefs = map[string]bool{
+	"StreamIdleTimeout": true,
+}
+
 // mergedAllOf are definitions whose allOf branches are flattened into one object.
 var mergedAllOf = map[string]bool{
 	// A top-level `rag` source: the RAGConfig fields plus instruction, tools, name and defer.
@@ -149,10 +155,23 @@ var unionFields = map[string][]fieldSpec{
 	"MCPToolset.defer":               deferFields,
 	"Toolset.defer":                  deferFields,
 	"RAGToolset|1.defer":             deferFields,
+	// positive duration string | the integer -1 (turns the timer off). The two forms are
+	// mutually exclusive variants of the same key, like thinkingBudget/thinkingBudgetTokens.
+	"ModelConfig.stream_idle_timeout":     streamIdleTimeout,
+	"RuntimeDefaults.stream_idle_timeout": streamIdleTimeout,
 	// duration string | integer number of seconds.
 	"EvaluatorConfig.timeout": {{pulumi: "timeout", goType: "*string",
 		desc: "Timeout for one evaluator call, as a duration such as `30s` or `2m` (a number of seconds " +
 			"`N` is written as `Ns`)."}},
+}
+
+var streamIdleTimeout = []fieldSpec{
+	{pulumi: "streamIdleTimeout", goType: "*string",
+		desc: "Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive " +
+			"duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`."},
+	{pulumi: "streamIdleTimeoutInt", goType: "*int",
+		desc: "The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only " +
+			"integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`."},
 }
 
 var thinkingBudget = []fieldSpec{

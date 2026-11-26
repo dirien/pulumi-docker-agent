@@ -40,6 +40,12 @@ func TestUserSettingsCoversDockerAgentUserConfig(t *testing.T) {
 	assert.Equal(t, w.upstreamKeys, w.covered+len(w.allow), "every docker-agent key is either typed or allowlisted")
 }
 
+// covScalarTypes are docker-agent struct types that marshal to a scalar. Their inputs are
+// objects with one field per scalar form and a YAMLValue method.
+var covScalarTypes = map[string]string{
+	"latest.StreamIdleTimeout": "a positive duration or -1",
+}
+
 type coverageWalker struct {
 	allow        map[string]string
 	distinct     map[string]bool
@@ -137,6 +143,13 @@ func covJoin(path, key string) string {
 
 func (w *coverageWalker) walk(up, ours reflect.Type, path string) {
 	up, ours = covDeref(up), covDeref(ours)
+	if reason, ok := covScalarTypes[up.String()]; ok {
+		// docker-agent writes the value as a scalar; the input is an object of its forms.
+		if _, valuer := reflect.New(ours).Interface().(interface{ YAMLValue() (any, error) }); !valuer {
+			w.fail(path, "docker-agent writes %s as a scalar (%s), but %s has no YAMLValue", up, reason, ours)
+		}
+		return
+	}
 	switch up.Kind() {
 	case reflect.Struct:
 		if ours.Kind() != reflect.Struct {

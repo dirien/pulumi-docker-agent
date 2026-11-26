@@ -1,4 +1,4 @@
-# Generated from docker-agent v1.150.0 examples/post_edit.yaml by `make generate_config_types`. Do not edit.
+# Generated from docker-agent v1.166.0 examples/post_edit.yaml by `make generate_config_types`. Do not edit.
 
 import ediri_docker_agent as dockeragent
 
@@ -13,7 +13,7 @@ config = dockeragent.AgentConfig(
             "toolsets": [
                 {
                     "type": "filesystem",
-                    "post_edit": [{"path": "*.go", "cmd": "gofmt -w $path"}],
+                    "post_edit": [{"path": "*.go", "cmd": 'gofmt -w "${file}"'}],
                 },
             ],
         },

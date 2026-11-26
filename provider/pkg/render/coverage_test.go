@@ -36,15 +36,17 @@ var untypedPaths = map[string]string{
 // foldedBranches are union branches without a field of their own: they are expressed
 // through another branch with the same meaning, exactly as docker-agent's loader treats them.
 var foldedBranches = map[string]string{
-	"AgentConfig.instruction|1":      "a list of strings is joined with a blank line, so it is the string form",
-	"AgentConfig.instruction_file|0": "a single path is the list form with one entry",
-	"AgentConfig.commands|1":         "a list of single-entry maps is merged in order into the map form",
-	"Commands|1":                     "a list of single-entry maps is merged in order into the map form",
-	"AgentConfig.skills|0":           "`true` is `[\"local\"]` and `false` is an empty list",
-	"SkillsConfig|0":                 "`true` is `[\"local\"]` and `false` is an empty list",
-	"ModelConfig.task_budget|1":      "`{type: tokens, total: N}` is `N`; `tokens` is the only type",
-	"ProviderConfig.task_budget|1":   "`{type: tokens, total: N}` is `N`; `tokens` is the only type",
-	"EvaluatorConfig.timeout|1":      "a number of seconds N is the duration `Ns`",
+	"AgentConfig.instruction|1":             "a list of strings is joined with a blank line, so it is the string form",
+	"AgentConfig.instruction_file|0":        "a single path is the list form with one entry",
+	"AgentConfig.commands|1":                "a list of single-entry maps is merged in order into the map form",
+	"Commands|1":                            "a list of single-entry maps is merged in order into the map form",
+	"AgentConfig.skills|0":                  "`true` is `[\"local\"]` and `false` is an empty list",
+	"SkillsConfig|0":                        "`true` is `[\"local\"]` and `false` is an empty list",
+	"ModelConfig.task_budget|1":             "`{type: tokens, total: N}` is `N`; `tokens` is the only type",
+	"ProviderConfig.task_budget|1":          "`{type: tokens, total: N}` is `N`; `tokens` is the only type",
+	"EvaluatorConfig.timeout|1":             "a number of seconds N is the duration `Ns`",
+	"ModelConfig.stream_idle_timeout|2":     "`null` inherits the default, the same as leaving the input unset",
+	"RuntimeDefaults.stream_idle_timeout|2": "`null` inherits the default, the same as leaving the input unset",
 }
 
 // loaderOnlyFields are typed fields that agent-schema.json does not define, but that
@@ -323,6 +325,12 @@ func (c *coverage) union(path string, n map[string]any, group []reflect.Type) {
 				group = append(group, st.Field(f.index).Type)
 			}
 		}
+	}
+	if def := refName(n); def != "" && len(group) > 1 {
+		// A union definition represented by several fields at each property that refers to
+		// it (inlinedDefs in provider/internal/schemagen).
+		c.seen[def+"@inlined"] = true
+		n = c.defs[def]
 	}
 	bs := branches(n)
 	if len(bs) == 0 {

@@ -42,6 +42,10 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly double? CompactionThreshold;
         /// <summary>
+        /// The context window of the model in tokens, overriding the built-in catalog.
+        /// </summary>
+        public readonly int? ContextWindow;
+        /// <summary>
         /// Prices per million tokens, used for cost tracking.
         /// </summary>
         public readonly Outputs.UserModelCost? Cost;
@@ -90,6 +94,10 @@ namespace ediri.DockerAgent.Outputs
         /// </summary>
         public readonly ImmutableArray<Outputs.UserModelRoutingRule> Routing;
         /// <summary>
+        /// The maximum idle time between two chunks of the model's stream.
+        /// </summary>
+        public readonly Outputs.UserStreamIdleTimeout? StreamIdleTimeout;
+        /// <summary>
         /// Total token budget for an agentic task (Anthropic `task_budget`).
         /// </summary>
         public readonly Outputs.UserTaskBudget? TaskBudget;
@@ -132,6 +140,8 @@ namespace ediri.DockerAgent.Outputs
 
             double? compactionThreshold,
 
+            int? contextWindow,
+
             Outputs.UserModelCost? cost,
 
             string? description,
@@ -156,6 +166,8 @@ namespace ediri.DockerAgent.Outputs
 
             ImmutableArray<Outputs.UserModelRoutingRule> routing,
 
+            Outputs.UserStreamIdleTimeout? streamIdleTimeout,
+
             Outputs.UserTaskBudget? taskBudget,
 
             double? temperature,
@@ -176,6 +188,7 @@ namespace ediri.DockerAgent.Outputs
             Capabilities = capabilities;
             CompactionModel = compactionModel;
             CompactionThreshold = compactionThreshold;
+            ContextWindow = contextWindow;
             Cost = cost;
             Description = description;
             FirstAvailable = firstAvailable;
@@ -188,6 +201,7 @@ namespace ediri.DockerAgent.Outputs
             Provider = provider;
             ProviderOpts = providerOpts;
             Routing = routing;
+            StreamIdleTimeout = streamIdleTimeout;
             TaskBudget = taskBudget;
             Temperature = temperature;
             ThinkingBudget = thinkingBudget;
