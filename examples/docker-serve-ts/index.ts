@@ -2,15 +2,21 @@
 // `docker agent serve api` in a container, using the Pulumi Docker provider for the containers.
 import * as pulumi from "@pulumi/pulumi";
 import * as docker from "@pulumi/docker";
+import * as random from "@pulumi/random";
 import * as dockeragent from "@ediri/pulumi-docker-agent";
 
 const config = new pulumi.Config();
 // Pin the image: `latest` tracks docker-agent's main branch.
-const agentImage = config.get("agentImage") ?? "docker/docker-agent:1.150.0";
+const agentImage = config.get("agentImage") ?? "docker/docker-agent:1.166.0";
 // The localhost port of the agent API. Docker picks a free port when it is not set.
 const agentPort = config.getNumber("agentPort");
 // Optional. Without a key the server starts and lists the agent, but cannot answer.
 const anthropicApiKey = config.getSecret("anthropicApiKey");
+// The bearer token of the API. `docker agent serve api` requires one on a non-loopback address
+// (since docker-agent v1.166.0); without the `apiToken` setting the program generates one.
+const apiToken =
+    config.getSecret("apiToken") ??
+    new random.RandomPassword("api-token", { length: 32, special: false }).result;
 
 // A user-defined network shared by the registry and the agent server.
 const network = new docker.Network("agents");
@@ -99,7 +105,14 @@ if (anthropicApiKey) {
 // `docker agent serve api <reference>` pulls the agent and serves the HTTP API.
 const server = new docker.Container("agent-server", {
     image: serverImage.imageId,
-    command: ["serve", "api", agentReference, "--listen", "0.0.0.0:8080"],
+    command: [
+        "serve",
+        "api",
+        agentReference,
+        "--listen",
+        "0.0.0.0:8080",
+        pulumi.interpolate`--auth-token=${apiToken}`,
+    ],
     envs,
     networksAdvanced: [{ name: network.name }],
     ports: [{ internal: 8080, external: agentPort, ip: "127.0.0.1" }],
@@ -109,7 +122,7 @@ const server = new docker.Container("agent-server", {
         timeout: "3s",
         retries: 30,
     },
-    // Wait until /health answers.
+    // Wait until /health answers. /health and /ready need no token.
     wait: true,
     waitTimeout: 120,
 });
@@ -121,4 +134,6 @@ export const serverAgentReference = agentReference;
 export const url = apiUrl;
 export const healthUrl = pulumi.interpolate`${apiUrl}/health`;
 export const agentsUrl = pulumi.interpolate`${apiUrl}/api/agents`;
+// Send it as `Authorization: Bearer <token>` to every endpoint except /health and /ready.
+export const token = pulumi.secret(apiToken);
 export const serverContainer = server.name;

@@ -12,6 +12,8 @@ import (
 
 	"github.com/docker/docker-agent/pkg/chatgpt"
 	"github.com/docker/docker-agent/pkg/config"
+	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -78,7 +80,7 @@ func TestCheckModelsEnvFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".env"), []byte("# docker agent setup\nexport MISTRAL_API_KEY="+
 		processOnlyKey+"\n"), 0o600))
-	warnings, _ := checkModels(t, agentWith("mistral/devstral-small-2507"), nil, true)
+	warnings, _ := checkModels(t, agentWith("mistral/mistral-small-2506"), nil, true)
 	require.Len(t, warnings, 1)
 	assert.Contains(t, warnings[0], "MISTRAL_API_KEY is in docker agent's env file ("+filepath.Join(dir, ".env")+"), which "+
 		"AgentRun does not read: set it in env")
@@ -150,6 +152,16 @@ func TestCheckModelsSDKVariables(t *testing.T) {
 			"requests to https://ollama.com carry no key (it has a base_url without token_key); set it in env, or set the "+
 			"model's token_key")
 
+		// An openai model with a base_url gets OPENAI_API_KEY as its catalog token_key: it still goes
+		// to the gateway.
+		gateway := "models:\n  m:\n    provider: openai\n    model: gpt-4o-mini\n    base_url: https://gateway.example/v1\n" +
+			agentWith("m")
+		warnings, _ = checkModels(t, gateway, nil, true)
+		require.NotEmpty(t, warnings)
+		assert.Contains(t, joined(warnings), "OPENAI_API_KEY (inherited from the environment of the Pulumi CLI) is sent as "+
+			"the key of agents.root.model (openai/gpt-4o-mini) to https://gateway.example (the model has a base_url "+
+			"without token_key, so docker-agent uses OPENAI_API_KEY, the key of the openai provider)")
+
 		// Ollama on this machine: the key goes nowhere.
 		local := "models:\n  m:\n    provider: ollama\n    model: llama3.2\n" + agentWith("m")
 		warnings, _ = checkModels(t, local, nil, true)
@@ -160,11 +172,11 @@ func TestCheckModelsSDKVariables(t *testing.T) {
 	t.Run("OpenAI headers to an alias", func(t *testing.T) {
 		isolateProviderEnv(t)
 		t.Setenv("OPENAI_PROJECT_ID", "proj-of-the-cli")
-		mistral := agentWith("mistral/devstral-small-2507")
+		mistral := agentWith("mistral/mistral-small-2506")
 		warnings, _ := checkModels(t, mistral, map[string]string{"MISTRAL_API_KEY": providerKey}, true)
 		require.Len(t, warnings, 1, joined(warnings))
 		assert.Equal(t, "OPENAI_PROJECT_ID (inherited from the environment of the Pulumi CLI) is sent with the requests of "+
-			"agents.root.model (mistral/devstral-small-2507) to https://api.mistral.ai (the OpenAI SDK adds it to every "+
+			"agents.root.model (mistral/mistral-small-2506) to https://api.mistral.ai (the OpenAI SDK adds it to every "+
 			"OpenAI-protocol model), as with docker agent run; set inheritEnvironment: false to keep it from the model",
 			warnings[0])
 	})
@@ -348,7 +360,7 @@ func TestCheckModelsAuto(t *testing.T) {
 	isolateProviderEnv(t)
 	doc := agentWith("auto")
 	_, infos := checkModels(t, doc, map[string]string{"GOOGLE_API_KEY": providerKey}, false)
-	assert.Equal(t, []string{"agents.root.model auto resolves to google/gemini-3.8-flash (GOOGLE_API_KEY from env)"}, infos)
+	assert.Equal(t, []string{"agents.root.model auto resolves to google/gemini-4-hydrogen (GOOGLE_API_KEY from env)"}, infos)
 
 	t.Setenv("GITHUB_TOKEN", inheritedKey)
 	_, infos = checkModels(t, doc, nil, true)
@@ -438,7 +450,7 @@ func TestCheckModelsChatGPT(t *testing.T) {
 
 	// model auto does not see the login (U#2): with only GOOGLE_API_KEY it stays with Google.
 	_, infos = checkModels(t, agentWith("auto"), map[string]string{"GOOGLE_API_KEY": providerKey}, false)
-	assert.Equal(t, []string{"agents.root.model auto resolves to google/gemini-3.8-flash (GOOGLE_API_KEY from env)"}, infos)
+	assert.Equal(t, []string{"agents.root.model auto resolves to google/gemini-4-hydrogen (GOOGLE_API_KEY from env)"}, infos)
 
 	// DOCKER_AGENT_DEFAULT_MODEL selects a chatgpt model for auto: it uses the login.
 	dm := map[string]string{"DOCKER_AGENT_DEFAULT_MODEL": "chatgpt/gpt-5.6"}
@@ -493,7 +505,7 @@ func TestCheckModelsProviderCases(t *testing.T) {
 // TestConfigModels: every place a configuration names a model, and whether it names chatgpt.
 func TestConfigModels(t *testing.T) {
 	load := func(doc string) []modelUse {
-		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)))
+		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)), config.WithVersions(legacy.Register))
 		require.NoError(t, err)
 		return configModels(cfg)
 	}
@@ -514,7 +526,7 @@ agents:
     model: router,pick
     instruction: hi
     fallback:
-      models: [mistral/devstral-small-2507]
+      models: [mistral/mistral-small-2506]
   coder:
     model: openai/gpt-5-mini
     harness:
@@ -529,7 +541,7 @@ agents:
 		"models.router.routing[0].model routed anthropic/claude-haiku-4-5 anthropic",
 		"models.pick.first_available[0]  sub/gpt-5.6 openai_responses",
 		"models.pick.first_available[1]  google/gemini-2.5-flash google",
-		"agents.root.fallback.models[0] fallback mistral/devstral-small-2507 openai",
+		"agents.root.fallback.models[0] fallback mistral/mistral-small-2506 openai",
 	}, got, "harness agents are left out")
 	assert.True(t, uses[2].isChatGPT() && uses[2].custom && uses[2].firstAvailable)
 
@@ -557,7 +569,7 @@ agents:
               prompt: judge
     toolsets:
       - type: model_picker
-        models: [mistral/devstral-small-2507]
+        models: [mistral/mistral-small-2506]
       - type: rag
         ref: docs
 rag:
@@ -577,10 +589,10 @@ rag:
 		got = append(got, u.role+" "+u.name+"/"+u.model)
 	}
 	assert.ElementsMatch(t, []string{" openai/gpt-4o-mini", "routed anthropic/claude-haiku-4-5",
-		"tool mistral/devstral-small-2507", "tool openai/text-embedding-3-small", "tool dmr/ai/qwen3-reranker",
+		"tool mistral/mistral-small-2506", "tool openai/text-embedding-3-small", "tool dmr/ai/qwen3-reranker",
 		"tool chatgpt/gpt-5.6"}, got)
 	assert.Empty(t, uses[0].cfg.BaseURL, "the router's fallback is rebuilt from provider/model")
-	assert.Empty(t, uses[0].cfg.TokenKey)
+	assert.Equal(t, "OPENAI_API_KEY", uses[0].cfg.TokenKey, "docker-agent gives a core provider its catalog key")
 
 	for doc, want := range map[string]bool{
 		agentWith("chatgpt/gpt-5.6"): true,
@@ -590,8 +602,34 @@ rag:
 			"        examples: [a]\n" + agentWith("m"): true,
 		agentWith("openai/gpt-5-mini"): false,
 	} {
-		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)))
+		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)), config.WithVersions(legacy.Register))
 		require.NoError(t, err)
 		assert.Equal(t, want, usesChatGPT(t.Context(), cfg, envView{}.asProvider()), doc)
+	}
+}
+
+// TestNewModelUseCatalogDefaults applies docker-agent's catalog defaults: an alias gets its
+// endpoint and key, a core openai model its key, and dmr and amazon-bedrock stay as written
+// (their clients treat the catalog's defaults as unset).
+func TestNewModelUseCatalogDefaults(t *testing.T) {
+	tests := map[string]struct {
+		model                latest.ModelConfig
+		wantBaseURL, wantKey string
+		wantCatalogKey       bool
+	}{
+		"alias":          {model: latest.ModelConfig{Provider: "groq", Model: "m"}, wantBaseURL: "https://api.groq.com/openai/v1", wantKey: "GROQ_API_KEY", wantCatalogKey: true},
+		"openai":         {model: latest.ModelConfig{Provider: "openai", Model: "m"}, wantKey: "OPENAI_API_KEY", wantCatalogKey: true},
+		"own token_key":  {model: latest.ModelConfig{Provider: "openai", Model: "m", TokenKey: "MY_KEY"}, wantKey: "MY_KEY"},
+		"google":         {model: latest.ModelConfig{Provider: "google", Model: "m"}},
+		"dmr":            {model: latest.ModelConfig{Provider: "dmr", Model: "ai/qwen3"}},
+		"amazon-bedrock": {model: latest.ModelConfig{Provider: "amazon-bedrock", Model: "m"}},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			u := newModelUse(&latest.Config{}, tc.model)
+			assert.Equal(t, tc.wantBaseURL, u.cfg.BaseURL)
+			assert.Equal(t, tc.wantKey, u.cfg.TokenKey)
+			assert.Equal(t, tc.wantCatalogKey, u.catalogKey)
+		})
 	}
 }

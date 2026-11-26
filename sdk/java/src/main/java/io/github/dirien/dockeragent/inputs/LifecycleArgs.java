@@ -42,14 +42,14 @@ public final class LifecycleArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
+     * Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
      * 
      */
     @Import(name="callTimeout")
     private @Nullable Output<String> callTimeout;
 
     /**
-     * @return Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
+     * @return Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
      * 
      */
     public Optional<Output<String>> callTimeout() {
@@ -199,7 +199,7 @@ public final class LifecycleArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param callTimeout Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
+         * @param callTimeout Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
          * 
          * @return builder
          * 
@@ -210,7 +210,7 @@ public final class LifecycleArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param callTimeout Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
+         * @param callTimeout Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
          * 
          * @return builder
          * 

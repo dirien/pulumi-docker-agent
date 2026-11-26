@@ -53,6 +53,12 @@ namespace ediri.DockerAgent.Inputs
         public Input<double>? CompactionThreshold { get; set; }
 
         /// <summary>
+        /// The context window of the model in tokens, overriding the built-in catalog.
+        /// </summary>
+        [Input("contextWindow")]
+        public Input<int>? ContextWindow { get; set; }
+
+        /// <summary>
         /// Prices per million tokens, used for cost tracking.
         /// </summary>
         [Input("cost")]
@@ -141,6 +147,12 @@ namespace ediri.DockerAgent.Inputs
             get => _routing ?? (_routing = new InputList<Inputs.UserModelRoutingRuleArgs>());
             set => _routing = value;
         }
+
+        /// <summary>
+        /// The maximum idle time between two chunks of the model's stream.
+        /// </summary>
+        [Input("streamIdleTimeout")]
+        public Input<Inputs.UserStreamIdleTimeoutArgs>? StreamIdleTimeout { get; set; }
 
         /// <summary>
         /// Total token budget for an agentic task (Anthropic `task_budget`).

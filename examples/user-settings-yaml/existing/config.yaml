@@ -1,0 +1,9 @@
+# A user configuration written by `docker agent alias add` and by hand. The program reads it
+# with getUserSettings without managing it.
+version: v1
+default_model: anthropic/claude-sonnet-4-5
+aliases:
+  pirate:
+    path: agentcatalog/pirate
+settings:
+  theme: dracula

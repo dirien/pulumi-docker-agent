@@ -25,7 +25,9 @@ func normalize(code string, ex *example, lang language, schema *pkgSchema) (stri
 	case langJava:
 		code, err = fixJava(code, schema)
 	case langGo:
-		code, err = fixGoAnyLists(code)
+		if code, err = fixGoAnyLists(code); err == nil {
+			code = fixGoLookups(code, schema)
+		}
 	case langHCL:
 		code = normalizeHCL(code)
 	}
@@ -73,6 +75,30 @@ func fixGoAnyLists(code string) (string, error) {
 }
 
 // matchingBrace returns the offset of the brace that closes the one at open, skipping Go string
+// fixGoLookups renames the Go functions of `getX` functions that share their name with a
+// resource `X`: the Go SDK generator names them `LookupX` (with `LookupXArgs`, `LookupXResult`,
+// `LookupXOutput`, ...), while the Go program generator of `pulumi convert` writes `GetX`.
+func fixGoLookups(code string, schema *pkgSchema) string {
+	if schema == nil {
+		return code
+	}
+	for token := range schema.Functions {
+		name := token[strings.LastIndex(token, ":")+1:]
+		rest, ok := strings.CutPrefix(name, "get")
+		if !ok || rest == "" {
+			continue
+		}
+		if _, clash := schema.Resources[token[:strings.LastIndex(token, ":")+1]+rest]; !clash {
+			continue
+		}
+		re := regexp.MustCompile(`\b\w+\.Get` + regexp.QuoteMeta(rest) + `(Args|Result|Output|OutputArgs|ResultOutput)?\b`)
+		code = re.ReplaceAllStringFunc(code, func(m string) string {
+			return strings.Replace(m, ".Get"+rest, ".Lookup"+rest, 1)
+		})
+	}
+	return code
+}
+
 // literals.
 func matchingBrace(code string, open int) (int, error) {
 	depth := 0

@@ -15,6 +15,7 @@ import (
 
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	goyaml "github.com/goccy/go-yaml"
 	"gopkg.in/yaml.v3"
 )
@@ -104,7 +105,7 @@ func problems(ctx context.Context, name string, data []byte, err error) []Proble
 		for _, e := range empty {
 			emptied = append(emptied, t.original(e))
 		}
-		cfg, lerr := config.Load(quiet, config.NewBytesSource(name, t.bytes()))
+		cfg, lerr := config.Load(quiet, config.NewBytesSource(name, t.bytes()), config.WithVersions(legacy.Register))
 		if lerr == nil {
 			for _, rp := range requirementProblems(cfg, t) {
 				if !consequence(rp) {

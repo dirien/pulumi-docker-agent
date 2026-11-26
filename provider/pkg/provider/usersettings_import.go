@@ -129,6 +129,20 @@ func (b *UserThinkingBudget) SetYAMLValue(v any) (bool, error) {
 	return false, fmt.Errorf("expected an effort level or a number of tokens, got %v", v)
 }
 
+// SetYAMLValue decodes the scalar forms docker-agent writes for a stream idle timeout: a
+// duration or -1.
+func (t *UserStreamIdleTimeout) SetYAMLValue(v any) (bool, error) {
+	if s, ok := v.(string); ok {
+		*t = UserStreamIdleTimeout{Duration: &s}
+		return true, nil
+	}
+	if n, ok := usersettings.IntValue(v); ok && n == -1 {
+		*t = UserStreamIdleTimeout{Disabled: ptr(true)}
+		return true, nil
+	}
+	return false, fmt.Errorf("expected a duration or -1, got %v", v)
+}
+
 // SetYAMLValue decodes the integer shorthand docker-agent writes for a token budget.
 func (b *UserTaskBudget) SetYAMLValue(v any) (bool, error) {
 	if n, ok := usersettings.IntValue(v); ok {

@@ -17,7 +17,10 @@ func fixPrograms(pulumi, binary, lang string, files []string) error {
 	case langJava:
 		fix = fixJava
 	case langGo:
-		fix = func(code string, _ *pkgSchema) (string, error) { return fixGoAnyLists(code) }
+		fix = func(code string, schema *pkgSchema) (string, error) {
+			code, err := fixGoAnyLists(code)
+			return fixGoLookups(code, schema), err
+		}
 	case langPython:
 		fix = fixPythonImports
 	default:

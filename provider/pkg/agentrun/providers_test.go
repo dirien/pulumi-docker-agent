@@ -4,7 +4,7 @@
 package agentrun
 
 // Provider coverage of AgentRun's runs (not coding harnesses): every model provider docker-agent
-// v1.150.0 implements, pointed at the multi-protocol fake of providers_fake_test.go through the
+// v1.166.0 implements, pointed at the multi-protocol fake of providers_fake_test.go through the
 // endpoint override docker-agent offers for it (a model's or custom provider's base_url,
 // Bedrock's provider_opts.endpoint_url, or the SDK's own base URL variable in `env`), with:
 //
@@ -36,8 +36,9 @@ import (
 	"strings"
 	"testing"
 
-	modelprovider "github.com/docker/docker-agent/pkg/model/provider"
+	"github.com/docker/docker-agent/pkg/model/provider/catalog"
 	"github.com/docker/docker-agent/pkg/modelsdev"
+	"github.com/docker/docker-agent/pkg/modelsdev/embedded"
 	"github.com/docker/docker-agent/pkg/tools/builtin/structuredoutput"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -137,10 +138,8 @@ var processEnvVars = []string{
 func isolateProviderEnv(t *testing.T) map[string]string {
 	t.Helper()
 	keys := slices.Clone(processEnvVars)
-	for _, a := range modelprovider.Aliases {
-		if a.TokenEnvVar != "" {
-			keys = append(keys, a.TokenEnvVar)
-		}
+	for _, a := range catalog.Ordered() {
+		keys = append(keys, a.TokenEnvVars...)
 	}
 	for _, k := range keys {
 		t.Setenv(k, "")
@@ -188,7 +187,7 @@ func expectedCost(t *testing.T, c providerCase, calls int) float64 {
 	if c.costID.Provider == "" {
 		return 0
 	}
-	m, err := modelsdev.NewDatabaseStore(modelsdev.EmbeddedSnapshot()).GetModel(context.Background(), c.costID)
+	m, err := modelsdev.NewDatabaseStore(embedded.Snapshot()).GetModel(context.Background(), c.costID)
 	require.NoError(t, err, "test setup: %s is not in the embedded models.dev catalog", c.costID)
 	require.NotNil(t, m.Cost, "test setup: %s has no pricing", c.costID)
 	rates := m.Cost.RatesFor(in)
@@ -218,16 +217,16 @@ var aliasModels = []struct{ alias, model string }{
 	{"azure", "phi-4-mini"},
 	{"xai", "grok-4.20-0309-non-reasoning"},
 	{"nebius", "Qwen/Qwen3-30B-A3B-Instruct-2507"},
-	{"nvidia", "deepseek-ai/deepseek-v4-flash"},
+	{"nvidia", "deepseek-ai/deepseek-v4.1-flash"},
 	{"openrouter", "openai/gpt-oss-20b"},
-	{"mistral", "devstral-small-2507"},
+	{"mistral", "mistral-small-2506"},
 	{"ollama", "llama3.2"},
 	{"minimax", "MiniMax-M2.5"},
 	{"baseten", "deepseek-ai/DeepSeek-V4-Flash-0731"},
 	{"ovhcloud", "gpt-oss-20b"},
 	{"daoxe", "kimi-k2.5"},
 	{"groq", "llama-3.1-8b-instant"},
-	{"fireworks-ai", "accounts/fireworks/models/gpt-oss-120b"},
+	{"fireworks-ai", "accounts/fireworks/models/deepseek-v4p1-flash"},
 	{"deepseek", "deepseek-v4-flash"},
 	{"cerebras", "gpt-oss-120b"},
 	{"togetherai", "openai/gpt-oss-120b"},
@@ -237,9 +236,31 @@ var aliasModels = []struct{ alias, model string }{
 	{"cloudflare-workers-ai", "@cf/qwen/qwen3-30b-a3b-fp8"},
 	{"cloudflare-ai-gateway", "openai/gpt-4o-mini"},
 	{"github-copilot", "mai-code-1.1-flash"},
-	{"opencode-go", "deepseek-v4-flash"},
+	{"opencode-go", "deepseek-v4.1-flash"},
 	{"opencode", "deepseek-v4-flash"},
+	{"api-route", "gpt-6.1-sol"},
+	{"lunaroute", "glm-5.3"},
+	{"orcarouter", "orcarouter/auto"},
+	{"atlascloud", "qwen/qwen3.8-max"},
+	{"popnow", "deepseek/v4-flash/chat"},
+	{"opper", "claude-sonnet-4-6"},
+	{"runcrate", "deepseek-ai/DeepSeek-V4.1-Flash"},
+	{"cloudgpu", "deepseek-v4.1-flash"},
+	{"obscurify", "deepseek/deepseek-v4-flash"},
+	{"hopbase", "glm-5.3"},
+	{"straitly", "deepseek/deepseek-v4-1-flash"},
 }
+
+// unpricedAliases are aliases the embedded models.dev catalog has no pricing for: their runs
+// cost 0.
+var unpricedAliases = map[string]bool{
+	"ollama": true, "api-route": true, "lunaroute": true, "atlascloud": true, "popnow": true,
+	"cloudgpu": true, "hopbase": true, "straitly": true,
+}
+
+// coreProviders are docker-agent's providers with their own API client (not an alias of an
+// OpenAI-compatible endpoint).
+var coreProviders = []string{"openai", "anthropic", "google", "amazon-bedrock", "dmr"}
 
 func providerCases() []providerCase {
 	v1 := func(url string) string { return url + "/v1" }
@@ -288,12 +309,12 @@ func providerCases() []providerCase {
 			structured: "native",
 		},
 		{
-			name: "custom/provider:mistral", proto: protoChat, credVar: "CORP_KEY", wireModel: "devstral-small-2507",
+			name: "custom/provider:mistral", proto: protoChat, credVar: "CORP_KEY", wireModel: "mistral-small-2506",
 			models: func(u string) string {
 				return "providers:\n  corp:\n    provider: mistral\n    base_url: " + v1(u) + "\n    token_key: CORP_KEY\n" +
-					"models:\n  m:\n    provider: corp\n    model: devstral-small-2507\n"
+					"models:\n  m:\n    provider: corp\n    model: mistral-small-2506\n"
 			},
-			costID: modelsdev.NewID("mistral", "devstral-small-2507"), structured: "native",
+			costID: modelsdev.NewID("mistral", "mistral-small-2506"), structured: "native",
 		},
 		{
 			name: "dmr/base_url", proto: protoChat, wireModel: "ai/qwen3", pathContains: "/v1/chat/completions",
@@ -406,7 +427,7 @@ func providerCases() []providerCase {
 		{
 			name: "google/gemini/GOOGLE_API_KEY", proto: protoGemini, credVar: "GOOGLE_API_KEY", wireModel: "gemini-2.5-flash",
 			models:       func(u string) string { return baseURLModel("google", "gemini-2.5-flash", u+"/") },
-			pathContains: "/v1beta/models/gemini-2.5-flash:streamGenerateContent",
+			pathContains: "/v1/models/gemini-2.5-flash:streamGenerateContent",
 			costID:       modelsdev.NewID("google", "gemini-2.5-flash"), structured: "native",
 		},
 		{
@@ -471,15 +492,18 @@ func providerCases() []providerCase {
 
 	// Every built-in OpenAI-compatible alias, through a model's base_url.
 	for _, a := range aliasModels {
-		alias := modelprovider.Aliases[a.alias]
+		var credVar string
+		if vars := catalog.Lookup(a.alias).TokenEnvVars; len(vars) > 0 {
+			credVar = vars[0]
+		}
 		c := providerCase{
-			name: "alias/" + a.alias, proto: protoChat, credVar: alias.TokenEnvVar, wireModel: a.model,
+			name: "alias/" + a.alias, proto: protoChat, credVar: credVar, wireModel: a.model,
 			models: func(u string) string {
 				return baseURLModel(a.alias, fmt.Sprintf("%q", a.model), v1(u))
 			},
 			pathContains: "/v1/chat/completions", structured: "native",
 		}
-		if a.alias != "ollama" {
+		if !unpricedAliases[a.alias] {
 			c.costID = modelsdev.NewID(a.alias, a.model)
 		}
 		if a.alias == "github-copilot" {
@@ -688,14 +712,17 @@ func TestProvidersCoverAllAliases(t *testing.T) {
 	for _, a := range aliasModels {
 		covered[a.alias] = true
 	}
-	for name := range modelprovider.Aliases {
-		assert.True(t, covered[name], "alias %q has no provider case", name)
+	for _, p := range catalog.Ordered() {
+		if slices.Contains(coreProviders, p.Name) {
+			continue
+		}
+		assert.True(t, covered[p.Name], "alias %q has no provider case", p.Name)
 	}
 	names := map[string]bool{}
 	for _, c := range providerCases() {
 		names[strings.Split(c.name, "/")[0]] = true
 	}
-	for _, core := range modelprovider.CoreProviders {
+	for _, core := range coreProviders {
 		assert.True(t, names[core], "core provider %q has no provider case", core)
 	}
 }
@@ -927,7 +954,7 @@ func TestProvidersInheritedEnvironmentParity(t *testing.T) {
 	})
 	t.Run("OPENAI_ORG_ID to an OpenAI-compatible alias", func(t *testing.T) {
 		f, req := setupCase(t, providerCase{credVar: "MISTRAL_API_KEY",
-			models: func(u string) string { return baseURLModel("mistral", "devstral-small-2507", u+"/v1") }}, "", "Say hello")
+			models: func(u string) string { return baseURLModel("mistral", "mistral-small-2506", u+"/v1") }}, "", "Say hello")
 		t.Setenv("OPENAI_ORG_ID", "org-of-the-provider")
 		req.InheritEnvironment = true
 		_, err := Run(t.Context(), req)
@@ -1123,7 +1150,7 @@ func TestProvidersAuto(t *testing.T) {
 	}{
 		{"ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "claude-sonnet-5", protoAnthropic, func(u string) string { return u }, false},
 		{"OPENAI_API_KEY", "OPENAI_BASE_URL", "gpt-5.6", protoResponses, func(u string) string { return u + "/v1" }, false},
-		{"GOOGLE_API_KEY", "GOOGLE_GEMINI_BASE_URL", "gemini-3.8-flash", protoGemini, func(u string) string { return u + "/" }, false},
+		{"GOOGLE_API_KEY", "GOOGLE_GEMINI_BASE_URL", "gemini-4-hydrogen", protoGemini, func(u string) string { return u + "/" }, false},
 		{"AWS_BEARER_TOKEN_BEDROCK", "AWS_ENDPOINT_URL_BEDROCK_RUNTIME", "global.anthropic.claude-sonnet-5", protoBedrock,
 			func(u string) string { return u }, true},
 	} {

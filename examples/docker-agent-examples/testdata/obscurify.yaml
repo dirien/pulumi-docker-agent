@@ -1,0 +1,15 @@
+version: "16"
+agents:
+  root:
+    model: obscurify_model
+    description: Assistant using Obscurify.ai
+    instruction: |
+      You are a helpful assistant.
+    toolsets:
+      - type: filesystem
+      - type: shell
+      - type: think
+models:
+  obscurify_model:
+    provider: obscurify
+    model: deepseek/deepseek-v4-flash

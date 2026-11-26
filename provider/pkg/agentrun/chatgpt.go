@@ -23,6 +23,7 @@ import (
 	"github.com/docker/docker-agent/pkg/atomicfile"
 	"github.com/docker/docker-agent/pkg/chatgpt"
 	"github.com/docker/docker-agent/pkg/config"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	"github.com/docker/docker-agent/pkg/paths"
 )
 
@@ -90,7 +91,7 @@ type chatgptLogin struct {
 // login's tokens, for the redaction set. It neither locks, refreshes nor copies the login: the
 // run child does that when the run asks for its token.
 func planChatGPTLogin(ctx context.Context, req Request, stateRoot string) (*chatgptLogin, []string) {
-	cfg, err := config.Load(ctx, config.NewBytesSource(orDefault(req.Name, "agent")+".yaml", req.YAML))
+	cfg, err := config.Load(ctx, config.NewBytesSource(orDefault(req.Name, "agent")+".yaml", req.YAML), config.WithVersions(legacy.Register))
 	if err != nil {
 		return nil, nil
 	}

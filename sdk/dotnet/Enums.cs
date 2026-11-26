@@ -234,6 +234,7 @@ namespace ediri.DockerAgent
         public static HarnessType Codex { get; } = new HarnessType("codex");
         public static HarnessType Pi { get; } = new HarnessType("pi");
         public static HarnessType OpenCode { get; } = new HarnessType("opencode");
+        public static HarnessType CommandCode { get; } = new HarnessType("command-code");
 
         public static bool operator ==(HarnessType left, HarnessType right) => left.Equals(right);
         public static bool operator !=(HarnessType left, HarnessType right) => !left.Equals(right);

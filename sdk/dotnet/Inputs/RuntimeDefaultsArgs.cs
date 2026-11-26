@@ -52,6 +52,18 @@ namespace ediri.DockerAgent.Inputs
         [Input("sandbox")]
         public Input<bool>? Sandbox { get; set; }
 
+        /// <summary>
+        /// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+        /// </summary>
+        [Input("streamIdleTimeout")]
+        public Input<string>? StreamIdleTimeout { get; set; }
+
+        /// <summary>
+        /// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+        /// </summary>
+        [Input("streamIdleTimeoutInt")]
+        public Input<int>? StreamIdleTimeoutInt { get; set; }
+
         public RuntimeDefaultsArgs()
         {
         }

@@ -8,6 +8,7 @@ import com.pulumi.core.annotations.Import;
 import io.github.dirien.dockeragent.enums.BusySendMode;
 import io.github.dirien.dockeragent.enums.InterruptConfirmation;
 import io.github.dirien.dockeragent.enums.SafetyMode;
+import io.github.dirien.dockeragent.inputs.UserExperimentalSettingsArgs;
 import io.github.dirien.dockeragent.inputs.UserHooksArgs;
 import io.github.dirien.dockeragent.inputs.UserKeybindingArgs;
 import io.github.dirien.dockeragent.inputs.UserLayoutSettingsArgs;
@@ -30,6 +31,36 @@ import javax.annotation.Nullable;
 public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceArgs {
 
     public static final UserGlobalSettingsArgs Empty = new UserGlobalSettingsArgs();
+
+    /**
+     * Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+     * 
+     */
+    @Import(name="backgroundCompaction")
+    private @Nullable Output<Boolean> backgroundCompaction;
+
+    /**
+     * @return Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+     * 
+     */
+    public Optional<Output<Boolean>> backgroundCompaction() {
+        return Optional.ofNullable(this.backgroundCompaction);
+    }
+
+    /**
+     * The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+     * 
+     */
+    @Import(name="backgroundCompactionThreshold")
+    private @Nullable Output<Integer> backgroundCompactionThreshold;
+
+    /**
+     * @return The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+     * 
+     */
+    public Optional<Output<Integer>> backgroundCompactionThreshold() {
+        return Optional.ofNullable(this.backgroundCompactionThreshold);
+    }
 
     /**
      * What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
@@ -77,6 +108,21 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
     }
 
     /**
+     * Opt-in experimental features (`experimental`). Every feature is off by default.
+     * 
+     */
+    @Import(name="experimental")
+    private @Nullable Output<UserExperimentalSettingsArgs> experimental;
+
+    /**
+     * @return Opt-in experimental features (`experimental`). Every feature is off by default.
+     * 
+     */
+    public Optional<Output<UserExperimentalSettingsArgs>> experimental() {
+        return Optional.ofNullable(this.experimental);
+    }
+
+    /**
      * Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
      * 
      */
@@ -89,6 +135,21 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
      */
     public Optional<Output<Map<String,Object>>> extra() {
         return Optional.ofNullable(this.extra);
+    }
+
+    /**
+     * Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+     * 
+     */
+    @Import(name="fadeScrollEdges")
+    private @Nullable Output<Boolean> fadeScrollEdges;
+
+    /**
+     * @return Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+     * 
+     */
+    public Optional<Output<Boolean>> fadeScrollEdges() {
+        return Optional.ofNullable(this.fadeScrollEdges);
     }
 
     /**
@@ -137,6 +198,21 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
     }
 
     /**
+     * Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+     * 
+     */
+    @Import(name="keepAwake")
+    private @Nullable Output<Boolean> keepAwake;
+
+    /**
+     * @return Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+     * 
+     */
+    public Optional<Output<Boolean>> keepAwake() {
+        return Optional.ofNullable(this.keepAwake);
+    }
+
+    /**
      * Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
      * 
      */
@@ -179,6 +255,21 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
      */
     public Optional<Output<Boolean>> lean() {
         return Optional.ofNullable(this.lean);
+    }
+
+    /**
+     * In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+     * 
+     */
+    @Import(name="leanFullFilePreview")
+    private @Nullable Output<Boolean> leanFullFilePreview;
+
+    /**
+     * @return In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+     * 
+     */
+    public Optional<Output<Boolean>> leanFullFilePreview() {
+        return Optional.ofNullable(this.leanFullFilePreview);
     }
 
     /**
@@ -377,6 +468,21 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
     }
 
     /**
+     * Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+     * 
+     */
+    @Import(name="topMargin")
+    private @Nullable Output<Boolean> topMargin;
+
+    /**
+     * @return Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+     * 
+     */
+    public Optional<Output<Boolean>> topMargin() {
+        return Optional.ofNullable(this.topMargin);
+    }
+
+    /**
      * Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
      * 
      */
@@ -409,16 +515,22 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
     private UserGlobalSettingsArgs() {}
 
     private UserGlobalSettingsArgs(UserGlobalSettingsArgs $) {
+        this.backgroundCompaction = $.backgroundCompaction;
+        this.backgroundCompactionThreshold = $.backgroundCompactionThreshold;
         this.busySendMode = $.busySendMode;
         this.cacheStablePrompts = $.cacheStablePrompts;
         this.expandThinking = $.expandThinking;
+        this.experimental = $.experimental;
         this.extra = $.extra;
+        this.fadeScrollEdges = $.fadeScrollEdges;
         this.hideToolResults = $.hideToolResults;
         this.hooks = $.hooks;
         this.interruptConfirmation = $.interruptConfirmation;
+        this.keepAwake = $.keepAwake;
         this.keybindings = $.keybindings;
         this.layout = $.layout;
         this.lean = $.lean;
+        this.leanFullFilePreview = $.leanFullFilePreview;
         this.permissions = $.permissions;
         this.renderImages = $.renderImages;
         this.restoreTabs = $.restoreTabs;
@@ -432,6 +544,7 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
         this.theme = $.theme;
         this.themeDark = $.themeDark;
         this.themeLight = $.themeLight;
+        this.topMargin = $.topMargin;
         this.warnOnCacheMiss = $.warnOnCacheMiss;
         this.yolo = $.yolo;
     }
@@ -452,6 +565,48 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
 
         public Builder(UserGlobalSettingsArgs defaults) {
             $ = new UserGlobalSettingsArgs(Objects.requireNonNull(defaults));
+        }
+
+        /**
+         * @param backgroundCompaction Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder backgroundCompaction(@Nullable Output<Boolean> backgroundCompaction) {
+            $.backgroundCompaction = backgroundCompaction;
+            return this;
+        }
+
+        /**
+         * @param backgroundCompaction Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder backgroundCompaction(Boolean backgroundCompaction) {
+            return backgroundCompaction(Output.of(backgroundCompaction));
+        }
+
+        /**
+         * @param backgroundCompactionThreshold The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder backgroundCompactionThreshold(@Nullable Output<Integer> backgroundCompactionThreshold) {
+            $.backgroundCompactionThreshold = backgroundCompactionThreshold;
+            return this;
+        }
+
+        /**
+         * @param backgroundCompactionThreshold The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder backgroundCompactionThreshold(Integer backgroundCompactionThreshold) {
+            return backgroundCompactionThreshold(Output.of(backgroundCompactionThreshold));
         }
 
         /**
@@ -518,6 +673,27 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
         }
 
         /**
+         * @param experimental Opt-in experimental features (`experimental`). Every feature is off by default.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder experimental(@Nullable Output<UserExperimentalSettingsArgs> experimental) {
+            $.experimental = experimental;
+            return this;
+        }
+
+        /**
+         * @param experimental Opt-in experimental features (`experimental`). Every feature is off by default.
+         * 
+         * @return builder
+         * 
+         */
+        public Builder experimental(UserExperimentalSettingsArgs experimental) {
+            return experimental(Output.of(experimental));
+        }
+
+        /**
          * @param extra Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
          * 
          * @return builder
@@ -536,6 +712,27 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          */
         public Builder extra(Map<String,Object> extra) {
             return extra(Output.of(extra));
+        }
+
+        /**
+         * @param fadeScrollEdges Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder fadeScrollEdges(@Nullable Output<Boolean> fadeScrollEdges) {
+            $.fadeScrollEdges = fadeScrollEdges;
+            return this;
+        }
+
+        /**
+         * @param fadeScrollEdges Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder fadeScrollEdges(Boolean fadeScrollEdges) {
+            return fadeScrollEdges(Output.of(fadeScrollEdges));
         }
 
         /**
@@ -599,6 +796,27 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          */
         public Builder interruptConfirmation(InterruptConfirmation interruptConfirmation) {
             return interruptConfirmation(Output.of(interruptConfirmation));
+        }
+
+        /**
+         * @param keepAwake Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder keepAwake(@Nullable Output<Boolean> keepAwake) {
+            $.keepAwake = keepAwake;
+            return this;
+        }
+
+        /**
+         * @param keepAwake Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder keepAwake(Boolean keepAwake) {
+            return keepAwake(Output.of(keepAwake));
         }
 
         /**
@@ -672,6 +890,27 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          */
         public Builder lean(Boolean lean) {
             return lean(Output.of(lean));
+        }
+
+        /**
+         * @param leanFullFilePreview In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder leanFullFilePreview(@Nullable Output<Boolean> leanFullFilePreview) {
+            $.leanFullFilePreview = leanFullFilePreview;
+            return this;
+        }
+
+        /**
+         * @param leanFullFilePreview In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder leanFullFilePreview(Boolean leanFullFilePreview) {
+            return leanFullFilePreview(Output.of(leanFullFilePreview));
         }
 
         /**
@@ -945,6 +1184,27 @@ public final class UserGlobalSettingsArgs extends com.pulumi.resources.ResourceA
          */
         public Builder themeLight(String themeLight) {
             return themeLight(Output.of(themeLight));
+        }
+
+        /**
+         * @param topMargin Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder topMargin(@Nullable Output<Boolean> topMargin) {
+            $.topMargin = topMargin;
+            return this;
+        }
+
+        /**
+         * @param topMargin Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+         * 
+         * @return builder
+         * 
+         */
+        public Builder topMargin(Boolean topMargin) {
+            return topMargin(Output.of(topMargin));
         }
 
         /**

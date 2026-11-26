@@ -112,6 +112,8 @@ Resource and function names follow the Terraform convention, `<package>_<name in
 | `docker-agent:index:AgentsIgnore` | `resource "docker-agent_agents_ignore" "<name>"` |
 | `docker-agent:index:getAgent` | `data "docker-agent_agent" "<name>"` |
 | `docker-agent:index:validateAgentConfig` | `data "docker-agent_validate_agent_config" "<name>"` |
+| `docker-agent:index:getUserSettings` | `data "docker-agent_user_settings" "<name>"` |
+| `docker-agent:index:getAgentsIgnore` | `data "docker-agent_agents_ignore" "<name>"` |
 | provider configuration | `provider "docker-agent" { ... }` |
 
 Property names are snake_case (`subAgents` is `sub_agents`, `tokenKey` is `token_key`, `pinnedReference` is `pinned_reference`). Lists of objects are written as repeated nested blocks: one `agents { }` block per agent, in order, `toolsets { }` blocks inside an agent, and `registry_auth { }` blocks in the provider block. Maps and single objects such as `models`, `metadata`, `permissions` and `extra` are attributes (`models = { ... }`). The hyphen is part of the HCL identifier, so references read `docker-agent_agent_config.assistant.yaml` and `data.docker-agent_agent.pulled.agent_names`:
@@ -450,7 +452,7 @@ The same converter imports shared agents: `pulumi import --from docker-agent <re
 
 Rendering, validating and publishing configurations needs no model API keys, and validation runs offline. Model credentials are read where the agent runs: from the environment of whoever runs it with `docker agent run`, `docker agent serve api` or a container based on `docker/docker-agent`, or, for `AgentRun`, by a child process of the provider during `pulumi up` (see [AgentRun credentials](#agentrun-credentials)). Coding-harness agents need no model key: the Claude Code and Codex CLIs use their own logins (see [Claude Code credentials](#claude-code-credentials) and [Codex credentials](#codex-credentials)).
 
-The `requiredEnvVars` output of `AgentConfig` and `validateAgentConfig` lists the variables a configuration needs, on a best-effort basis (a model with a `baseUrl` requires none there, even when its provider still needs its key when it runs). These are the model providers of docker-agent v1.150.0, the version this provider pins, with the variables they read. `tokenKey` on a model or a custom provider replaces the key variable by another name.
+The `requiredEnvVars` output of `AgentConfig` and `validateAgentConfig` lists the variables a configuration needs, on a best-effort basis (a model with a `baseUrl` requires none there, even when its provider still needs its key when it runs). These are the model providers of docker-agent v1.166.0, the version this provider pins, with the variables they read. `tokenKey` on a model or a custom provider replaces the key variable by another name.
 
 | Provider | Protocol and default endpoint | Credentials | Other variables it reads |
 |---|---|---|---|
@@ -466,29 +468,40 @@ The `requiredEnvVars` output of `AgentConfig` and `validateAgentConfig` lists th
 | `ollama` | OpenAI Chat Completions, `http://localhost:11434/v1` | none; `OPENAI_API_KEY` of the environment is sent when it is set | `OLLAMA_HOST` is not read: set `baseUrl` for another host |
 | `cloudflare-workers-ai` | OpenAI Chat Completions, `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1` | `CLOUDFLARE_API_TOKEN` | `CLOUDFLARE_ACCOUNT_ID` |
 | `cloudflare-ai-gateway` | OpenAI Chat Completions, `https://gateway.ai.cloudflare.com/v1/${CLOUDFLARE_ACCOUNT_ID}/${CLOUDFLARE_GATEWAY_ID}/compat` | `CLOUDFLARE_API_TOKEN` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID` |
-| A custom provider (`providers` with `apiType: openai_chatcompletions` or `openai_responses` and a `baseUrl`) | the configured protocol and `baseUrl` | the `tokenKey` variable; without `tokenKey`, no key is sent | A custom provider with `provider: <type>` gets the rules of that type instead. An `openai` model with a `baseUrl` and no `tokenKey` sends `OPENAI_API_KEY` of the environment, like `ollama`. |
+| A custom provider (`providers` with `apiType: openai_chatcompletions` or `openai_responses` and a `baseUrl`) | the configured protocol and `baseUrl` | the `tokenKey` variable; without `tokenKey`, no key is sent | A custom provider with `provider: <type>` gets the rules of that type instead. An `openai` or `anthropic` model with a `baseUrl` and no `tokenKey` still needs `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` when it runs (since docker-agent v1.166.0); set `tokenKey`, or use a custom provider with `apiType` for an endpoint without a key. |
 
 The other aliases are OpenAI-compatible services with a fixed endpoint and one key, all over OpenAI Chat Completions (`opencode` uses Responses for GPT models):
 
 | Provider | Default endpoint | Credentials |
 |---|---|---|
+| `api-route` | `https://global.api-route.com/v1` | `API_ROUTE_API_KEY` |
+| `atlascloud` | `https://api.atlascloud.ai/v1` | `ATLASCLOUD_API_KEY` |
 | `baseten` | `https://inference.baseten.co/v1` | `BASETEN_API_KEY` |
 | `cerebras` | `https://api.cerebras.ai/v1` | `CEREBRAS_API_KEY` |
+| `cloudgpu` | `https://cloudgpu.app/v1` | `CLOUDGPU_API_KEY` |
 | `daoxe` | `https://api.daoxe.com/v1` | `DAOXE_API_KEY` |
 | `deepseek` | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` |
 | `fireworks-ai` | `https://api.fireworks.ai/inference/v1` | `FIREWORKS_API_KEY` |
 | `groq` | `https://api.groq.com/openai/v1` | `GROQ_API_KEY` |
+| `hopbase` | `https://api.hop-base.com/v1` | `HOPBASE_API_KEY` |
 | `huggingface` | `https://router.huggingface.co/v1` | `HF_TOKEN` |
+| `lunaroute` | `https://gw.lunaroute.com/v1` | `LUNAROUTE_API_KEY` |
 | `minimax` | `https://api.minimax.io/v1` | `MINIMAX_API_KEY` |
 | `mistral` | `https://api.mistral.ai/v1` | `MISTRAL_API_KEY` |
 | `moonshotai` | `https://api.moonshot.ai/v1` | `MOONSHOT_API_KEY` |
-| `nebius` | `https://api.studio.nebius.com/v1` | `NEBIUS_API_KEY` |
+| `nebius` | `https://api.tokenfactory.nebius.com/v1` | `NEBIUS_API_KEY` |
 | `nvidia` | `https://integrate.api.nvidia.com/v1` | `NVIDIA_API_KEY` |
+| `obscurify` | `https://obscurify.ai/v1` | `OBSCURIFY_API_KEY` |
 | `opencode` | `https://opencode.ai/zen/v1` | `OPENCODE_API_KEY` |
 | `opencode-go` | `https://opencode.ai/zen/go/v1` | `OPENCODE_API_KEY` |
 | `openrouter` | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
+| `opper` | `https://api.opper.ai/v3/compat` | `OPPER_API_KEY` |
+| `orcarouter` | `https://api.orcarouter.ai/v1` | `ORCAROUTER_API_KEY` |
 | `ovhcloud` | `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1` | `OVH_AI_ENDPOINTS_ACCESS_TOKEN` |
+| `popnow` | `https://api.popnow.ai/v1` | `POPNOW_API_KEY` |
 | `requesty` | `https://router.requesty.ai/v1` | `REQUESTY_API_KEY` |
+| `runcrate` | `https://api.runcrate.ai/v1` | `RUNCRATE_API_KEY` |
+| `straitly` | `https://api.straitly.ai/v1` | `STRAITLY_API_KEY` |
 | `togetherai` | `https://api.together.xyz/v1` | `TOGETHER_API_KEY` |
 | `vercel` | `https://ai-gateway.vercel.sh/v1` | `AI_GATEWAY_API_KEY` |
 | `xai` | `https://api.x.ai/v1` | `XAI_API_KEY` |

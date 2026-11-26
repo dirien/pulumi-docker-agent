@@ -70,6 +70,7 @@ __all__ = [
     'UserBoardColumn',
     'UserBoardProject',
     'UserCredentialHelper',
+    'UserExperimentalSettings',
     'UserFederationAuth',
     'UserGlobalSettings',
     'UserHook',
@@ -88,6 +89,7 @@ __all__ = [
     'UserModelRoutingRule',
     'UserPermissions',
     'UserProvider',
+    'UserStreamIdleTimeout',
     'UserTaskBudget',
     'UserThinkingBudget',
     'WebhookConfig',
@@ -771,7 +773,7 @@ class AgentRunUsage(dict):
         """
         Token usage and cost of an agent run, including sub-agents.
 
-        :param _builtins.float cost: Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+        :param _builtins.float cost: Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.166.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
         :param _builtins.int input_tokens: Prompt tokens, including cached input tokens.
         :param _builtins.int output_tokens: Completion tokens.
         """
@@ -783,7 +785,7 @@ class AgentRunUsage(dict):
     @pulumi.getter
     def cost(self) -> _builtins.float:
         """
-        Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+        Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.166.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
         """
         return pulumi.get(self, "cost")
 
@@ -1750,7 +1752,7 @@ class HookDefinition(dict):
         """
         Definition of a lifecycle hook
 
-        :param 'HookType' type: Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+        :param 'HookType' type: Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'keep_awake' (CLI session_start and session_end: prevents idle system sleep when the user setting keep_awake is enabled), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
         :param Sequence[_builtins.str] args: Arbitrary string arguments passed to the hook handler. Builtin handlers receive them as a typed parameter; e.g. 'add_context' takes Go text/template strings using hook input fields such as {{ .SessionID }}, 'add_prompt_files' takes the list of prompt files to load, 'add_recent_commits' optionally takes a positive integer commit limit, 'add_git_diff' accepts 'full' to emit the full unified diff, and 'max_iterations' takes a positive integer call limit.
         :param _builtins.str command: Shell command (type=command) or builtin name (type=builtin) to invoke. Command hooks receive JSON input via stdin with tool/session information. Ignored when type=model.
         :param Mapping[str, _builtins.str] env: Environment variables to add or override for this hook only. Values expand the plain ${env.VAR} form from the OS environment; any other $ is kept literal.
@@ -1806,7 +1808,7 @@ class HookDefinition(dict):
     @pulumi.getter
     def type(self) -> 'HookType':
         """
-        Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+        Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'keep_awake' (CLI session_start and session_end: prevents idle system sleep when the user setting keep_awake is enabled), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
         """
         return pulumi.get(self, "type")
 
@@ -2772,7 +2774,7 @@ class Lifecycle(dict):
         Controls how the agent supervises a long-running toolset process (MCP server, remote MCP, LSP server). All fields are optional; pick a profile that matches your taste and override individual knobs as needed.
 
         :param 'LifecycleBackoff' backoff: Exponential backoff between restart attempts.
-        :param _builtins.str call_timeout: Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
+        :param _builtins.str call_timeout: Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param _builtins.int max_restarts: Maximum number of consecutive restart attempts after a disconnect. 0 = use profile default (5). -1 = unlimited.
         :param 'LifecycleProfile' profile: Shorthand that picks defaults for all the other fields. 'resilient' (default): auto-restart on failure with exponential backoff. 'strict': fail fast — the agent refuses to start when the toolset is unavailable. 'best-effort': single attempt, no auto-restart.
@@ -2809,7 +2811,7 @@ class Lifecycle(dict):
     @pulumi.getter(name="callTimeout")
     def call_timeout(self) -> Optional[_builtins.str]:
         """
-        Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
+        Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
         """
         return pulumi.get(self, "call_timeout")
 
@@ -3457,6 +3459,8 @@ class ModelDef(dict):
             suggest = "compaction_model"
         elif key == "compactionThreshold":
             suggest = "compaction_threshold"
+        elif key == "contextWindow":
+            suggest = "context_window"
         elif key == "firstAvailable":
             suggest = "first_available"
         elif key == "frequencyPenalty":
@@ -3471,6 +3475,10 @@ class ModelDef(dict):
             suggest = "presence_penalty"
         elif key == "providerOpts":
             suggest = "provider_opts"
+        elif key == "streamIdleTimeout":
+            suggest = "stream_idle_timeout"
+        elif key == "streamIdleTimeoutInt":
+            suggest = "stream_idle_timeout_int"
         elif key == "taskBudget":
             suggest = "task_budget"
         elif key == "thinkingBudget":
@@ -3504,6 +3512,7 @@ class ModelDef(dict):
                  capabilities: Optional['outputs.ModelCapabilities'] = None,
                  compaction_model: Optional[_builtins.str] = None,
                  compaction_threshold: Optional[_builtins.float] = None,
+                 context_window: Optional[_builtins.int] = None,
                  cost: Optional['outputs.Cost'] = None,
                  description: Optional[_builtins.str] = None,
                  extra: Optional[Mapping[str, Any]] = None,
@@ -3517,6 +3526,8 @@ class ModelDef(dict):
                  provider: Optional[_builtins.str] = None,
                  provider_opts: Optional[Mapping[str, Any]] = None,
                  routing: Optional[Sequence['outputs.RoutingRule']] = None,
+                 stream_idle_timeout: Optional[_builtins.str] = None,
+                 stream_idle_timeout_int: Optional[_builtins.int] = None,
                  task_budget: Optional[_builtins.int] = None,
                  temperature: Optional[_builtins.float] = None,
                  thinking_budget: Optional[_builtins.str] = None,
@@ -3534,19 +3545,22 @@ class ModelDef(dict):
         :param 'ModelCapabilities' capabilities: Explicit attachment capability override for models the models.dev catalogue does not describe correctly (custom OpenAI-compatible providers, local models like Ollama, or dropped model versions). When set, the declared flags are authoritative and no models.dev lookup is performed; when omitted, capabilities are detected automatically. Without it, such models fall back to text-only and their image/PDF/audio/video attachments are silently dropped.
         :param _builtins.str compaction_model: Model used to summarize the conversation when this model's session is compacted (manual /compact, the proactive threshold trigger, or post-overflow recovery). The summary call ingests the whole conversation and is the slowest, most expensive call in a session; pointing this at a smaller/faster model makes compaction cheaper and more reliable without changing the model that runs the conversation. Value can be a model name from the models section or an inline 'provider/model' spec. The agent-level compaction_model takes precedence over this value, which in turn takes precedence over a provider-level default; when all are omitted, compaction reuses the agent's own model. If the compaction model has a smaller context window than the primary, compaction is triggered against the smaller window so the summary call can always ingest the conversation it must compact.
         :param _builtins.float compaction_threshold: Fraction of the context window at which proactive auto-compaction triggers for agents running this model. Must be greater than 0 and at most 1. Defaults to 0.9 (90% of the context window). Takes precedence over the agent-level compaction_threshold. Cannot be combined with first_available.
+        :param _builtins.int context_window: Context window of this model in tokens. Metadata only: it drives context accounting, compaction thresholds (including a dedicated compaction_model) and max_tokens clamping for models the models.dev catalogue does not describe (custom openai_responses or openai_chatcompletions endpoints, self-hosted models). It is never sent as a request parameter and never configures the Docker Model Runner engine; use provider_opts.context_size for that. This is the only context-window setting for non-DMR providers; provider_opts.context_size is accepted only by the dmr provider, where it also sizes the engine and must equal this value when both are set. Otherwise the runtime-discovered window applies, then models.dev. It must not exceed the context window the models.dev catalogue declares for the model, when it declares one (the error names the catalogue maximum); models the catalogue does not describe accept any positive value. Cannot be combined with first_available (set it on the candidate models instead).
         :param 'Cost' cost: Explicit token pricing (USD per 1M tokens), overriding the models.dev catalogue. Used for per-turn cost computation, session cost tracking, the /model picker, and the after_llm_call hook's cost field. Makes an uncatalogued model (custom base_url provider, local or private deployment) 'priced' instead of billing $0. Prices must not be negative; an all-zero table means 'priced, free'. Cannot be combined with first_available.
         :param _builtins.str description: Optional human-readable summary of the model's purpose or strengths (e.g. 'fast and cheap, good for summaries')
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param Sequence[_builtins.str] first_available: Candidate model references in priority order. At load time docker-agent selects the first candidate whose credentials are configured. Candidates may be named models or inline 'provider/model' specs. Local providers (dmr, ollama) need no credentials and make reliable final fallbacks. Mutually exclusive with other model configuration fields.
         :param _builtins.float frequency_penalty: Frequency penalty
-        :param _builtins.int max_tokens: Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
+        :param _builtins.int max_tokens: Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set context_window on the model to declare the window.
         :param _builtins.str model: Model name
         :param 'ModelOutputCapabilities' output_capabilities: Optional generative output capability override for this model. Resolution precedence is explicit false, explicit true, then the exact models.dev record's Modalities.Output=image for an omitted image flag (including an empty block). Unknown or unavailable catalogue metadata stays disabled; model names are never used to infer capability. Cannot be combined with first_available (set output_capabilities.image on the candidate models instead).
         :param _builtins.bool parallel_tool_calls: Whether to enable parallel tool calls
         :param _builtins.float presence_penalty: Presence penalty
         :param _builtins.str provider: Model provider (e.g., openai, anthropic, dmr)
-        :param Mapping[str, Any] provider_opts: Provider-specific options. Anthropic: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Fable/Mythos 5.1), strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks (array of model ID strings, in priority order; enables the server-side-fallback beta so requests refused by safety classifiers, e.g. on Claude Fable 5, are retried with the listed models in a single round trip). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
+        :param Mapping[str, Any] provider_opts: Provider-specific options. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Claude models whose server checks thinking prefixes: Haiku 5.5, Opus 5.5, Sonnet 5.5, Fable 5.1/5.2 and Mythos 5.2; Bedrock applies it only to listed prefix-checking models when thinking is enabled). Anthropic: strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1+), speed ('fast' or 'standard'; 'fast' sends speed: fast with the fast-mode-2026-02-01 beta on every request using the model, at premium pricing on supported models, Claude API only; omitted, empty or 'standard' leaves the API default; other values are rejected). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks ("default" for the server's recommended routing, or an array of up to three distinct model ID strings in priority order; enables the server-side-fallback-2026-07-01 beta so refused requests are retried in a single round trip; Claude API only, rejected on Vertex AI, Bedrock, gateways and other base_url hosts; a list is rejected for Claude Haiku 5.5, which has no server-side fallback). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. Any OpenAI-compatible destination: replay_reasoning (boolean) replays the reasoning stored on assistant turns back as a reasoning_content field on later Chat Completions requests, so a reasoning model sees its own earlier reasoning instead of re-deriving it after each tool call (distinct from preserve_reasoning, which replays encrypted reasoning items on the Responses API and does not apply to Chat Completions); default true for Chat Completions; set replay_reasoning to false for an endpoint that rejects or must not receive the non-standard field; a non-boolean value also disables replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
         :param Sequence['RoutingRule'] routing: Routing rules for request-based model selection. When configured, this model becomes a router that selects the best model based on the user's input. The model's provider/model fields define the fallback model.
+        :param _builtins.str stream_idle_timeout: Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+        :param _builtins.int stream_idle_timeout_int: The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
         :param _builtins.int task_budget: Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
         :param _builtins.float temperature: Sampling temperature
         :param _builtins.str thinking_budget: Reasoning effort (`thinking_budget`) as a level: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `adaptive` or `adaptive/<level>`. Mutually exclusive with `thinkingBudgetTokens`.
@@ -3568,6 +3582,8 @@ class ModelDef(dict):
             pulumi.set(__self__, "compaction_model", compaction_model)
         if compaction_threshold is not None:
             pulumi.set(__self__, "compaction_threshold", compaction_threshold)
+        if context_window is not None:
+            pulumi.set(__self__, "context_window", context_window)
         if cost is not None:
             pulumi.set(__self__, "cost", cost)
         if description is not None:
@@ -3594,6 +3610,10 @@ class ModelDef(dict):
             pulumi.set(__self__, "provider_opts", provider_opts)
         if routing is not None:
             pulumi.set(__self__, "routing", routing)
+        if stream_idle_timeout is not None:
+            pulumi.set(__self__, "stream_idle_timeout", stream_idle_timeout)
+        if stream_idle_timeout_int is not None:
+            pulumi.set(__self__, "stream_idle_timeout_int", stream_idle_timeout_int)
         if task_budget is not None:
             pulumi.set(__self__, "task_budget", task_budget)
         if temperature is not None:
@@ -3660,6 +3680,14 @@ class ModelDef(dict):
         return pulumi.get(self, "compaction_threshold")
 
     @_builtins.property
+    @pulumi.getter(name="contextWindow")
+    def context_window(self) -> Optional[_builtins.int]:
+        """
+        Context window of this model in tokens. Metadata only: it drives context accounting, compaction thresholds (including a dedicated compaction_model) and max_tokens clamping for models the models.dev catalogue does not describe (custom openai_responses or openai_chatcompletions endpoints, self-hosted models). It is never sent as a request parameter and never configures the Docker Model Runner engine; use provider_opts.context_size for that. This is the only context-window setting for non-DMR providers; provider_opts.context_size is accepted only by the dmr provider, where it also sizes the engine and must equal this value when both are set. Otherwise the runtime-discovered window applies, then models.dev. It must not exceed the context window the models.dev catalogue declares for the model, when it declares one (the error names the catalogue maximum); models the catalogue does not describe accept any positive value. Cannot be combined with first_available (set it on the candidate models instead).
+        """
+        return pulumi.get(self, "context_window")
+
+    @_builtins.property
     @pulumi.getter
     def cost(self) -> Optional['outputs.Cost']:
         """
@@ -3703,7 +3731,7 @@ class ModelDef(dict):
     @pulumi.getter(name="maxTokens")
     def max_tokens(self) -> Optional[_builtins.int]:
         """
-        Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
+        Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set context_window on the model to declare the window.
         """
         return pulumi.get(self, "max_tokens")
 
@@ -3751,7 +3779,7 @@ class ModelDef(dict):
     @pulumi.getter(name="providerOpts")
     def provider_opts(self) -> Optional[Mapping[str, Any]]:
         """
-        Provider-specific options. Anthropic: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Fable/Mythos 5.1), strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks (array of model ID strings, in priority order; enables the server-side-fallback beta so requests refused by safety classifiers, e.g. on Claude Fable 5, are retried with the listed models in a single round trip). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
+        Provider-specific options. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Claude models whose server checks thinking prefixes: Haiku 5.5, Opus 5.5, Sonnet 5.5, Fable 5.1/5.2 and Mythos 5.2; Bedrock applies it only to listed prefix-checking models when thinking is enabled). Anthropic: strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1+), speed ('fast' or 'standard'; 'fast' sends speed: fast with the fast-mode-2026-02-01 beta on every request using the model, at premium pricing on supported models, Claude API only; omitted, empty or 'standard' leaves the API default; other values are rejected). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks ("default" for the server's recommended routing, or an array of up to three distinct model ID strings in priority order; enables the server-side-fallback-2026-07-01 beta so refused requests are retried in a single round trip; Claude API only, rejected on Vertex AI, Bedrock, gateways and other base_url hosts; a list is rejected for Claude Haiku 5.5, which has no server-side fallback). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. Any OpenAI-compatible destination: replay_reasoning (boolean) replays the reasoning stored on assistant turns back as a reasoning_content field on later Chat Completions requests, so a reasoning model sees its own earlier reasoning instead of re-deriving it after each tool call (distinct from preserve_reasoning, which replays encrypted reasoning items on the Responses API and does not apply to Chat Completions); default true for Chat Completions; set replay_reasoning to false for an endpoint that rejects or must not receive the non-standard field; a non-boolean value also disables replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
         """
         return pulumi.get(self, "provider_opts")
 
@@ -3762,6 +3790,22 @@ class ModelDef(dict):
         Routing rules for request-based model selection. When configured, this model becomes a router that selects the best model based on the user's input. The model's provider/model fields define the fallback model.
         """
         return pulumi.get(self, "routing")
+
+    @_builtins.property
+    @pulumi.getter(name="streamIdleTimeout")
+    def stream_idle_timeout(self) -> Optional[_builtins.str]:
+        """
+        Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+        """
+        return pulumi.get(self, "stream_idle_timeout")
+
+    @_builtins.property
+    @pulumi.getter(name="streamIdleTimeoutInt")
+    def stream_idle_timeout_int(self) -> Optional[_builtins.int]:
+        """
+        The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+        """
+        return pulumi.get(self, "stream_idle_timeout_int")
 
     @_builtins.property
     @pulumi.getter(name="taskBudget")
@@ -4052,8 +4096,8 @@ class ProviderDef(dict):
         :param _builtins.int max_tokens: Default maximum output tokens per response for models using this provider. This is the completion budget, NOT the context window: OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
         :param _builtins.bool parallel_tool_calls: Whether to enable parallel tool calls by default.
         :param _builtins.float presence_penalty: Default presence penalty.
-        :param _builtins.str provider: The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
-        :param Mapping[str, Any] provider_opts: Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
+        :param _builtins.str provider: The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+        :param Mapping[str, Any] provider_opts: Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed ('fast' or 'standard'; 'fast' requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
         :param _builtins.int task_budget: Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
         :param _builtins.float temperature: Default sampling temperature for models using this provider.
         :param _builtins.str thinking_budget: Reasoning effort (`thinking_budget`) as a level: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `adaptive` or `adaptive/<level>`. Mutually exclusive with `thinkingBudgetTokens`.
@@ -4178,7 +4222,7 @@ class ProviderDef(dict):
     @pulumi.getter
     def provider(self) -> Optional[_builtins.str]:
         """
-        The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+        The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
         """
         return pulumi.get(self, "provider")
 
@@ -4186,7 +4230,7 @@ class ProviderDef(dict):
     @pulumi.getter(name="providerOpts")
     def provider_opts(self) -> Optional[Mapping[str, Any]]:
         """
-        Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
+        Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed ('fast' or 'standard'; 'fast' requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
         """
         return pulumi.get(self, "provider_opts")
 
@@ -5288,7 +5332,9 @@ class Remote(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "transportType":
+        if key == "standaloneSse":
+            suggest = "standalone_sse"
+        elif key == "transportType":
             suggest = "transport_type"
 
         if suggest:
@@ -5307,6 +5353,7 @@ class Remote(dict):
                  extra: Optional[Mapping[str, Any]] = None,
                  headers: Optional[Mapping[str, _builtins.str]] = None,
                  oauth: Optional['outputs.RemoteOAuth'] = None,
+                 standalone_sse: Optional[_builtins.bool] = None,
                  transport_type: Optional[_builtins.str] = None):
         """
         Remote tool configuration
@@ -5315,6 +5362,7 @@ class Remote(dict):
         :param Mapping[str, Any] extra: Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
         :param Mapping[str, _builtins.str] headers: HTTP headers for remote requests
         :param 'RemoteOAuth' oauth: Explicit OAuth credentials for servers that do not support Dynamic Client Registration
+        :param _builtins.bool standalone_sse: Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
         :param _builtins.str transport_type: Transport type for the remote connection
         """
         pulumi.set(__self__, "url", url)
@@ -5324,6 +5372,8 @@ class Remote(dict):
             pulumi.set(__self__, "headers", headers)
         if oauth is not None:
             pulumi.set(__self__, "oauth", oauth)
+        if standalone_sse is not None:
+            pulumi.set(__self__, "standalone_sse", standalone_sse)
         if transport_type is not None:
             pulumi.set(__self__, "transport_type", transport_type)
 
@@ -5358,6 +5408,14 @@ class Remote(dict):
         Explicit OAuth credentials for servers that do not support Dynamic Client Registration
         """
         return pulumi.get(self, "oauth")
+
+    @_builtins.property
+    @pulumi.getter(name="standaloneSse")
+    def standalone_sse(self) -> Optional[_builtins.bool]:
+        """
+        Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+        """
+        return pulumi.get(self, "standalone_sse")
 
     @_builtins.property
     @pulumi.getter(name="transportType")
@@ -5685,6 +5743,10 @@ class RuntimeDefaults(dict):
         suggest = None
         if key == "networkAllowlist":
             suggest = "network_allowlist"
+        elif key == "streamIdleTimeout":
+            suggest = "stream_idle_timeout"
+        elif key == "streamIdleTimeoutInt":
+            suggest = "stream_idle_timeout_int"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in RuntimeDefaults. Access the value via the '{suggest}' property getter instead.")
@@ -5701,7 +5763,9 @@ class RuntimeDefaults(dict):
                  extra: Optional[Mapping[str, Any]] = None,
                  network_allowlist: Optional[Sequence[_builtins.str]] = None,
                  safety: Optional['SafetyMode'] = None,
-                 sandbox: Optional[_builtins.bool] = None):
+                 sandbox: Optional[_builtins.bool] = None,
+                 stream_idle_timeout: Optional[_builtins.str] = None,
+                 stream_idle_timeout_int: Optional[_builtins.int] = None):
         """
         Execution-time defaults baked into the agent config. Values act as defaults only; explicit CLI flags and user-config settings still take precedence.
 
@@ -5709,6 +5773,8 @@ class RuntimeDefaults(dict):
         :param Sequence[_builtins.str] network_allowlist: Hosts to add to the sandbox's default-deny network proxy when this agent runs in a sandbox. Each entry is a hostname with an optional ':port' suffix (e.g. 'api.example.com', 'registry.npmjs.org:443'). Unioned with the gateway and tool-install hosts the runner already opens automatically. Use this for hosts the auto-installer can't infer (custom MCP endpoints, third-party APIs, registries not covered by the aqua resolver) instead of relying on the wider fallback host set.
         :param 'SafetyMode' safety: Safety mode new sessions default to when the user has not chosen one (no --safety/--yolo flag, no alias option, no user-config setting). A per-agent 'safety' takes precedence over this config-wide default. A default only: it never overrides a user choice and never replaces the mode stored on a resumed session. 'restricted' is the fail-closed profile for unattended runs: safe calls auto-approve, every other unmatched call is denied without prompting. Trust warning: 'autonomous' auto-approves every tool call — review configs from URLs or OCI registries before running them.
         :param _builtins.bool sandbox: When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
+        :param _builtins.str stream_idle_timeout: Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+        :param _builtins.int stream_idle_timeout_int: The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
         """
         if extra is not None:
             pulumi.set(__self__, "extra", extra)
@@ -5718,6 +5784,10 @@ class RuntimeDefaults(dict):
             pulumi.set(__self__, "safety", safety)
         if sandbox is not None:
             pulumi.set(__self__, "sandbox", sandbox)
+        if stream_idle_timeout is not None:
+            pulumi.set(__self__, "stream_idle_timeout", stream_idle_timeout)
+        if stream_idle_timeout_int is not None:
+            pulumi.set(__self__, "stream_idle_timeout_int", stream_idle_timeout_int)
 
     @_builtins.property
     @pulumi.getter
@@ -5750,6 +5820,22 @@ class RuntimeDefaults(dict):
         When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
         """
         return pulumi.get(self, "sandbox")
+
+    @_builtins.property
+    @pulumi.getter(name="streamIdleTimeout")
+    def stream_idle_timeout(self) -> Optional[_builtins.str]:
+        """
+        Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+        """
+        return pulumi.get(self, "stream_idle_timeout")
+
+    @_builtins.property
+    @pulumi.getter(name="streamIdleTimeoutInt")
+    def stream_idle_timeout_int(self) -> Optional[_builtins.int]:
+        """
+        The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+        """
+        return pulumi.get(self, "stream_idle_timeout_int")
 
 
 @pulumi.output_type
@@ -6858,6 +6944,75 @@ class UserCredentialHelper(dict):
 
 
 @pulumi.output_type
+class UserExperimentalSettings(dict):
+    """
+    Experimental docker-agent features (`settings.experimental`). They may change or go away in a later docker-agent release.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "mcpEvents":
+            suggest = "mcp_events"
+        elif key == "mcpSkills":
+            suggest = "mcp_skills"
+        elif key == "mcpTasks":
+            suggest = "mcp_tasks"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in UserExperimentalSettings. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        UserExperimentalSettings.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        UserExperimentalSettings.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 mcp_events: Optional[_builtins.bool] = None,
+                 mcp_skills: Optional[_builtins.bool] = None,
+                 mcp_tasks: Optional[_builtins.bool] = None):
+        """
+        Experimental docker-agent features (`settings.experimental`). They may change or go away in a later docker-agent release.
+
+        :param _builtins.bool mcp_events: MCP event discovery and push subscriptions (SEP-3415) over stdio and Streamable HTTP (`mcp_events`, default `false`).
+        :param _builtins.bool mcp_skills: MCP Skills discovery and verified loading (SEP-2640) (`mcp_skills`, default `false`).
+        :param _builtins.bool mcp_tasks: Asynchronous tool execution with MCP Tasks (SEP-2663) over stdio and Streamable HTTP (`mcp_tasks`, default `false`).
+        """
+        if mcp_events is not None:
+            pulumi.set(__self__, "mcp_events", mcp_events)
+        if mcp_skills is not None:
+            pulumi.set(__self__, "mcp_skills", mcp_skills)
+        if mcp_tasks is not None:
+            pulumi.set(__self__, "mcp_tasks", mcp_tasks)
+
+    @_builtins.property
+    @pulumi.getter(name="mcpEvents")
+    def mcp_events(self) -> Optional[_builtins.bool]:
+        """
+        MCP event discovery and push subscriptions (SEP-3415) over stdio and Streamable HTTP (`mcp_events`, default `false`).
+        """
+        return pulumi.get(self, "mcp_events")
+
+    @_builtins.property
+    @pulumi.getter(name="mcpSkills")
+    def mcp_skills(self) -> Optional[_builtins.bool]:
+        """
+        MCP Skills discovery and verified loading (SEP-2640) (`mcp_skills`, default `false`).
+        """
+        return pulumi.get(self, "mcp_skills")
+
+    @_builtins.property
+    @pulumi.getter(name="mcpTasks")
+    def mcp_tasks(self) -> Optional[_builtins.bool]:
+        """
+        Asynchronous tool execution with MCP Tasks (SEP-2663) over stdio and Streamable HTTP (`mcp_tasks`, default `false`).
+        """
+        return pulumi.get(self, "mcp_tasks")
+
+
+@pulumi.output_type
 class UserFederationAuth(dict):
     """
     Exchanges an external identity token for provider credentials.
@@ -6946,16 +7101,26 @@ class UserGlobalSettings(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "busySendMode":
+        if key == "backgroundCompaction":
+            suggest = "background_compaction"
+        elif key == "backgroundCompactionThreshold":
+            suggest = "background_compaction_threshold"
+        elif key == "busySendMode":
             suggest = "busy_send_mode"
         elif key == "cacheStablePrompts":
             suggest = "cache_stable_prompts"
         elif key == "expandThinking":
             suggest = "expand_thinking"
+        elif key == "fadeScrollEdges":
+            suggest = "fade_scroll_edges"
         elif key == "hideToolResults":
             suggest = "hide_tool_results"
         elif key == "interruptConfirmation":
             suggest = "interrupt_confirmation"
+        elif key == "keepAwake":
+            suggest = "keep_awake"
+        elif key == "leanFullFilePreview":
+            suggest = "lean_full_file_preview"
         elif key == "renderImages":
             suggest = "render_images"
         elif key == "restoreTabs":
@@ -6972,6 +7137,8 @@ class UserGlobalSettings(dict):
             suggest = "theme_dark"
         elif key == "themeLight":
             suggest = "theme_light"
+        elif key == "topMargin":
+            suggest = "top_margin"
         elif key == "warnOnCacheMiss":
             suggest = "warn_on_cache_miss"
 
@@ -6987,16 +7154,22 @@ class UserGlobalSettings(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 background_compaction: Optional[_builtins.bool] = None,
+                 background_compaction_threshold: Optional[_builtins.int] = None,
                  busy_send_mode: Optional['BusySendMode'] = None,
                  cache_stable_prompts: Optional[_builtins.bool] = None,
                  expand_thinking: Optional[_builtins.bool] = None,
+                 experimental: Optional['outputs.UserExperimentalSettings'] = None,
                  extra: Optional[Mapping[str, Any]] = None,
+                 fade_scroll_edges: Optional[_builtins.bool] = None,
                  hide_tool_results: Optional[_builtins.bool] = None,
                  hooks: Optional['outputs.UserHooks'] = None,
                  interrupt_confirmation: Optional['InterruptConfirmation'] = None,
+                 keep_awake: Optional[_builtins.bool] = None,
                  keybindings: Optional[Sequence['outputs.UserKeybinding']] = None,
                  layout: Optional['outputs.UserLayoutSettings'] = None,
                  lean: Optional[_builtins.bool] = None,
+                 lean_full_file_preview: Optional[_builtins.bool] = None,
                  permissions: Optional['outputs.UserPermissions'] = None,
                  render_images: Optional[_builtins.bool] = None,
                  restore_tabs: Optional[_builtins.bool] = None,
@@ -7010,21 +7183,28 @@ class UserGlobalSettings(dict):
                  theme: Optional[_builtins.str] = None,
                  theme_dark: Optional[_builtins.str] = None,
                  theme_light: Optional[_builtins.str] = None,
+                 top_margin: Optional[_builtins.bool] = None,
                  warn_on_cache_miss: Optional[_builtins.bool] = None,
                  yolo: Optional[_builtins.bool] = None):
         """
         The `settings:` block of the docker-agent user configuration: preferences that apply to every agent you run. Every field is optional; unset fields use docker-agent's defaults. See https://docs.docker.com/ai/docker-agent/configuration/user-settings/.
 
+        :param _builtins.bool background_compaction: Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+        :param _builtins.int background_compaction_threshold: The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
         :param 'BusySendMode' busy_send_mode: What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         :param _builtins.bool cache_stable_prompts: Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
         :param _builtins.bool expand_thinking: Start sessions with thinking and tool blocks expanded (`expand_thinking`, default `false`).
+        :param 'UserExperimentalSettings' experimental: Opt-in experimental features (`experimental`). Every feature is off by default.
         :param Mapping[str, Any] extra: Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
+        :param _builtins.bool fade_scroll_edges: Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
         :param _builtins.bool hide_tool_results: Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
         :param 'UserHooks' hooks: Global lifecycle hooks that run for every agent, in addition to the agent's own hooks, `hooks.d/` drop-ins and `--hook-*` flags.
         :param 'InterruptConfirmation' interrupt_confirmation: How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
+        :param _builtins.bool keep_awake: Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
         :param Sequence['UserKeybinding'] keybindings: Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
         :param 'UserLayoutSettings' layout: Sidebar position and section visibility of the TUI.
         :param _builtins.bool lean: Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
+        :param _builtins.bool lean_full_file_preview: In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
         :param 'UserPermissions' permissions: Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
         :param _builtins.bool render_images: Render images in the TUI with the Kitty graphics protocol (`render_images`, default `true`).
         :param _builtins.bool restore_tabs: Restore previously open tabs when the TUI starts (`restore_tabs`, default `false`).
@@ -7038,29 +7218,42 @@ class UserGlobalSettings(dict):
         :param _builtins.str theme: The TUI theme (`theme`, default `default`): a built-in theme or `~/.cagent/themes/<name>.yaml`. `auto` follows the terminal background and picks `themeDark` or `themeLight`.
         :param _builtins.str theme_dark: The theme used when `theme` is `auto` on a dark terminal (`theme_dark`, default `default`).
         :param _builtins.str theme_light: The theme used when `theme` is `auto` on a light terminal (`theme_light`, default `default-light`).
+        :param _builtins.bool top_margin: Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
         :param _builtins.bool warn_on_cache_miss: Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
         :param _builtins.bool yolo: Auto-approve every tool call globally (`YOLO`, default `false`). Legacy alias for `safety: autonomous`; `safety` wins when both are set.
         """
+        if background_compaction is not None:
+            pulumi.set(__self__, "background_compaction", background_compaction)
+        if background_compaction_threshold is not None:
+            pulumi.set(__self__, "background_compaction_threshold", background_compaction_threshold)
         if busy_send_mode is not None:
             pulumi.set(__self__, "busy_send_mode", busy_send_mode)
         if cache_stable_prompts is not None:
             pulumi.set(__self__, "cache_stable_prompts", cache_stable_prompts)
         if expand_thinking is not None:
             pulumi.set(__self__, "expand_thinking", expand_thinking)
+        if experimental is not None:
+            pulumi.set(__self__, "experimental", experimental)
         if extra is not None:
             pulumi.set(__self__, "extra", extra)
+        if fade_scroll_edges is not None:
+            pulumi.set(__self__, "fade_scroll_edges", fade_scroll_edges)
         if hide_tool_results is not None:
             pulumi.set(__self__, "hide_tool_results", hide_tool_results)
         if hooks is not None:
             pulumi.set(__self__, "hooks", hooks)
         if interrupt_confirmation is not None:
             pulumi.set(__self__, "interrupt_confirmation", interrupt_confirmation)
+        if keep_awake is not None:
+            pulumi.set(__self__, "keep_awake", keep_awake)
         if keybindings is not None:
             pulumi.set(__self__, "keybindings", keybindings)
         if layout is not None:
             pulumi.set(__self__, "layout", layout)
         if lean is not None:
             pulumi.set(__self__, "lean", lean)
+        if lean_full_file_preview is not None:
+            pulumi.set(__self__, "lean_full_file_preview", lean_full_file_preview)
         if permissions is not None:
             pulumi.set(__self__, "permissions", permissions)
         if render_images is not None:
@@ -7087,10 +7280,28 @@ class UserGlobalSettings(dict):
             pulumi.set(__self__, "theme_dark", theme_dark)
         if theme_light is not None:
             pulumi.set(__self__, "theme_light", theme_light)
+        if top_margin is not None:
+            pulumi.set(__self__, "top_margin", top_margin)
         if warn_on_cache_miss is not None:
             pulumi.set(__self__, "warn_on_cache_miss", warn_on_cache_miss)
         if yolo is not None:
             pulumi.set(__self__, "yolo", yolo)
+
+    @_builtins.property
+    @pulumi.getter(name="backgroundCompaction")
+    def background_compaction(self) -> Optional[_builtins.bool]:
+        """
+        Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+        """
+        return pulumi.get(self, "background_compaction")
+
+    @_builtins.property
+    @pulumi.getter(name="backgroundCompactionThreshold")
+    def background_compaction_threshold(self) -> Optional[_builtins.int]:
+        """
+        The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+        """
+        return pulumi.get(self, "background_compaction_threshold")
 
     @_builtins.property
     @pulumi.getter(name="busySendMode")
@@ -7118,11 +7329,27 @@ class UserGlobalSettings(dict):
 
     @_builtins.property
     @pulumi.getter
+    def experimental(self) -> Optional['outputs.UserExperimentalSettings']:
+        """
+        Opt-in experimental features (`experimental`). Every feature is off by default.
+        """
+        return pulumi.get(self, "experimental")
+
+    @_builtins.property
+    @pulumi.getter
     def extra(self) -> Optional[Mapping[str, Any]]:
         """
         Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
         """
         return pulumi.get(self, "extra")
+
+    @_builtins.property
+    @pulumi.getter(name="fadeScrollEdges")
+    def fade_scroll_edges(self) -> Optional[_builtins.bool]:
+        """
+        Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+        """
+        return pulumi.get(self, "fade_scroll_edges")
 
     @_builtins.property
     @pulumi.getter(name="hideToolResults")
@@ -7149,6 +7376,14 @@ class UserGlobalSettings(dict):
         return pulumi.get(self, "interrupt_confirmation")
 
     @_builtins.property
+    @pulumi.getter(name="keepAwake")
+    def keep_awake(self) -> Optional[_builtins.bool]:
+        """
+        Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+        """
+        return pulumi.get(self, "keep_awake")
+
+    @_builtins.property
     @pulumi.getter
     def keybindings(self) -> Optional[Sequence['outputs.UserKeybinding']]:
         """
@@ -7171,6 +7406,14 @@ class UserGlobalSettings(dict):
         Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
         """
         return pulumi.get(self, "lean")
+
+    @_builtins.property
+    @pulumi.getter(name="leanFullFilePreview")
+    def lean_full_file_preview(self) -> Optional[_builtins.bool]:
+        """
+        In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+        """
+        return pulumi.get(self, "lean_full_file_preview")
 
     @_builtins.property
     @pulumi.getter
@@ -7275,6 +7518,14 @@ class UserGlobalSettings(dict):
         The theme used when `theme` is `auto` on a light terminal (`theme_light`, default `default-light`).
         """
         return pulumi.get(self, "theme_light")
+
+    @_builtins.property
+    @pulumi.getter(name="topMargin")
+    def top_margin(self) -> Optional[_builtins.bool]:
+        """
+        Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+        """
+        return pulumi.get(self, "top_margin")
 
     @_builtins.property
     @pulumi.getter(name="warnOnCacheMiss")
@@ -8492,6 +8743,8 @@ class UserModel(dict):
             suggest = "compaction_model"
         elif key == "compactionThreshold":
             suggest = "compaction_threshold"
+        elif key == "contextWindow":
+            suggest = "context_window"
         elif key == "firstAvailable":
             suggest = "first_available"
         elif key == "frequencyPenalty":
@@ -8506,6 +8759,8 @@ class UserModel(dict):
             suggest = "presence_penalty"
         elif key == "providerOpts":
             suggest = "provider_opts"
+        elif key == "streamIdleTimeout":
+            suggest = "stream_idle_timeout"
         elif key == "taskBudget":
             suggest = "task_budget"
         elif key == "thinkingBudget":
@@ -8537,6 +8792,7 @@ class UserModel(dict):
                  capabilities: Optional['outputs.UserModelCapabilities'] = None,
                  compaction_model: Optional[_builtins.str] = None,
                  compaction_threshold: Optional[_builtins.float] = None,
+                 context_window: Optional[_builtins.int] = None,
                  cost: Optional['outputs.UserModelCost'] = None,
                  description: Optional[_builtins.str] = None,
                  first_available: Optional[Sequence[_builtins.str]] = None,
@@ -8549,6 +8805,7 @@ class UserModel(dict):
                  provider: Optional[_builtins.str] = None,
                  provider_opts: Optional[Mapping[str, Any]] = None,
                  routing: Optional[Sequence['outputs.UserModelRoutingRule']] = None,
+                 stream_idle_timeout: Optional['outputs.UserStreamIdleTimeout'] = None,
                  task_budget: Optional['outputs.UserTaskBudget'] = None,
                  temperature: Optional[_builtins.float] = None,
                  thinking_budget: Optional['outputs.UserThinkingBudget'] = None,
@@ -8565,6 +8822,7 @@ class UserModel(dict):
         :param 'UserModelCapabilities' capabilities: Input modalities the model supports, overriding the built-in catalog.
         :param _builtins.str compaction_model: The model used to summarize the session during compaction.
         :param _builtins.float compaction_threshold: The fraction of the context window (greater than 0, at most 1) at which compaction starts.
+        :param _builtins.int context_window: The context window of the model in tokens, overriding the built-in catalog.
         :param 'UserModelCost' cost: Prices per million tokens, used for cost tracking.
         :param _builtins.str description: A description of the model.
         :param Sequence[_builtins.str] first_available: Candidate models; the first usable one is selected. Excludes most other fields.
@@ -8577,6 +8835,7 @@ class UserModel(dict):
         :param _builtins.str provider: The provider, for example `openai`, `anthropic`, `google`, `amazon-bedrock`, `dmr` or the name of a custom provider.
         :param Mapping[str, Any] provider_opts: Provider-specific options, written verbatim (snake_case keys), for example `context_size`.
         :param Sequence['UserModelRoutingRule'] routing: Rules that route requests to other models based on example prompts.
+        :param 'UserStreamIdleTimeout' stream_idle_timeout: The maximum idle time between two chunks of the model's stream.
         :param 'UserTaskBudget' task_budget: Total token budget for an agentic task (Anthropic `task_budget`).
         :param _builtins.float temperature: Sampling temperature.
         :param 'UserThinkingBudget' thinking_budget: Reasoning effort or token budget.
@@ -8597,6 +8856,8 @@ class UserModel(dict):
             pulumi.set(__self__, "compaction_model", compaction_model)
         if compaction_threshold is not None:
             pulumi.set(__self__, "compaction_threshold", compaction_threshold)
+        if context_window is not None:
+            pulumi.set(__self__, "context_window", context_window)
         if cost is not None:
             pulumi.set(__self__, "cost", cost)
         if description is not None:
@@ -8621,6 +8882,8 @@ class UserModel(dict):
             pulumi.set(__self__, "provider_opts", provider_opts)
         if routing is not None:
             pulumi.set(__self__, "routing", routing)
+        if stream_idle_timeout is not None:
+            pulumi.set(__self__, "stream_idle_timeout", stream_idle_timeout)
         if task_budget is not None:
             pulumi.set(__self__, "task_budget", task_budget)
         if temperature is not None:
@@ -8683,6 +8946,14 @@ class UserModel(dict):
         The fraction of the context window (greater than 0, at most 1) at which compaction starts.
         """
         return pulumi.get(self, "compaction_threshold")
+
+    @_builtins.property
+    @pulumi.getter(name="contextWindow")
+    def context_window(self) -> Optional[_builtins.int]:
+        """
+        The context window of the model in tokens, overriding the built-in catalog.
+        """
+        return pulumi.get(self, "context_window")
 
     @_builtins.property
     @pulumi.getter
@@ -8779,6 +9050,14 @@ class UserModel(dict):
         Rules that route requests to other models based on example prompts.
         """
         return pulumi.get(self, "routing")
+
+    @_builtins.property
+    @pulumi.getter(name="streamIdleTimeout")
+    def stream_idle_timeout(self) -> Optional['outputs.UserStreamIdleTimeout']:
+        """
+        The maximum idle time between two chunks of the model's stream.
+        """
+        return pulumi.get(self, "stream_idle_timeout")
 
     @_builtins.property
     @pulumi.getter(name="taskBudget")
@@ -9391,6 +9670,42 @@ class UserProvider(dict):
         Path or URL of the provider's model-unload endpoint, used by the `unload` built-in hook. Leave unset for cloud providers.
         """
         return pulumi.get(self, "unload_api")
+
+
+@pulumi.output_type
+class UserStreamIdleTimeout(dict):
+    """
+    The maximum idle time between two chunks of a model stream (`stream_idle_timeout`). Set exactly one of `duration` and `disabled`.
+    """
+    def __init__(__self__, *,
+                 disabled: Optional[_builtins.bool] = None,
+                 duration: Optional[_builtins.str] = None):
+        """
+        The maximum idle time between two chunks of a model stream (`stream_idle_timeout`). Set exactly one of `duration` and `disabled`.
+
+        :param _builtins.bool disabled: `true` turns the idle timer off (written as `-1`).
+        :param _builtins.str duration: A positive duration, for example `90s` or `2m`.
+        """
+        if disabled is not None:
+            pulumi.set(__self__, "disabled", disabled)
+        if duration is not None:
+            pulumi.set(__self__, "duration", duration)
+
+    @_builtins.property
+    @pulumi.getter
+    def disabled(self) -> Optional[_builtins.bool]:
+        """
+        `true` turns the idle timer off (written as `-1`).
+        """
+        return pulumi.get(self, "disabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def duration(self) -> Optional[_builtins.str]:
+        """
+        A positive duration, for example `90s` or `2m`.
+        """
+        return pulumi.get(self, "duration")
 
 
 @pulumi.output_type

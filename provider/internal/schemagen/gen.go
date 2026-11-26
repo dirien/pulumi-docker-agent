@@ -74,6 +74,9 @@ func (g *generator) run() error {
 	// Generate every definition, also those only reachable through aliases, so a new
 	// definition never goes unnoticed.
 	for _, def := range g.defs.keys {
+		if inlinedDefs[def] {
+			continue
+		}
 		g.defType(def)
 	}
 	g.addExtra()

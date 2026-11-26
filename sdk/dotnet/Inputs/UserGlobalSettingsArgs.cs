@@ -17,6 +17,18 @@ namespace ediri.DockerAgent.Inputs
     public sealed class UserGlobalSettingsArgs : global::Pulumi.ResourceArgs
     {
         /// <summary>
+        /// Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+        /// </summary>
+        [Input("backgroundCompaction")]
+        public Input<bool>? BackgroundCompaction { get; set; }
+
+        /// <summary>
+        /// The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+        /// </summary>
+        [Input("backgroundCompactionThreshold")]
+        public Input<int>? BackgroundCompactionThreshold { get; set; }
+
+        /// <summary>
         /// What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
         /// </summary>
         [Input("busySendMode")]
@@ -34,6 +46,12 @@ namespace ediri.DockerAgent.Inputs
         [Input("expandThinking")]
         public Input<bool>? ExpandThinking { get; set; }
 
+        /// <summary>
+        /// Opt-in experimental features (`experimental`). Every feature is off by default.
+        /// </summary>
+        [Input("experimental")]
+        public Input<Inputs.UserExperimentalSettingsArgs>? Experimental { get; set; }
+
         [Input("extra")]
         private InputMap<object>? _extra;
 
@@ -45,6 +63,12 @@ namespace ediri.DockerAgent.Inputs
             get => _extra ?? (_extra = new InputMap<object>());
             set => _extra = value;
         }
+
+        /// <summary>
+        /// Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+        /// </summary>
+        [Input("fadeScrollEdges")]
+        public Input<bool>? FadeScrollEdges { get; set; }
 
         /// <summary>
         /// Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
@@ -63,6 +87,12 @@ namespace ediri.DockerAgent.Inputs
         /// </summary>
         [Input("interruptConfirmation")]
         public Input<ediri.DockerAgent.InterruptConfirmation>? InterruptConfirmation { get; set; }
+
+        /// <summary>
+        /// Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+        /// </summary>
+        [Input("keepAwake")]
+        public Input<bool>? KeepAwake { get; set; }
 
         [Input("keybindings")]
         private InputList<Inputs.UserKeybindingArgs>? _keybindings;
@@ -87,6 +117,12 @@ namespace ediri.DockerAgent.Inputs
         /// </summary>
         [Input("lean")]
         public Input<bool>? Lean { get; set; }
+
+        /// <summary>
+        /// In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+        /// </summary>
+        [Input("leanFullFilePreview")]
+        public Input<bool>? LeanFullFilePreview { get; set; }
 
         /// <summary>
         /// Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
@@ -165,6 +201,12 @@ namespace ediri.DockerAgent.Inputs
         /// </summary>
         [Input("themeLight")]
         public Input<string>? ThemeLight { get; set; }
+
+        /// <summary>
+        /// Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+        /// </summary>
+        [Input("topMargin")]
+        public Input<bool>? TopMargin { get; set; }
 
         /// <summary>
         /// Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).

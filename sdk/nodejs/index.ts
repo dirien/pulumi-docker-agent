@@ -30,6 +30,16 @@ export const getAgent: typeof import("./getAgent").getAgent = null as any;
 export const getAgentOutput: typeof import("./getAgent").getAgentOutput = null as any;
 utilities.lazyLoad(exports, ["getAgent","getAgentOutput"], () => require("./getAgent"));
 
+export { GetAgentsIgnoreArgs, GetAgentsIgnoreResult, GetAgentsIgnoreOutputArgs } from "./getAgentsIgnore";
+export const getAgentsIgnore: typeof import("./getAgentsIgnore").getAgentsIgnore = null as any;
+export const getAgentsIgnoreOutput: typeof import("./getAgentsIgnore").getAgentsIgnoreOutput = null as any;
+utilities.lazyLoad(exports, ["getAgentsIgnore","getAgentsIgnoreOutput"], () => require("./getAgentsIgnore"));
+
+export { GetUserSettingsArgs, GetUserSettingsResult, GetUserSettingsOutputArgs } from "./getUserSettings";
+export const getUserSettings: typeof import("./getUserSettings").getUserSettings = null as any;
+export const getUserSettingsOutput: typeof import("./getUserSettings").getUserSettingsOutput = null as any;
+utilities.lazyLoad(exports, ["getUserSettings","getUserSettingsOutput"], () => require("./getUserSettings"));
+
 export { ProviderArgs } from "./provider";
 export type Provider = import("./provider").Provider;
 export const Provider: typeof import("./provider").Provider = null as any;

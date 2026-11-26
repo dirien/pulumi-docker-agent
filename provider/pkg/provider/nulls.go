@@ -43,6 +43,8 @@ var inputTypes = map[tokens.Type]reflect.Type{
 	tokens.Type(Name + ":index:AgentRun"):            reflect.TypeFor[AgentRunArgs](),
 	tokens.Type(Name + ":index:getAgent"):            reflect.TypeFor[GetAgentArgs](),
 	tokens.Type(Name + ":index:validateAgentConfig"): reflect.TypeFor[ValidateAgentConfigArgs](),
+	tokens.Type(Name + ":index:getUserSettings"):     reflect.TypeFor[GetUserSettingsArgs](),
+	tokens.Type(Name + ":index:getAgentsIgnore"):     reflect.TypeFor[GetAgentsIgnoreArgs](),
 }
 
 var configInputType = reflect.TypeFor[Config]()

@@ -53,12 +53,14 @@ import (
 	"github.com/docker/docker-agent/pkg/codingharness"
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	"github.com/docker/docker-agent/pkg/config/sources"
 	"github.com/docker/docker-agent/pkg/environment"
 	"github.com/docker/docker-agent/pkg/harness"
 	"github.com/docker/docker-agent/pkg/js"
 	"github.com/docker/docker-agent/pkg/model/provider/providers"
 	"github.com/docker/docker-agent/pkg/modelsdev"
+	"github.com/docker/docker-agent/pkg/modelsdev/embedded"
 	"github.com/docker/docker-agent/pkg/paths"
 	"github.com/docker/docker-agent/pkg/runtime"
 	"github.com/docker/docker-agent/pkg/session"
@@ -503,7 +505,7 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 	rs.harness.setNoKey(harnessEnv.noKeySource())
 	var codex *codexRun
 	// cfg describes the run's models (runinfo.go); nil when the configuration does not load.
-	cfg, err := config.Load(ctx, source)
+	cfg, err := config.Load(ctx, source, config.WithVersions(legacy.Register))
 	if err == nil {
 		agents := harnessAgentsOf(cfg)
 		if problems := agents.problems(req.AllowHarnessAgents, req.HideNames); len(problems) > 0 {
@@ -540,7 +542,7 @@ func run(ctx context.Context, req Request, rs runSetup, prog *progress) (*Result
 		EnvProviderOverride: env,
 		// The catalog embedded in docker-agent: model aliases, context windows and
 		// pricing without a network lookup or a cache file.
-		ModelsDevStoreOverride: modelsdev.NewDatabaseStore(modelsdev.EmbeddedSnapshot()),
+		ModelsDevStoreOverride: modelsdev.NewDatabaseStore(embedded.Snapshot()),
 	}
 	// model auto honours DOCKER_AGENT_DEFAULT_MODEL (or CAGENT_DEFAULT_MODEL) of the run's
 	// environment, as docker agent run does.
@@ -764,6 +766,7 @@ func loaderOpts(req Request, policy *approvalPolicy) []teamloader.Opt {
 		teamloader.WithCodeMode(codemode.Wrap),
 		teamloader.WithToon(toon.Wrap),
 		teamloader.WithDeferredTools(deferred.New),
+		teamloader.WithConfigVersions(legacy.Register),
 		teamloader.WithStrict(features...),
 	}
 }

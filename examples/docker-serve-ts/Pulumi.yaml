@@ -13,5 +13,5 @@ plugins:
 config:
   agentImage:
     type: string
-    default: docker/docker-agent:1.150.0
+    default: docker/docker-agent:1.166.0
     description: The docker-agent image that serves the agent. Pin a version; `latest` tracks main.

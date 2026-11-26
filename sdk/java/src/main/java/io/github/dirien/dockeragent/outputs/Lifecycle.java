@@ -24,7 +24,7 @@ public final class Lifecycle {
      */
     private @Nullable LifecycleBackoff backoff;
     /**
-     * @return Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
+     * @return Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
      * 
      */
     private @Nullable String callTimeout;
@@ -68,7 +68,7 @@ public final class Lifecycle {
         return Optional.ofNullable(this.backoff);
     }
     /**
-     * @return Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
+     * @return Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. &#39;30s&#39;, &#39;2m&#39;). 0/unset means no timeout (opt-in; no profile default).
      * 
      */
     public Optional<String> callTimeout() {

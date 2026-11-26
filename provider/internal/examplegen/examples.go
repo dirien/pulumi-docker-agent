@@ -19,6 +19,7 @@ import (
 
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/hcl"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	pygen "github.com/pulumi/pulumi/pkg/v3/codegen/python"
 
 	"github.com/dirien/pulumi-docker-agent/provider/pkg/render"
@@ -145,11 +146,11 @@ func loadExamples(ctx context.Context, dir string) ([]*example, error) {
 // sameConfig checks that docker-agent loads an HCL example and its YAML twin into the same
 // configuration, so the YAML example also stands for the HCL one.
 func sameConfig(ctx context.Context, hclFile, yamlFile string) error {
-	fromHCL, err := config.Load(ctx, hcl.NewSource(config.NewFileSource(hclFile)))
+	fromHCL, err := config.Load(ctx, hcl.NewSource(config.NewFileSource(hclFile)), config.WithVersions(legacy.Register))
 	if err != nil {
 		return err
 	}
-	fromYAML, err := config.Load(ctx, config.NewFileSource(yamlFile))
+	fromYAML, err := config.Load(ctx, config.NewFileSource(yamlFile), config.WithVersions(legacy.Register))
 	if err != nil {
 		return err
 	}
@@ -215,7 +216,7 @@ func (ex *example) finish(ctx context.Context, dir string) error {
 	}
 	// It must load where the files it refers to are.
 	src := dirSource{name: path.Base(ex.source), dir: filepath.Join(dir, filepath.FromSlash(path.Dir(ex.source))), data: []byte(golden)}
-	if _, err := config.Load(ctx, src); err != nil {
+	if _, err := config.Load(ctx, src, config.WithVersions(legacy.Register)); err != nil {
 		return fmt.Errorf("the rendered configuration does not load next to the upstream file either: %w", err)
 	}
 	return nil

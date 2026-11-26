@@ -549,7 +549,7 @@ export interface HookDefinitionArgs {
      */
     timeout?: pulumi.Input<number | undefined>;
     /**
-     * Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+     * Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'keep_awake' (CLI session_start and session_end: prevents idle system sleep when the user setting keep_awake is enabled), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
      */
     type: pulumi.Input<enums.HookType>;
     /**
@@ -799,7 +799,7 @@ export interface LifecycleArgs {
      */
     backoff?: pulumi.Input<inputs.LifecycleBackoffArgs | undefined>;
     /**
-     * Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
+     * Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
      */
     callTimeout?: pulumi.Input<string | undefined>;
     /**
@@ -1048,6 +1048,10 @@ export interface ModelDefArgs {
      */
     compactionThreshold?: pulumi.Input<number | undefined>;
     /**
+     * Context window of this model in tokens. Metadata only: it drives context accounting, compaction thresholds (including a dedicated compaction_model) and max_tokens clamping for models the models.dev catalogue does not describe (custom openai_responses or openai_chatcompletions endpoints, self-hosted models). It is never sent as a request parameter and never configures the Docker Model Runner engine; use provider_opts.context_size for that. This is the only context-window setting for non-DMR providers; provider_opts.context_size is accepted only by the dmr provider, where it also sizes the engine and must equal this value when both are set. Otherwise the runtime-discovered window applies, then models.dev. It must not exceed the context window the models.dev catalogue declares for the model, when it declares one (the error names the catalogue maximum); models the catalogue does not describe accept any positive value. Cannot be combined with first_available (set it on the candidate models instead).
+     */
+    contextWindow?: pulumi.Input<number | undefined>;
+    /**
      * Explicit token pricing (USD per 1M tokens), overriding the models.dev catalogue. Used for per-turn cost computation, session cost tracking, the /model picker, and the after_llm_call hook's cost field. Makes an uncatalogued model (custom base_url provider, local or private deployment) 'priced' instead of billing $0. Prices must not be negative; an all-zero table means 'priced, free'. Cannot be combined with first_available.
      */
     cost?: pulumi.Input<inputs.CostArgs | undefined>;
@@ -1068,7 +1072,7 @@ export interface ModelDefArgs {
      */
     frequencyPenalty?: pulumi.Input<number | undefined>;
     /**
-     * Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
+     * Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set context_window on the model to declare the window.
      */
     maxTokens?: pulumi.Input<number | undefined>;
     /**
@@ -1092,13 +1096,21 @@ export interface ModelDefArgs {
      */
     provider?: pulumi.Input<string | undefined>;
     /**
-     * Provider-specific options. Anthropic: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Fable/Mythos 5.1), strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks (array of model ID strings, in priority order; enables the server-side-fallback beta so requests refused by safety classifiers, e.g. on Claude Fable 5, are retried with the listed models in a single round trip). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
+     * Provider-specific options. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Claude models whose server checks thinking prefixes: Haiku 5.5, Opus 5.5, Sonnet 5.5, Fable 5.1/5.2 and Mythos 5.2; Bedrock applies it only to listed prefix-checking models when thinking is enabled). Anthropic: strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1+), speed ('fast' or 'standard'; 'fast' sends speed: fast with the fast-mode-2026-02-01 beta on every request using the model, at premium pricing on supported models, Claude API only; omitted, empty or 'standard' leaves the API default; other values are rejected). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks ("default" for the server's recommended routing, or an array of up to three distinct model ID strings in priority order; enables the server-side-fallback-2026-07-01 beta so refused requests are retried in a single round trip; Claude API only, rejected on Vertex AI, Bedrock, gateways and other base_url hosts; a list is rejected for Claude Haiku 5.5, which has no server-side fallback). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. Any OpenAI-compatible destination: replay_reasoning (boolean) replays the reasoning stored on assistant turns back as a reasoning_content field on later Chat Completions requests, so a reasoning model sees its own earlier reasoning instead of re-deriving it after each tool call (distinct from preserve_reasoning, which replays encrypted reasoning items on the Responses API and does not apply to Chat Completions); default true for Chat Completions; set replay_reasoning to false for an endpoint that rejects or must not receive the non-standard field; a non-boolean value also disables replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
      */
     providerOpts?: pulumi.Input<{[key: string]: any} | undefined>;
     /**
      * Routing rules for request-based model selection. When configured, this model becomes a router that selects the best model based on the user's input. The model's provider/model fields define the fallback model.
      */
     routing?: pulumi.Input<pulumi.Input<inputs.RoutingRuleArgs>[] | undefined>;
+    /**
+     * Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+     */
+    streamIdleTimeout?: pulumi.Input<string | undefined>;
+    /**
+     * The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+     */
+    streamIdleTimeoutInt?: pulumi.Input<number | undefined>;
     /**
      * Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
      */
@@ -1228,11 +1240,11 @@ export interface ProviderDefArgs {
      */
     presencePenalty?: pulumi.Input<number | undefined>;
     /**
-     * The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+     * The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
      */
     provider?: pulumi.Input<string | undefined>;
     /**
-     * Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
+     * Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed ('fast' or 'standard'; 'fast' requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
      */
     providerOpts?: pulumi.Input<{[key: string]: any} | undefined>;
     /**
@@ -1604,6 +1616,10 @@ export interface RemoteArgs {
      */
     oauth?: pulumi.Input<inputs.RemoteOAuthArgs | undefined>;
     /**
+     * Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+     */
+    standaloneSse?: pulumi.Input<boolean | undefined>;
+    /**
      * Transport type for the remote connection
      */
     transportType?: pulumi.Input<string | undefined>;
@@ -1725,6 +1741,14 @@ export interface RuntimeDefaultsArgs {
      * When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
      */
     sandbox?: pulumi.Input<boolean | undefined>;
+    /**
+     * Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+     */
+    streamIdleTimeout?: pulumi.Input<string | undefined>;
+    /**
+     * The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+     */
+    streamIdleTimeoutInt?: pulumi.Input<number | undefined>;
 }
 
 /**
@@ -2083,6 +2107,24 @@ export interface UserCredentialHelperArgs {
 }
 
 /**
+ * Experimental docker-agent features (`settings.experimental`). They may change or go away in a later docker-agent release.
+ */
+export interface UserExperimentalSettingsArgs {
+    /**
+     * MCP event discovery and push subscriptions (SEP-3415) over stdio and Streamable HTTP (`mcp_events`, default `false`).
+     */
+    mcpEvents?: pulumi.Input<boolean | undefined>;
+    /**
+     * MCP Skills discovery and verified loading (SEP-2640) (`mcp_skills`, default `false`).
+     */
+    mcpSkills?: pulumi.Input<boolean | undefined>;
+    /**
+     * Asynchronous tool execution with MCP Tasks (SEP-2663) over stdio and Streamable HTTP (`mcp_tasks`, default `false`).
+     */
+    mcpTasks?: pulumi.Input<boolean | undefined>;
+}
+
+/**
  * Exchanges an external identity token for provider credentials.
  */
 export interface UserFederationAuthArgs {
@@ -2109,6 +2151,14 @@ export interface UserFederationAuthArgs {
  */
 export interface UserGlobalSettingsArgs {
     /**
+     * Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+     */
+    backgroundCompaction?: pulumi.Input<boolean | undefined>;
+    /**
+     * The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+     */
+    backgroundCompactionThreshold?: pulumi.Input<number | undefined>;
+    /**
      * What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
      */
     busySendMode?: pulumi.Input<enums.BusySendMode | undefined>;
@@ -2121,9 +2171,17 @@ export interface UserGlobalSettingsArgs {
      */
     expandThinking?: pulumi.Input<boolean | undefined>;
     /**
+     * Opt-in experimental features (`experimental`). Every feature is off by default.
+     */
+    experimental?: pulumi.Input<inputs.UserExperimentalSettingsArgs | undefined>;
+    /**
      * Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
      */
     extra?: pulumi.Input<{[key: string]: any} | undefined>;
+    /**
+     * Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+     */
+    fadeScrollEdges?: pulumi.Input<boolean | undefined>;
     /**
      * Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
      */
@@ -2137,6 +2195,10 @@ export interface UserGlobalSettingsArgs {
      */
     interruptConfirmation?: pulumi.Input<enums.InterruptConfirmation | undefined>;
     /**
+     * Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+     */
+    keepAwake?: pulumi.Input<boolean | undefined>;
+    /**
      * Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
      */
     keybindings?: pulumi.Input<pulumi.Input<inputs.UserKeybindingArgs>[] | undefined>;
@@ -2148,6 +2210,10 @@ export interface UserGlobalSettingsArgs {
      * Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
      */
     lean?: pulumi.Input<boolean | undefined>;
+    /**
+     * In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+     */
+    leanFullFilePreview?: pulumi.Input<boolean | undefined>;
     /**
      * Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
      */
@@ -2200,6 +2266,10 @@ export interface UserGlobalSettingsArgs {
      * The theme used when `theme` is `auto` on a light terminal (`theme_light`, default `default-light`).
      */
     themeLight?: pulumi.Input<string | undefined>;
+    /**
+     * Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+     */
+    topMargin?: pulumi.Input<boolean | undefined>;
     /**
      * Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
      */
@@ -2592,6 +2662,10 @@ export interface UserModelArgs {
      */
     compactionThreshold?: pulumi.Input<number | undefined>;
     /**
+     * The context window of the model in tokens, overriding the built-in catalog.
+     */
+    contextWindow?: pulumi.Input<number | undefined>;
+    /**
      * Prices per million tokens, used for cost tracking.
      */
     cost?: pulumi.Input<inputs.UserModelCostArgs | undefined>;
@@ -2639,6 +2713,10 @@ export interface UserModelArgs {
      * Rules that route requests to other models based on example prompts.
      */
     routing?: pulumi.Input<pulumi.Input<inputs.UserModelRoutingRuleArgs>[] | undefined>;
+    /**
+     * The maximum idle time between two chunks of the model's stream.
+     */
+    streamIdleTimeout?: pulumi.Input<inputs.UserStreamIdleTimeoutArgs | undefined>;
     /**
      * Total token budget for an agentic task (Anthropic `task_budget`).
      */
@@ -2841,6 +2919,20 @@ export interface UserProviderArgs {
      * Path or URL of the provider's model-unload endpoint, used by the `unload` built-in hook. Leave unset for cloud providers.
      */
     unloadApi?: pulumi.Input<string | undefined>;
+}
+
+/**
+ * The maximum idle time between two chunks of a model stream (`stream_idle_timeout`). Set exactly one of `duration` and `disabled`.
+ */
+export interface UserStreamIdleTimeoutArgs {
+    /**
+     * `true` turns the idle timer off (written as `-1`).
+     */
+    disabled?: pulumi.Input<boolean | undefined>;
+    /**
+     * A positive duration, for example `90s` or `2m`.
+     */
+    duration?: pulumi.Input<string | undefined>;
 }
 
 /**

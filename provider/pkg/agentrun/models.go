@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker-agent/pkg/config/latest"
 	"github.com/docker/docker-agent/pkg/environment"
 	"github.com/docker/docker-agent/pkg/model/provider"
+	"github.com/docker/docker-agent/pkg/model/provider/catalog"
 	"github.com/docker/docker-agent/pkg/modelsdev"
 )
 
@@ -67,6 +68,9 @@ type modelUse struct {
 	// byDefault names the variable (DOCKER_AGENT_DEFAULT_MODEL) that selected this model for
 	// model auto (autoDefaultUses), "" otherwise.
 	byDefault string
+	// catalogKey reports a token_key that the model did not set: docker-agent gave it the first
+	// key variable of its catalog provider (applyCatalogDefaults).
+	catalogKey bool
 }
 
 // configModels returns the models the configuration's agents can send requests to, each once:
@@ -237,9 +241,9 @@ func newModelUse(cfg *latest.Config, m latest.ModelConfig) modelUse {
 		}
 	} else {
 		eff.Provider = modelsdev.CanonicalProviderID(eff.Provider)
-		if alias, ok := provider.LookupAlias(eff.Provider); ok {
-			eff.BaseURL = cmp.Or(eff.BaseURL, alias.BaseURL)
-			eff.TokenKey = cmp.Or(eff.TokenKey, alias.TokenEnvVar)
+		if alias, ok := catalog.Find(eff.Provider); ok {
+			applyCatalogDefaults(&eff, alias)
+			u.catalogKey = m.TokenKey == "" && eff.TokenKey != ""
 		}
 	}
 	u.cfg = eff
@@ -367,4 +371,29 @@ func hostOf(raw string) string {
 		return "the configured endpoint"
 	}
 	return u.Scheme + "://" + u.Host
+}
+
+// applyCatalogDefaults mirrors docker-agent's applyCatalogDefaults (pkg/model/provider/defaults.go):
+// a catalog provider's base_url, unless its native SDK resolves the endpoint itself, and its first
+// token variable, unless the model targets an unauthenticated OpenAI-compatible endpoint or the
+// provider is Google (an API key or application default credentials). Since docker-agent v1.166.0
+// this includes the core providers, so an openai model with a base_url and no token_key needs
+// OPENAI_API_KEY. amazon-bedrock is left as written: its client treats an unset
+// AWS_BEARER_TOKEN_BEDROCK like no token_key and uses the AWS default chain. dmr is left as
+// written too: its client treats the catalog's base_url as unset (catalog.IsDefaultEndpoint) and
+// finds the Model Runner through MODEL_RUNNER_HOST or `docker model status`.
+func applyCatalogDefaults(dst *latest.ModelConfig, alias catalog.Provider) {
+	if alias.APIType == "amazon-bedrock" || alias.APIType == "dmr" {
+		return
+	}
+	apiType, _ := dst.ProviderOpts["api_type"].(string)
+	unauthenticated := dst.BaseURL != "" && apiType != "" && alias.APIType == "openai"
+	sdkEndpoint := alias.Name == alias.APIType &&
+		(alias.APIType == "openai" || alias.APIType == "anthropic" || alias.APIType == "google")
+	if dst.BaseURL == "" && !sdkEndpoint {
+		dst.BaseURL = alias.BaseURL
+	}
+	if dst.TokenKey == "" && !unauthenticated && alias.APIType != "google" && len(alias.TokenEnvVars) > 0 {
+		dst.TokenKey = alias.TokenEnvVars[0]
+	}
 }

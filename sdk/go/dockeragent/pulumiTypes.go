@@ -662,7 +662,7 @@ func (o AgentRoutingPtrOutput) Extra() pulumi.MapOutput {
 
 // Token usage and cost of an agent run, including sub-agents.
 type AgentRunUsage struct {
-	// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+	// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.166.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
 	Cost float64 `pulumi:"cost"`
 	// Prompt tokens, including cached input tokens.
 	InputTokens int `pulumi:"inputTokens"`
@@ -685,7 +685,7 @@ func (o AgentRunUsageOutput) ToAgentRunUsageOutputWithContext(ctx context.Contex
 	return o
 }
 
-// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.150.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
+// Estimated cost in US dollars of the run's per-token billing, from the model pricing of the models.dev catalog bundled with docker-agent v1.166.0. 0 for models without known pricing, such as custom providers, `dmr` and `ollama`, and for runs billed to a subscription: `chatgpt` models, a Claude Code agent with the Claude login or `CLAUDE_CODE_OAUTH_TOKEN`, and a Codex agent with a ChatGPT login; the run summary then names the plan. A Claude Code agent that bills API usage reports the cost Claude Code reports (`total_cost_usd`), and a Codex agent that bills API usage an estimate at the catalog's API prices.
 func (o AgentRunUsageOutput) Cost() pulumi.Float64Output {
 	return o.ApplyT(func(v AgentRunUsage) float64 { return v.Cost }).(pulumi.Float64Output)
 }
@@ -2691,7 +2691,7 @@ type HookDefinition struct {
 	SystemPrompt *string `pulumi:"systemPrompt"`
 	// Execution timeout in seconds (default: 60)
 	Timeout *int `pulumi:"timeout"`
-	// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+	// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'keep_awake' (CLI session_start and session_end: prevents idle system sleep when the user setting keep_awake is enabled), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
 	Type HookType `pulumi:"type"`
 	// Working directory for this hook. Accepts ~, $VAR, ${VAR} and ${env.VAR}. Relative paths are resolved from the agent working directory.
 	WorkingDir *string `pulumi:"workingDir"`
@@ -2740,7 +2740,7 @@ type HookDefinitionArgs struct {
 	SystemPrompt pulumi.StringPtrInput `pulumi:"systemPrompt"`
 	// Execution timeout in seconds (default: 60)
 	Timeout pulumi.IntPtrInput `pulumi:"timeout"`
-	// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+	// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'keep_awake' (CLI session_start and session_end: prevents idle system sleep when the user setting keep_awake is enabled), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
 	Type HookTypeInput `pulumi:"type"`
 	// Working directory for this hook. Accepts ~, $VAR, ${VAR} and ${env.VAR}. Relative paths are resolved from the agent working directory.
 	WorkingDir pulumi.StringPtrInput `pulumi:"workingDir"`
@@ -2873,7 +2873,7 @@ func (o HookDefinitionOutput) Timeout() pulumi.IntPtrOutput {
 	return o.ApplyT(func(v HookDefinition) *int { return v.Timeout }).(pulumi.IntPtrOutput)
 }
 
-// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
+// Type of hook. 'command' executes a shell command; 'builtin' invokes a named in-process Go function registered by the runtime; 'model' asks an LLM and translates its reply into the hook's native output (used for LLM-as-a-judge pre_tool_use, summarizers, etc., with no Go code). The docker-agent runtime ships these builtins: 'add_context' (context-contributing events: renders Go templates in args against hook input and joins non-empty results with newlines as additional context), 'add_date' (turn_start: today's date), 'add_environment_info' (session_start: cwd, git, OS, arch), 'add_prompt_files' (turn_start: contents of named files looked up in the workdir hierarchy and the home directory; args may include '--depth=<N>' to additionally list, by path only, the same filenames found up to N levels below the working directory), 'add_git_status' (turn_start: `git status --short --branch`), 'add_git_diff' (turn_start: `git diff --stat`, or full diff with args=['full']), 'add_directory_listing' (session_start: top-level entries of cwd), 'add_user_info' (session_start: current OS user and hostname), 'add_recent_commits' (session_start: `git log --oneline -n N`, default N=10, override via args=['<N>']), 'max_iterations' (before_llm_call: hard stop after N model calls; args=['<N>'] required), 'redact_secrets' (tool_input_transform or pre_tool_use / before_llm_call / tool_response_transform: scrubs detected secrets from tool arguments, outgoing chat content, and tool output — the same builtin handles all three legs and dispatches on the event; the matching agent-level 'redact_secrets: true' flag auto-injects the entries on tool_input_transform, before_llm_call, and tool_response_transform), 'transform_json' (tool_response_transform: keeps the top-level JSON fields named in args), 'limit_large_tool_results' (tool_response_transform and session_end: stores oversized tool output in a per-session temp file and replaces it with a bounded excerpt; always injected by the runtime), 'safer_shell' (pre_tool_use: deprecated compatibility shim that attaches shell safety classification metadata), 'http_post' (any event: POSTs args[1] to the URL in args[0]), 'keep_awake' (CLI session_start and session_end: prevents idle system sleep when the user setting keep_awake is enabled), 'snapshot' (session_start, turn_start, turn_end, pre_tool_use, post_tool_use, and session_end: records filesystem snapshots in a shadow git repository), 'unload' (on_agent_switch: POSTs `{"model": "<id>"}` to the previous agent's DMR model endpoints — e.g. asks Docker Model Runner to release the GPU/RAM held by the just-departing model so the next agent's model can claim it. Pure HTTP, no provider-specific runtime coupling; non-DMR providers are silently skipped. Opt in by adding the entry to the agent's hooks.on_agent_switch list). 'evaluator' assesses tool input through a named evaluator and applies a separate policy (tool_guard only).
 func (o HookDefinitionOutput) Type() HookTypeOutput {
 	return o.ApplyT(func(v HookDefinition) HookType { return v.Type }).(HookTypeOutput)
 }
@@ -4199,7 +4199,7 @@ func (o InlineSkillArrayOutput) Index(i pulumi.IntInput) InlineSkillOutput {
 type Lifecycle struct {
 	// Exponential backoff between restart attempts.
 	Backoff *LifecycleBackoff `pulumi:"backoff"`
-	// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
+	// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
 	CallTimeout *string `pulumi:"callTimeout"`
 	// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
 	Extra map[string]interface{} `pulumi:"extra"`
@@ -4230,7 +4230,7 @@ type LifecycleInput interface {
 type LifecycleArgs struct {
 	// Exponential backoff between restart attempts.
 	Backoff LifecycleBackoffPtrInput `pulumi:"backoff"`
-	// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
+	// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
 	CallTimeout pulumi.StringPtrInput `pulumi:"callTimeout"`
 	// Additional fields that are not modelled by this provider version, merged verbatim into this object's YAML mapping (snake_case keys). A key that is also set by a typed property overrides it.
 	Extra pulumi.MapInput `pulumi:"extra"`
@@ -4329,7 +4329,7 @@ func (o LifecycleOutput) Backoff() LifecycleBackoffPtrOutput {
 	return o.ApplyT(func(v Lifecycle) *LifecycleBackoff { return v.Backoff }).(LifecycleBackoffPtrOutput)
 }
 
-// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
+// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
 func (o LifecycleOutput) CallTimeout() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v Lifecycle) *string { return v.CallTimeout }).(pulumi.StringPtrOutput)
 }
@@ -4398,7 +4398,7 @@ func (o LifecyclePtrOutput) Backoff() LifecycleBackoffPtrOutput {
 	}).(LifecycleBackoffPtrOutput)
 }
 
-// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested sampling/elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
+// Cap on an individual tool call, including one reconnect-retry. Enforced: on expiry the call is cancelled and surfaced to the model as a tool error; cancellation is propagated to the server. The budget includes any nested elicitation time. Go duration format (e.g. '30s', '2m'). 0/unset means no timeout (opt-in; no profile default).
 func (o LifecyclePtrOutput) CallTimeout() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *Lifecycle) *string {
 		if v == nil {
@@ -5620,6 +5620,8 @@ type ModelDef struct {
 	CompactionModel *string `pulumi:"compactionModel"`
 	// Fraction of the context window at which proactive auto-compaction triggers for agents running this model. Must be greater than 0 and at most 1. Defaults to 0.9 (90% of the context window). Takes precedence over the agent-level compaction_threshold. Cannot be combined with first_available.
 	CompactionThreshold *float64 `pulumi:"compactionThreshold"`
+	// Context window of this model in tokens. Metadata only: it drives context accounting, compaction thresholds (including a dedicated compaction_model) and max_tokens clamping for models the models.dev catalogue does not describe (custom openai_responses or openai_chatcompletions endpoints, self-hosted models). It is never sent as a request parameter and never configures the Docker Model Runner engine; use provider_opts.context_size for that. This is the only context-window setting for non-DMR providers; provider_opts.context_size is accepted only by the dmr provider, where it also sizes the engine and must equal this value when both are set. Otherwise the runtime-discovered window applies, then models.dev. It must not exceed the context window the models.dev catalogue declares for the model, when it declares one (the error names the catalogue maximum); models the catalogue does not describe accept any positive value. Cannot be combined with first_available (set it on the candidate models instead).
+	ContextWindow *int `pulumi:"contextWindow"`
 	// Explicit token pricing (USD per 1M tokens), overriding the models.dev catalogue. Used for per-turn cost computation, session cost tracking, the /model picker, and the after_llm_call hook's cost field. Makes an uncatalogued model (custom base_url provider, local or private deployment) 'priced' instead of billing $0. Prices must not be negative; an all-zero table means 'priced, free'. Cannot be combined with first_available.
 	Cost *Cost `pulumi:"cost"`
 	// Optional human-readable summary of the model's purpose or strengths (e.g. 'fast and cheap, good for summaries')
@@ -5630,7 +5632,7 @@ type ModelDef struct {
 	FirstAvailable []string `pulumi:"firstAvailable"`
 	// Frequency penalty
 	FrequencyPenalty *float64 `pulumi:"frequencyPenalty"`
-	// Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
+	// Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set context_window on the model to declare the window.
 	MaxTokens *int `pulumi:"maxTokens"`
 	// Model name
 	Model *string `pulumi:"model"`
@@ -5642,10 +5644,14 @@ type ModelDef struct {
 	PresencePenalty *float64 `pulumi:"presencePenalty"`
 	// Model provider (e.g., openai, anthropic, dmr)
 	Provider *string `pulumi:"provider"`
-	// Provider-specific options. Anthropic: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Fable/Mythos 5.1), strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks (array of model ID strings, in priority order; enables the server-side-fallback beta so requests refused by safety classifiers, e.g. on Claude Fable 5, are retried with the listed models in a single round trip). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
+	// Provider-specific options. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Claude models whose server checks thinking prefixes: Haiku 5.5, Opus 5.5, Sonnet 5.5, Fable 5.1/5.2 and Mythos 5.2; Bedrock applies it only to listed prefix-checking models when thinking is enabled). Anthropic: strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1+), speed ('fast' or 'standard'; 'fast' sends speed: fast with the fast-mode-2026-02-01 beta on every request using the model, at premium pricing on supported models, Claude API only; omitted, empty or 'standard' leaves the API default; other values are rejected). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks ("default" for the server's recommended routing, or an array of up to three distinct model ID strings in priority order; enables the server-side-fallback-2026-07-01 beta so refused requests are retried in a single round trip; Claude API only, rejected on Vertex AI, Bedrock, gateways and other base_url hosts; a list is rejected for Claude Haiku 5.5, which has no server-side fallback). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. Any OpenAI-compatible destination: replay_reasoning (boolean) replays the reasoning stored on assistant turns back as a reasoning_content field on later Chat Completions requests, so a reasoning model sees its own earlier reasoning instead of re-deriving it after each tool call (distinct from preserve_reasoning, which replays encrypted reasoning items on the Responses API and does not apply to Chat Completions); default true for Chat Completions; set replay_reasoning to false for an endpoint that rejects or must not receive the non-standard field; a non-boolean value also disables replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
 	ProviderOpts map[string]interface{} `pulumi:"providerOpts"`
 	// Routing rules for request-based model selection. When configured, this model becomes a router that selects the best model based on the user's input. The model's provider/model fields define the fallback model.
 	Routing []RoutingRule `pulumi:"routing"`
+	// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+	StreamIdleTimeout *string `pulumi:"streamIdleTimeout"`
+	// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+	StreamIdleTimeoutInt *int `pulumi:"streamIdleTimeoutInt"`
 	// Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
 	TaskBudget *int `pulumi:"taskBudget"`
 	// Sampling temperature
@@ -5689,6 +5695,8 @@ type ModelDefArgs struct {
 	CompactionModel pulumi.StringPtrInput `pulumi:"compactionModel"`
 	// Fraction of the context window at which proactive auto-compaction triggers for agents running this model. Must be greater than 0 and at most 1. Defaults to 0.9 (90% of the context window). Takes precedence over the agent-level compaction_threshold. Cannot be combined with first_available.
 	CompactionThreshold pulumi.Float64PtrInput `pulumi:"compactionThreshold"`
+	// Context window of this model in tokens. Metadata only: it drives context accounting, compaction thresholds (including a dedicated compaction_model) and max_tokens clamping for models the models.dev catalogue does not describe (custom openai_responses or openai_chatcompletions endpoints, self-hosted models). It is never sent as a request parameter and never configures the Docker Model Runner engine; use provider_opts.context_size for that. This is the only context-window setting for non-DMR providers; provider_opts.context_size is accepted only by the dmr provider, where it also sizes the engine and must equal this value when both are set. Otherwise the runtime-discovered window applies, then models.dev. It must not exceed the context window the models.dev catalogue declares for the model, when it declares one (the error names the catalogue maximum); models the catalogue does not describe accept any positive value. Cannot be combined with first_available (set it on the candidate models instead).
+	ContextWindow pulumi.IntPtrInput `pulumi:"contextWindow"`
 	// Explicit token pricing (USD per 1M tokens), overriding the models.dev catalogue. Used for per-turn cost computation, session cost tracking, the /model picker, and the after_llm_call hook's cost field. Makes an uncatalogued model (custom base_url provider, local or private deployment) 'priced' instead of billing $0. Prices must not be negative; an all-zero table means 'priced, free'. Cannot be combined with first_available.
 	Cost CostPtrInput `pulumi:"cost"`
 	// Optional human-readable summary of the model's purpose or strengths (e.g. 'fast and cheap, good for summaries')
@@ -5699,7 +5707,7 @@ type ModelDefArgs struct {
 	FirstAvailable pulumi.StringArrayInput `pulumi:"firstAvailable"`
 	// Frequency penalty
 	FrequencyPenalty pulumi.Float64PtrInput `pulumi:"frequencyPenalty"`
-	// Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
+	// Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set context_window on the model to declare the window.
 	MaxTokens pulumi.IntPtrInput `pulumi:"maxTokens"`
 	// Model name
 	Model pulumi.StringPtrInput `pulumi:"model"`
@@ -5711,10 +5719,14 @@ type ModelDefArgs struct {
 	PresencePenalty pulumi.Float64PtrInput `pulumi:"presencePenalty"`
 	// Model provider (e.g., openai, anthropic, dmr)
 	Provider pulumi.StringPtrInput `pulumi:"provider"`
-	// Provider-specific options. Anthropic: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Fable/Mythos 5.1), strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks (array of model ID strings, in priority order; enables the server-side-fallback beta so requests refused by safety classifiers, e.g. on Claude Fable 5, are retried with the listed models in a single round trip). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
+	// Provider-specific options. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Claude models whose server checks thinking prefixes: Haiku 5.5, Opus 5.5, Sonnet 5.5, Fable 5.1/5.2 and Mythos 5.2; Bedrock applies it only to listed prefix-checking models when thinking is enabled). Anthropic: strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1+), speed ('fast' or 'standard'; 'fast' sends speed: fast with the fast-mode-2026-02-01 beta on every request using the model, at premium pricing on supported models, Claude API only; omitted, empty or 'standard' leaves the API default; other values are rejected). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks ("default" for the server's recommended routing, or an array of up to three distinct model ID strings in priority order; enables the server-side-fallback-2026-07-01 beta so refused requests are retried in a single round trip; Claude API only, rejected on Vertex AI, Bedrock, gateways and other base_url hosts; a list is rejected for Claude Haiku 5.5, which has no server-side fallback). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. Any OpenAI-compatible destination: replay_reasoning (boolean) replays the reasoning stored on assistant turns back as a reasoning_content field on later Chat Completions requests, so a reasoning model sees its own earlier reasoning instead of re-deriving it after each tool call (distinct from preserve_reasoning, which replays encrypted reasoning items on the Responses API and does not apply to Chat Completions); default true for Chat Completions; set replay_reasoning to false for an endpoint that rejects or must not receive the non-standard field; a non-boolean value also disables replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
 	ProviderOpts pulumi.MapInput `pulumi:"providerOpts"`
 	// Routing rules for request-based model selection. When configured, this model becomes a router that selects the best model based on the user's input. The model's provider/model fields define the fallback model.
 	Routing RoutingRuleArrayInput `pulumi:"routing"`
+	// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+	StreamIdleTimeout pulumi.StringPtrInput `pulumi:"streamIdleTimeout"`
+	// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+	StreamIdleTimeoutInt pulumi.IntPtrInput `pulumi:"streamIdleTimeoutInt"`
 	// Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
 	TaskBudget pulumi.IntPtrInput `pulumi:"taskBudget"`
 	// Sampling temperature
@@ -5815,6 +5827,11 @@ func (o ModelDefOutput) CompactionThreshold() pulumi.Float64PtrOutput {
 	return o.ApplyT(func(v ModelDef) *float64 { return v.CompactionThreshold }).(pulumi.Float64PtrOutput)
 }
 
+// Context window of this model in tokens. Metadata only: it drives context accounting, compaction thresholds (including a dedicated compaction_model) and max_tokens clamping for models the models.dev catalogue does not describe (custom openai_responses or openai_chatcompletions endpoints, self-hosted models). It is never sent as a request parameter and never configures the Docker Model Runner engine; use provider_opts.context_size for that. This is the only context-window setting for non-DMR providers; provider_opts.context_size is accepted only by the dmr provider, where it also sizes the engine and must equal this value when both are set. Otherwise the runtime-discovered window applies, then models.dev. It must not exceed the context window the models.dev catalogue declares for the model, when it declares one (the error names the catalogue maximum); models the catalogue does not describe accept any positive value. Cannot be combined with first_available (set it on the candidate models instead).
+func (o ModelDefOutput) ContextWindow() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v ModelDef) *int { return v.ContextWindow }).(pulumi.IntPtrOutput)
+}
+
 // Explicit token pricing (USD per 1M tokens), overriding the models.dev catalogue. Used for per-turn cost computation, session cost tracking, the /model picker, and the after_llm_call hook's cost field. Makes an uncatalogued model (custom base_url provider, local or private deployment) 'priced' instead of billing $0. Prices must not be negative; an all-zero table means 'priced, free'. Cannot be combined with first_available.
 func (o ModelDefOutput) Cost() CostPtrOutput {
 	return o.ApplyT(func(v ModelDef) *Cost { return v.Cost }).(CostPtrOutput)
@@ -5840,7 +5857,7 @@ func (o ModelDefOutput) FrequencyPenalty() pulumi.Float64PtrOutput {
 	return o.ApplyT(func(v ModelDef) *float64 { return v.FrequencyPenalty }).(pulumi.Float64PtrOutput)
 }
 
-// Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set provider_opts.context_size to declare the window.
+// Maximum output tokens per response (the completion budget), NOT the context window. OpenAI-compatible servers require prompt_tokens + max_tokens to fit the context window, so a value close to the window leaves no room for the prompt. Set context_window on the model to declare the window.
 func (o ModelDefOutput) MaxTokens() pulumi.IntPtrOutput {
 	return o.ApplyT(func(v ModelDef) *int { return v.MaxTokens }).(pulumi.IntPtrOutput)
 }
@@ -5870,7 +5887,7 @@ func (o ModelDefOutput) Provider() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v ModelDef) *string { return v.Provider }).(pulumi.StringPtrOutput)
 }
 
-// Provider-specific options. Anthropic: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Fable/Mythos 5.1), strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks (array of model ID strings, in priority order; enables the server-side-fallback beta so requests refused by safety classifiers, e.g. on Claude Fable 5, are retried with the listed models in a single round trip). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
+// Provider-specific options. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block; defaults to drop_block on Claude models whose server checks thinking prefixes: Haiku 5.5, Opus 5.5, Sonnet 5.5, Fable 5.1/5.2 and Mythos 5.2; Bedrock applies it only to listed prefix-checking models when thinking is enabled). Anthropic: strict_tools (true for eligible schemas or a tool-name array requiring strict mode), cache_diagnostics (boolean; Claude API only), native_compaction (boolean; synchronous whole-history signed compaction on Claude API), cache_preserving_updates (boolean; native system/tool/effort changes with turn-scoped reminders on supported models), thinking_display: updates (progress updates beta on Fable 5+ and Mythos 5.1+), speed ('fast' or 'standard'; 'fast' sends speed: fast with the fast-mode-2026-02-01 beta on every request using the model, at premium pricing on supported models, Claude API only; omitted, empty or 'standard' leaves the API default; other values are rejected). Sampling parameters: top_k (integer, supported by anthropic, google, amazon-bedrock, and custom OpenAI-compatible providers like vLLM/Ollama), repetition_penalty (float, forwarded to custom OpenAI-compatible providers), min_p (float, forwarded to custom providers), seed (integer, forwarded to OpenAI). Lifecycle: unload_api (string) overrides the unload endpoint inherited from the provider config (relative path resolved against base_url's scheme+host, or an absolute URL); used by the runtime's `unload` on_agent_switch builtin hook to release model resources between agent switches. Infrastructure options: http_headers (map of string to string, adds custom HTTP headers to every request; used for OpenAI-compatible providers like github-copilot which requires Copilot-Integration-Id). dmr: runtime_flags; supports_images (boolean) and supports_pdf (boolean) declare which document attachment types the local model accepts. DMR-hosted models are not in the models.dev catalog, so attachment capabilities cannot be detected automatically and default to text-only; set supports_images: true for a vision model so image attachments are forwarded instead of silently dropped. anthropic/amazon-bedrock (Claude): interleaved_thinking (boolean, default true). anthropic: thinking_display ('summarized', 'omitted', 'updates', or 'display') controls whether thinking blocks are returned in responses when thinking is enabled. Claude Opus 4.7 hides thinking by default ('omitted'); set thinking_display: summarized to receive thinking blocks. 'display' (full thinking blocks) is only accepted by pre-4.6 token-thinking models (e.g. Sonnet 4.5, Haiku 4.5); models from the adaptive-thinking generation onward (Opus/Sonnet 4.6+, Sonnet 5, Fable 5) reject it, and docker-agent fails fast with a configuration error (fallbacks models are validated too); fallbacks ("default" for the server's recommended routing, or an array of up to three distinct model ID strings in priority order; enables the server-side-fallback-2026-07-01 beta so refused requests are retried in a single round trip; Claude API only, rejected on Vertex AI, Bedrock, gateways and other base_url hosts; a list is rejected for Claude Haiku 5.5, which has no server-side fallback). OpenAI-compatible APIs: service_tier (string, forwarded unchanged to Chat Completions and Responses, including WebSocket and reranking; 'fast' or 'priority' enables Fast mode at premium pricing on supported models; omitted or empty leaves the API default, non-string values are ignored). openai/chatgpt: preserve_reasoning (boolean, default false) preserves ordered Responses output and encrypted reasoning for stateless continuation; native_tool_search also enables output replay. Any OpenAI-compatible destination: replay_reasoning (boolean) replays the reasoning stored on assistant turns back as a reasoning_content field on later Chat Completions requests, so a reasoning model sees its own earlier reasoning instead of re-deriving it after each tool call (distinct from preserve_reasoning, which replays encrypted reasoning items on the Responses API and does not apply to Chat Completions); default true for Chat Completions; set replay_reasoning to false for an endpoint that rejects or must not receive the non-standard field; a non-boolean value also disables replay. openai: cache_diagnostics (boolean, default false) logs Responses prompt-cache comparison results with --debug on GPT-5.6+; comparisons are scoped to the current session and resolved model; ignored for chatgpt and custom base_url endpoints. transport ('sse' or 'websocket') to choose between SSE and WebSocket streaming for the Responses API; native_tool_search (boolean, default false; also enables ordered output replay) declares the agent's deferred tools with defer_loading and a server-executed tool_search tool so OpenAI's hosted tool search discovers them (only openai models supporting deferred tools, gpt-5.4+; ignored on chatgpt, OpenAI-compatible endpoints including a custom base_url, and Chat Completions requests). openai/anthropic/google: rerank_prompt (string) to fully override the system prompt used for RAG reranking (advanced - prefer using results.reranking.criteria for domain-specific guidance). Google: google_search (boolean) enables Google Search grounding, google_maps (boolean) enables Google Maps grounding, code_execution (boolean) enables server-side code execution, url_context (boolean) enables reading public URLs during generation, output_dimensionality (positive integer) truncates Gemini embedding vectors to that size when the model is used as a RAG embedding_model; service_tier (string, forwarded unchanged as the top-level serviceTier of every generateContent request, including reranking, title generation, and compaction, on the Gemini API, Vertex AI, and the Docker models gateway; 'flex' for discounted, queued processing that may wait up to 15 minutes before the first byte, 'standard' for the default tier, 'priority' for premium processing; omitted or empty leaves the API default, non-string values are ignored; cost estimates are not tier-adjusted, set the model's cost override).
 func (o ModelDefOutput) ProviderOpts() pulumi.MapOutput {
 	return o.ApplyT(func(v ModelDef) map[string]interface{} { return v.ProviderOpts }).(pulumi.MapOutput)
 }
@@ -5878,6 +5895,16 @@ func (o ModelDefOutput) ProviderOpts() pulumi.MapOutput {
 // Routing rules for request-based model selection. When configured, this model becomes a router that selects the best model based on the user's input. The model's provider/model fields define the fallback model.
 func (o ModelDefOutput) Routing() RoutingRuleArrayOutput {
 	return o.ApplyT(func(v ModelDef) []RoutingRule { return v.Routing }).(RoutingRuleArrayOutput)
+}
+
+// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+func (o ModelDefOutput) StreamIdleTimeout() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v ModelDef) *string { return v.StreamIdleTimeout }).(pulumi.StringPtrOutput)
+}
+
+// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+func (o ModelDefOutput) StreamIdleTimeoutInt() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v ModelDef) *int { return v.StreamIdleTimeoutInt }).(pulumi.IntPtrOutput)
 }
 
 // Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
@@ -6434,9 +6461,9 @@ type ProviderDef struct {
 	ParallelToolCalls *bool `pulumi:"parallelToolCalls"`
 	// Default presence penalty.
 	PresencePenalty *float64 `pulumi:"presencePenalty"`
-	// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+	// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
 	Provider *string `pulumi:"provider"`
-	// Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
+	// Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed ('fast' or 'standard'; 'fast' requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
 	ProviderOpts map[string]interface{} `pulumi:"providerOpts"`
 	// Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
 	TaskBudget *int `pulumi:"taskBudget"`
@@ -6487,9 +6514,9 @@ type ProviderDefArgs struct {
 	ParallelToolCalls pulumi.BoolPtrInput `pulumi:"parallelToolCalls"`
 	// Default presence penalty.
 	PresencePenalty pulumi.Float64PtrInput `pulumi:"presencePenalty"`
-	// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+	// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
 	Provider pulumi.StringPtrInput `pulumi:"provider"`
-	// Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
+	// Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed ('fast' or 'standard'; 'fast' requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
 	ProviderOpts pulumi.MapInput `pulumi:"providerOpts"`
 	// Total-token budget for an agentic task (`task_budget`), forwarded to Anthropic as `output_config.task_budget`. The object form `{type: tokens, total: N}` is the same as `N`; `tokens` is the only type.
 	TaskBudget pulumi.IntPtrInput `pulumi:"taskBudget"`
@@ -6606,12 +6633,12 @@ func (o ProviderDefOutput) PresencePenalty() pulumi.Float64PtrOutput {
 	return o.ApplyT(func(v ProviderDef) *float64 { return v.PresencePenalty }).(pulumi.Float64PtrOutput)
 }
 
-// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
+// The underlying provider type. Defaults to "openai" when not set. Supported values: openai, anthropic, google, amazon-bedrock, dmr, and any built-in alias (requesty, openrouter, opper, runcrate, api-route, lunaroute, orcarouter, atlascloud, popnow, cloudgpu, obscurify, hopbase, straitly, azure, xai, ollama, mistral, baseten, daoxe, ovhcloud, groq, fireworks-ai, deepseek, cerebras, togetherai, huggingface, moonshotai, vercel, cloudflare-workers-ai, cloudflare-ai-gateway, nvidia, github-copilot, chatgpt, opencode, opencode-go, etc.).
 func (o ProviderDefOutput) Provider() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v ProviderDef) *string { return v.Provider }).(pulumi.StringPtrOutput)
 }
 
-// Provider-specific options passed through to the underlying client. Anthropic: thinking_prefix_mismatch (error or drop_block), thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
+// Provider-specific options passed through to the underlying client. Anthropic/amazon-bedrock: thinking_prefix_mismatch (error or drop_block). Anthropic: thinking_display (including updates on supported Fable/Mythos models), strict_tools (boolean or list of tool names), cache_diagnostics (boolean), native_compaction (boolean), cache_preserving_updates (boolean), speed ('fast' or 'standard'; 'fast' requests fast mode at premium pricing on supported models, Claude API only). OpenAI-compatible APIs: service_tier (string) selects the processing tier for Chat Completions and Responses requests; use 'fast' or 'priority' for Fast mode at premium pricing on supported models. Google (Gemini): service_tier (string) selects the Gemini API service tier ('flex', 'standard', or 'priority'). Model-level options override these defaults.
 func (o ProviderDefOutput) ProviderOpts() pulumi.MapOutput {
 	return o.ApplyT(func(v ProviderDef) map[string]interface{} { return v.ProviderOpts }).(pulumi.MapOutput)
 }
@@ -8597,6 +8624,8 @@ type Remote struct {
 	Headers map[string]string `pulumi:"headers"`
 	// Explicit OAuth credentials for servers that do not support Dynamic Client Registration
 	Oauth *RemoteOAuth `pulumi:"oauth"`
+	// Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+	StandaloneSse *bool `pulumi:"standaloneSse"`
 	// Transport type for the remote connection
 	TransportType *string `pulumi:"transportType"`
 	// URL for the remote tool
@@ -8622,6 +8651,8 @@ type RemoteArgs struct {
 	Headers pulumi.StringMapInput `pulumi:"headers"`
 	// Explicit OAuth credentials for servers that do not support Dynamic Client Registration
 	Oauth RemoteOAuthPtrInput `pulumi:"oauth"`
+	// Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+	StandaloneSse pulumi.BoolPtrInput `pulumi:"standaloneSse"`
 	// Transport type for the remote connection
 	TransportType pulumi.StringPtrInput `pulumi:"transportType"`
 	// URL for the remote tool
@@ -8721,6 +8752,11 @@ func (o RemoteOutput) Oauth() RemoteOAuthPtrOutput {
 	return o.ApplyT(func(v Remote) *RemoteOAuth { return v.Oauth }).(RemoteOAuthPtrOutput)
 }
 
+// Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+func (o RemoteOutput) StandaloneSse() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v Remote) *bool { return v.StandaloneSse }).(pulumi.BoolPtrOutput)
+}
+
 // Transport type for the remote connection
 func (o RemoteOutput) TransportType() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v Remote) *string { return v.TransportType }).(pulumi.StringPtrOutput)
@@ -8783,6 +8819,16 @@ func (o RemotePtrOutput) Oauth() RemoteOAuthPtrOutput {
 		}
 		return v.Oauth
 	}).(RemoteOAuthPtrOutput)
+}
+
+// Open the streamable-HTTP standalone SSE GET stream for server-initiated messages (keepalive pings, tools/list_changed). Needed by MCP gateways that close sessions they cannot ping. Ignored for the sse transport. Defaults to `false`.
+func (o RemotePtrOutput) StandaloneSse() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *Remote) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.StandaloneSse
+	}).(pulumi.BoolPtrOutput)
 }
 
 // Transport type for the remote connection
@@ -9562,6 +9608,10 @@ type RuntimeDefaults struct {
 	Safety *SafetyMode `pulumi:"safety"`
 	// When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
 	Sandbox *bool `pulumi:"sandbox"`
+	// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+	StreamIdleTimeout *string `pulumi:"streamIdleTimeout"`
+	// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+	StreamIdleTimeoutInt *int `pulumi:"streamIdleTimeoutInt"`
 }
 
 // RuntimeDefaultsInput is an input type that accepts RuntimeDefaultsArgs and RuntimeDefaultsOutput values.
@@ -9585,6 +9635,10 @@ type RuntimeDefaultsArgs struct {
 	Safety SafetyModePtrInput `pulumi:"safety"`
 	// When true, run the agent inside a Docker sandbox by default — equivalent to passing --sandbox on the command line. An explicit --sandbox=false on the CLI still wins.
 	Sandbox pulumi.BoolPtrInput `pulumi:"sandbox"`
+	// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+	StreamIdleTimeout pulumi.StringPtrInput `pulumi:"streamIdleTimeout"`
+	// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+	StreamIdleTimeoutInt pulumi.IntPtrInput `pulumi:"streamIdleTimeoutInt"`
 }
 
 func (RuntimeDefaultsArgs) ElementType() reflect.Type {
@@ -9685,6 +9739,16 @@ func (o RuntimeDefaultsOutput) Sandbox() pulumi.BoolPtrOutput {
 	return o.ApplyT(func(v RuntimeDefaults) *bool { return v.Sandbox }).(pulumi.BoolPtrOutput)
 }
 
+// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+func (o RuntimeDefaultsOutput) StreamIdleTimeout() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v RuntimeDefaults) *string { return v.StreamIdleTimeout }).(pulumi.StringPtrOutput)
+}
+
+// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+func (o RuntimeDefaultsOutput) StreamIdleTimeoutInt() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v RuntimeDefaults) *int { return v.StreamIdleTimeoutInt }).(pulumi.IntPtrOutput)
+}
+
 type RuntimeDefaultsPtrOutput struct{ *pulumi.OutputState }
 
 func (RuntimeDefaultsPtrOutput) ElementType() reflect.Type {
@@ -9747,6 +9811,26 @@ func (o RuntimeDefaultsPtrOutput) Sandbox() pulumi.BoolPtrOutput {
 		}
 		return v.Sandbox
 	}).(pulumi.BoolPtrOutput)
+}
+
+// Maximum idle time between two chunks of a model stream (`stream_idle_timeout`), as a positive duration such as `90s` or `2m`. Mutually exclusive with `streamIdleTimeoutInt`.
+func (o RuntimeDefaultsPtrOutput) StreamIdleTimeout() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *RuntimeDefaults) *string {
+		if v == nil {
+			return nil
+		}
+		return v.StreamIdleTimeout
+	}).(pulumi.StringPtrOutput)
+}
+
+// The integer form of `stream_idle_timeout`: `-1` turns the idle timer off, and it is the only integer docker-agent accepts. Mutually exclusive with `streamIdleTimeout`.
+func (o RuntimeDefaultsPtrOutput) StreamIdleTimeoutInt() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v *RuntimeDefaults) *int {
+		if v == nil {
+			return nil
+		}
+		return v.StreamIdleTimeoutInt
+	}).(pulumi.IntPtrOutput)
 }
 
 // Configuration for custom shell tool
@@ -11481,6 +11565,184 @@ func (o UserCredentialHelperPtrOutput) Command() pulumi.StringPtrOutput {
 	}).(pulumi.StringPtrOutput)
 }
 
+// Experimental docker-agent features (`settings.experimental`). They may change or go away in a later docker-agent release.
+type UserExperimentalSettings struct {
+	// MCP event discovery and push subscriptions (SEP-3415) over stdio and Streamable HTTP (`mcp_events`, default `false`).
+	McpEvents *bool `pulumi:"mcpEvents"`
+	// MCP Skills discovery and verified loading (SEP-2640) (`mcp_skills`, default `false`).
+	McpSkills *bool `pulumi:"mcpSkills"`
+	// Asynchronous tool execution with MCP Tasks (SEP-2663) over stdio and Streamable HTTP (`mcp_tasks`, default `false`).
+	McpTasks *bool `pulumi:"mcpTasks"`
+}
+
+// UserExperimentalSettingsInput is an input type that accepts UserExperimentalSettingsArgs and UserExperimentalSettingsOutput values.
+// You can construct a concrete instance of `UserExperimentalSettingsInput` via:
+//
+//	UserExperimentalSettingsArgs{...}
+type UserExperimentalSettingsInput interface {
+	pulumi.Input
+
+	ToUserExperimentalSettingsOutput() UserExperimentalSettingsOutput
+	ToUserExperimentalSettingsOutputWithContext(context.Context) UserExperimentalSettingsOutput
+}
+
+// Experimental docker-agent features (`settings.experimental`). They may change or go away in a later docker-agent release.
+type UserExperimentalSettingsArgs struct {
+	// MCP event discovery and push subscriptions (SEP-3415) over stdio and Streamable HTTP (`mcp_events`, default `false`).
+	McpEvents pulumi.BoolPtrInput `pulumi:"mcpEvents"`
+	// MCP Skills discovery and verified loading (SEP-2640) (`mcp_skills`, default `false`).
+	McpSkills pulumi.BoolPtrInput `pulumi:"mcpSkills"`
+	// Asynchronous tool execution with MCP Tasks (SEP-2663) over stdio and Streamable HTTP (`mcp_tasks`, default `false`).
+	McpTasks pulumi.BoolPtrInput `pulumi:"mcpTasks"`
+}
+
+func (UserExperimentalSettingsArgs) ElementType() reflect.Type {
+	return reflect.TypeOf((*UserExperimentalSettings)(nil)).Elem()
+}
+
+func (i UserExperimentalSettingsArgs) ToUserExperimentalSettingsOutput() UserExperimentalSettingsOutput {
+	return i.ToUserExperimentalSettingsOutputWithContext(context.Background())
+}
+
+func (i UserExperimentalSettingsArgs) ToUserExperimentalSettingsOutputWithContext(ctx context.Context) UserExperimentalSettingsOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(UserExperimentalSettingsOutput)
+}
+
+func (i UserExperimentalSettingsArgs) ToUserExperimentalSettingsPtrOutput() UserExperimentalSettingsPtrOutput {
+	return i.ToUserExperimentalSettingsPtrOutputWithContext(context.Background())
+}
+
+func (i UserExperimentalSettingsArgs) ToUserExperimentalSettingsPtrOutputWithContext(ctx context.Context) UserExperimentalSettingsPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(UserExperimentalSettingsOutput).ToUserExperimentalSettingsPtrOutputWithContext(ctx)
+}
+
+// UserExperimentalSettingsPtrInput is an input type that accepts UserExperimentalSettingsArgs, UserExperimentalSettingsPtr and UserExperimentalSettingsPtrOutput values.
+// You can construct a concrete instance of `UserExperimentalSettingsPtrInput` via:
+//
+//	        UserExperimentalSettingsArgs{...}
+//
+//	or:
+//
+//	        nil
+type UserExperimentalSettingsPtrInput interface {
+	pulumi.Input
+
+	ToUserExperimentalSettingsPtrOutput() UserExperimentalSettingsPtrOutput
+	ToUserExperimentalSettingsPtrOutputWithContext(context.Context) UserExperimentalSettingsPtrOutput
+}
+
+type userExperimentalSettingsPtrType UserExperimentalSettingsArgs
+
+func UserExperimentalSettingsPtr(v *UserExperimentalSettingsArgs) UserExperimentalSettingsPtrInput {
+	return (*userExperimentalSettingsPtrType)(v)
+}
+
+func (*userExperimentalSettingsPtrType) ElementType() reflect.Type {
+	return reflect.TypeOf((**UserExperimentalSettings)(nil)).Elem()
+}
+
+func (i *userExperimentalSettingsPtrType) ToUserExperimentalSettingsPtrOutput() UserExperimentalSettingsPtrOutput {
+	return i.ToUserExperimentalSettingsPtrOutputWithContext(context.Background())
+}
+
+func (i *userExperimentalSettingsPtrType) ToUserExperimentalSettingsPtrOutputWithContext(ctx context.Context) UserExperimentalSettingsPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(UserExperimentalSettingsPtrOutput)
+}
+
+// Experimental docker-agent features (`settings.experimental`). They may change or go away in a later docker-agent release.
+type UserExperimentalSettingsOutput struct{ *pulumi.OutputState }
+
+func (UserExperimentalSettingsOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*UserExperimentalSettings)(nil)).Elem()
+}
+
+func (o UserExperimentalSettingsOutput) ToUserExperimentalSettingsOutput() UserExperimentalSettingsOutput {
+	return o
+}
+
+func (o UserExperimentalSettingsOutput) ToUserExperimentalSettingsOutputWithContext(ctx context.Context) UserExperimentalSettingsOutput {
+	return o
+}
+
+func (o UserExperimentalSettingsOutput) ToUserExperimentalSettingsPtrOutput() UserExperimentalSettingsPtrOutput {
+	return o.ToUserExperimentalSettingsPtrOutputWithContext(context.Background())
+}
+
+func (o UserExperimentalSettingsOutput) ToUserExperimentalSettingsPtrOutputWithContext(ctx context.Context) UserExperimentalSettingsPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v UserExperimentalSettings) *UserExperimentalSettings {
+		return &v
+	}).(UserExperimentalSettingsPtrOutput)
+}
+
+// MCP event discovery and push subscriptions (SEP-3415) over stdio and Streamable HTTP (`mcp_events`, default `false`).
+func (o UserExperimentalSettingsOutput) McpEvents() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserExperimentalSettings) *bool { return v.McpEvents }).(pulumi.BoolPtrOutput)
+}
+
+// MCP Skills discovery and verified loading (SEP-2640) (`mcp_skills`, default `false`).
+func (o UserExperimentalSettingsOutput) McpSkills() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserExperimentalSettings) *bool { return v.McpSkills }).(pulumi.BoolPtrOutput)
+}
+
+// Asynchronous tool execution with MCP Tasks (SEP-2663) over stdio and Streamable HTTP (`mcp_tasks`, default `false`).
+func (o UserExperimentalSettingsOutput) McpTasks() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserExperimentalSettings) *bool { return v.McpTasks }).(pulumi.BoolPtrOutput)
+}
+
+type UserExperimentalSettingsPtrOutput struct{ *pulumi.OutputState }
+
+func (UserExperimentalSettingsPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**UserExperimentalSettings)(nil)).Elem()
+}
+
+func (o UserExperimentalSettingsPtrOutput) ToUserExperimentalSettingsPtrOutput() UserExperimentalSettingsPtrOutput {
+	return o
+}
+
+func (o UserExperimentalSettingsPtrOutput) ToUserExperimentalSettingsPtrOutputWithContext(ctx context.Context) UserExperimentalSettingsPtrOutput {
+	return o
+}
+
+func (o UserExperimentalSettingsPtrOutput) Elem() UserExperimentalSettingsOutput {
+	return o.ApplyT(func(v *UserExperimentalSettings) UserExperimentalSettings {
+		if v != nil {
+			return *v
+		}
+		var ret UserExperimentalSettings
+		return ret
+	}).(UserExperimentalSettingsOutput)
+}
+
+// MCP event discovery and push subscriptions (SEP-3415) over stdio and Streamable HTTP (`mcp_events`, default `false`).
+func (o UserExperimentalSettingsPtrOutput) McpEvents() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserExperimentalSettings) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.McpEvents
+	}).(pulumi.BoolPtrOutput)
+}
+
+// MCP Skills discovery and verified loading (SEP-2640) (`mcp_skills`, default `false`).
+func (o UserExperimentalSettingsPtrOutput) McpSkills() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserExperimentalSettings) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.McpSkills
+	}).(pulumi.BoolPtrOutput)
+}
+
+// Asynchronous tool execution with MCP Tasks (SEP-2663) over stdio and Streamable HTTP (`mcp_tasks`, default `false`).
+func (o UserExperimentalSettingsPtrOutput) McpTasks() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserExperimentalSettings) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.McpTasks
+	}).(pulumi.BoolPtrOutput)
+}
+
 // Exchanges an external identity token for provider credentials.
 type UserFederationAuth struct {
 	// The federation rule identifier.
@@ -11680,26 +11942,38 @@ func (o UserFederationAuthPtrOutput) ServiceAccountId() pulumi.StringPtrOutput {
 
 // The `settings:` block of the docker-agent user configuration: preferences that apply to every agent you run. Every field is optional; unset fields use docker-agent's defaults. See https://docs.docker.com/ai/docker-agent/configuration/user-settings/.
 type UserGlobalSettings struct {
+	// Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+	BackgroundCompaction *bool `pulumi:"backgroundCompaction"`
+	// The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+	BackgroundCompactionThreshold *int `pulumi:"backgroundCompactionThreshold"`
 	// What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
 	BusySendMode *BusySendMode `pulumi:"busySendMode"`
 	// Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
 	CacheStablePrompts *bool `pulumi:"cacheStablePrompts"`
 	// Start sessions with thinking and tool blocks expanded (`expand_thinking`, default `false`).
 	ExpandThinking *bool `pulumi:"expandThinking"`
+	// Opt-in experimental features (`experimental`). Every feature is off by default.
+	Experimental *UserExperimentalSettings `pulumi:"experimental"`
 	// Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
 	Extra map[string]interface{} `pulumi:"extra"`
+	// Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+	FadeScrollEdges *bool `pulumi:"fadeScrollEdges"`
 	// Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
 	HideToolResults *bool `pulumi:"hideToolResults"`
 	// Global lifecycle hooks that run for every agent, in addition to the agent's own hooks, `hooks.d/` drop-ins and `--hook-*` flags.
 	Hooks *UserHooks `pulumi:"hooks"`
 	// How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
 	InterruptConfirmation *InterruptConfirmation `pulumi:"interruptConfirmation"`
+	// Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+	KeepAwake *bool `pulumi:"keepAwake"`
 	// Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
 	Keybindings []UserKeybinding `pulumi:"keybindings"`
 	// Sidebar position and section visibility of the TUI.
 	Layout *UserLayoutSettings `pulumi:"layout"`
 	// Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
 	Lean *bool `pulumi:"lean"`
+	// In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+	LeanFullFilePreview *bool `pulumi:"leanFullFilePreview"`
 	// Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
 	Permissions *UserPermissions `pulumi:"permissions"`
 	// Render images in the TUI with the Kitty graphics protocol (`render_images`, default `true`).
@@ -11726,6 +12000,8 @@ type UserGlobalSettings struct {
 	ThemeDark *string `pulumi:"themeDark"`
 	// The theme used when `theme` is `auto` on a light terminal (`theme_light`, default `default-light`).
 	ThemeLight *string `pulumi:"themeLight"`
+	// Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+	TopMargin *bool `pulumi:"topMargin"`
 	// Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
 	WarnOnCacheMiss *bool `pulumi:"warnOnCacheMiss"`
 	// Auto-approve every tool call globally (`YOLO`, default `false`). Legacy alias for `safety: autonomous`; `safety` wins when both are set.
@@ -11745,26 +12021,38 @@ type UserGlobalSettingsInput interface {
 
 // The `settings:` block of the docker-agent user configuration: preferences that apply to every agent you run. Every field is optional; unset fields use docker-agent's defaults. See https://docs.docker.com/ai/docker-agent/configuration/user-settings/.
 type UserGlobalSettingsArgs struct {
+	// Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+	BackgroundCompaction pulumi.BoolPtrInput `pulumi:"backgroundCompaction"`
+	// The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+	BackgroundCompactionThreshold pulumi.IntPtrInput `pulumi:"backgroundCompactionThreshold"`
 	// What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
 	BusySendMode BusySendModePtrInput `pulumi:"busySendMode"`
 	// Keep changing context (date, environment info, dynamic prompt files) out of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit rates (`cache_stable_prompts`, default `false`).
 	CacheStablePrompts pulumi.BoolPtrInput `pulumi:"cacheStablePrompts"`
 	// Start sessions with thinking and tool blocks expanded (`expand_thinking`, default `false`).
 	ExpandThinking pulumi.BoolPtrInput `pulumi:"expandThinking"`
+	// Opt-in experimental features (`experimental`). Every feature is off by default.
+	Experimental UserExperimentalSettingsPtrInput `pulumi:"experimental"`
 	// Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
 	Extra pulumi.MapInput `pulumi:"extra"`
+	// Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+	FadeScrollEdges pulumi.BoolPtrInput `pulumi:"fadeScrollEdges"`
 	// Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
 	HideToolResults pulumi.BoolPtrInput `pulumi:"hideToolResults"`
 	// Global lifecycle hooks that run for every agent, in addition to the agent's own hooks, `hooks.d/` drop-ins and `--hook-*` flags.
 	Hooks UserHooksPtrInput `pulumi:"hooks"`
 	// How Esc interrupts a running stream (`interrupt_confirmation`): `always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, `none` interrupts immediately.
 	InterruptConfirmation InterruptConfirmationPtrInput `pulumi:"interruptConfirmation"`
+	// Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+	KeepAwake pulumi.BoolPtrInput `pulumi:"keepAwake"`
 	// Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
 	Keybindings UserKeybindingArrayInput `pulumi:"keybindings"`
 	// Sidebar position and section visibility of the TUI.
 	Layout UserLayoutSettingsPtrInput `pulumi:"layout"`
 	// Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
 	Lean pulumi.BoolPtrInput `pulumi:"lean"`
+	// In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+	LeanFullFilePreview pulumi.BoolPtrInput `pulumi:"leanFullFilePreview"`
 	// Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
 	Permissions UserPermissionsPtrInput `pulumi:"permissions"`
 	// Render images in the TUI with the Kitty graphics protocol (`render_images`, default `true`).
@@ -11791,6 +12079,8 @@ type UserGlobalSettingsArgs struct {
 	ThemeDark pulumi.StringPtrInput `pulumi:"themeDark"`
 	// The theme used when `theme` is `auto` on a light terminal (`theme_light`, default `default-light`).
 	ThemeLight pulumi.StringPtrInput `pulumi:"themeLight"`
+	// Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+	TopMargin pulumi.BoolPtrInput `pulumi:"topMargin"`
 	// Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
 	WarnOnCacheMiss pulumi.BoolPtrInput `pulumi:"warnOnCacheMiss"`
 	// Auto-approve every tool call globally (`YOLO`, default `false`). Legacy alias for `safety: autonomous`; `safety` wins when both are set.
@@ -11875,6 +12165,16 @@ func (o UserGlobalSettingsOutput) ToUserGlobalSettingsPtrOutputWithContext(ctx c
 	}).(UserGlobalSettingsPtrOutput)
 }
 
+// Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+func (o UserGlobalSettingsOutput) BackgroundCompaction() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *bool { return v.BackgroundCompaction }).(pulumi.BoolPtrOutput)
+}
+
+// The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+func (o UserGlobalSettingsOutput) BackgroundCompactionThreshold() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *int { return v.BackgroundCompactionThreshold }).(pulumi.IntPtrOutput)
+}
+
 // What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
 func (o UserGlobalSettingsOutput) BusySendMode() BusySendModePtrOutput {
 	return o.ApplyT(func(v UserGlobalSettings) *BusySendMode { return v.BusySendMode }).(BusySendModePtrOutput)
@@ -11890,9 +12190,19 @@ func (o UserGlobalSettingsOutput) ExpandThinking() pulumi.BoolPtrOutput {
 	return o.ApplyT(func(v UserGlobalSettings) *bool { return v.ExpandThinking }).(pulumi.BoolPtrOutput)
 }
 
+// Opt-in experimental features (`experimental`). Every feature is off by default.
+func (o UserGlobalSettingsOutput) Experimental() UserExperimentalSettingsPtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *UserExperimentalSettings { return v.Experimental }).(UserExperimentalSettingsPtrOutput)
+}
+
 // Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
 func (o UserGlobalSettingsOutput) Extra() pulumi.MapOutput {
 	return o.ApplyT(func(v UserGlobalSettings) map[string]interface{} { return v.Extra }).(pulumi.MapOutput)
+}
+
+// Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+func (o UserGlobalSettingsOutput) FadeScrollEdges() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *bool { return v.FadeScrollEdges }).(pulumi.BoolPtrOutput)
 }
 
 // Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
@@ -11910,6 +12220,11 @@ func (o UserGlobalSettingsOutput) InterruptConfirmation() InterruptConfirmationP
 	return o.ApplyT(func(v UserGlobalSettings) *InterruptConfirmation { return v.InterruptConfirmation }).(InterruptConfirmationPtrOutput)
 }
 
+// Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+func (o UserGlobalSettingsOutput) KeepAwake() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *bool { return v.KeepAwake }).(pulumi.BoolPtrOutput)
+}
+
 // Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
 func (o UserGlobalSettingsOutput) Keybindings() UserKeybindingArrayOutput {
 	return o.ApplyT(func(v UserGlobalSettings) []UserKeybinding { return v.Keybindings }).(UserKeybindingArrayOutput)
@@ -11923,6 +12238,11 @@ func (o UserGlobalSettingsOutput) Layout() UserLayoutSettingsPtrOutput {
 // Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default `false`).
 func (o UserGlobalSettingsOutput) Lean() pulumi.BoolPtrOutput {
 	return o.ApplyT(func(v UserGlobalSettings) *bool { return v.Lean }).(pulumi.BoolPtrOutput)
+}
+
+// In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+func (o UserGlobalSettingsOutput) LeanFullFilePreview() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *bool { return v.LeanFullFilePreview }).(pulumi.BoolPtrOutput)
 }
 
 // Global tool permission rules, merged with the permissions of every agent and session. A global deny always wins.
@@ -11990,6 +12310,11 @@ func (o UserGlobalSettingsOutput) ThemeLight() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v UserGlobalSettings) *string { return v.ThemeLight }).(pulumi.StringPtrOutput)
 }
 
+// Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+func (o UserGlobalSettingsOutput) TopMargin() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserGlobalSettings) *bool { return v.TopMargin }).(pulumi.BoolPtrOutput)
+}
+
 // Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
 func (o UserGlobalSettingsOutput) WarnOnCacheMiss() pulumi.BoolPtrOutput {
 	return o.ApplyT(func(v UserGlobalSettings) *bool { return v.WarnOnCacheMiss }).(pulumi.BoolPtrOutput)
@@ -12024,6 +12349,26 @@ func (o UserGlobalSettingsPtrOutput) Elem() UserGlobalSettingsOutput {
 	}).(UserGlobalSettingsOutput)
 }
 
+// Summarize the session in the background while the agent keeps working, instead of pausing for automatic compaction (`background_compaction`, default `false`).
+func (o UserGlobalSettingsPtrOutput) BackgroundCompaction() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.BackgroundCompaction
+	}).(pulumi.BoolPtrOutput)
+}
+
+// The context-window percentage (1 to 99) at which background compaction starts (`background_compaction_threshold`).
+func (o UserGlobalSettingsPtrOutput) BackgroundCompactionThreshold() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *int {
+		if v == nil {
+			return nil
+		}
+		return v.BackgroundCompactionThreshold
+	}).(pulumi.IntPtrOutput)
+}
+
 // What happens to a message sent while the agent works (`busy_send_mode`): `steer` (default) injects it into the running turn, `queue` holds it until the turn ends.
 func (o UserGlobalSettingsPtrOutput) BusySendMode() BusySendModePtrOutput {
 	return o.ApplyT(func(v *UserGlobalSettings) *BusySendMode {
@@ -12054,6 +12399,16 @@ func (o UserGlobalSettingsPtrOutput) ExpandThinking() pulumi.BoolPtrOutput {
 	}).(pulumi.BoolPtrOutput)
 }
 
+// Opt-in experimental features (`experimental`). Every feature is off by default.
+func (o UserGlobalSettingsPtrOutput) Experimental() UserExperimentalSettingsPtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *UserExperimentalSettings {
+		if v == nil {
+			return nil
+		}
+		return v.Experimental
+	}).(UserExperimentalSettingsPtrOutput)
+}
+
 // Additional `settings:` keys that this provider version does not model, for example settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat a typed setting.
 func (o UserGlobalSettingsPtrOutput) Extra() pulumi.MapOutput {
 	return o.ApplyT(func(v *UserGlobalSettings) map[string]interface{} {
@@ -12062,6 +12417,16 @@ func (o UserGlobalSettingsPtrOutput) Extra() pulumi.MapOutput {
 		}
 		return v.Extra
 	}).(pulumi.MapOutput)
+}
+
+// Dim the edges of a viewport when content is hidden above or below (`fade_scroll_edges`, default `true`).
+func (o UserGlobalSettingsPtrOutput) FadeScrollEdges() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.FadeScrollEdges
+	}).(pulumi.BoolPtrOutput)
 }
 
 // Hide tool call results in the TUI by default (`hide_tool_results`, default `false`). Mirrors `--hide-tool-results` and the Ctrl+O toggle.
@@ -12094,6 +12459,16 @@ func (o UserGlobalSettingsPtrOutput) InterruptConfirmation() InterruptConfirmati
 	}).(InterruptConfirmationPtrOutput)
 }
 
+// Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).
+func (o UserGlobalSettingsPtrOutput) KeepAwake() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.KeepAwake
+	}).(pulumi.BoolPtrOutput)
+}
+
 // Remapped TUI keyboard shortcuts. docker-agent ignores unknown actions, malformed keys and conflicts with a logged warning; the provider reports them as warnings during preview.
 func (o UserGlobalSettingsPtrOutput) Keybindings() UserKeybindingArrayOutput {
 	return o.ApplyT(func(v *UserGlobalSettings) []UserKeybinding {
@@ -12121,6 +12496,16 @@ func (o UserGlobalSettingsPtrOutput) Lean() pulumi.BoolPtrOutput {
 			return nil
 		}
 		return v.Lean
+	}).(pulumi.BoolPtrOutput)
+}
+
+// In the lean TUI, show entire written files instead of their last ten lines (`lean_full_file_preview`, default `false`).
+func (o UserGlobalSettingsPtrOutput) LeanFullFilePreview() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.LeanFullFilePreview
 	}).(pulumi.BoolPtrOutput)
 }
 
@@ -12252,6 +12637,16 @@ func (o UserGlobalSettingsPtrOutput) ThemeLight() pulumi.StringPtrOutput {
 		}
 		return v.ThemeLight
 	}).(pulumi.StringPtrOutput)
+}
+
+// Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, default `false`).
+func (o UserGlobalSettingsPtrOutput) TopMargin() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserGlobalSettings) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.TopMargin
+	}).(pulumi.BoolPtrOutput)
 }
 
 // Warn when a model call after the first one in a session reports no cached input tokens (`warn_on_cache_miss`, default `false`).
@@ -14386,6 +14781,8 @@ type UserModel struct {
 	CompactionModel *string `pulumi:"compactionModel"`
 	// The fraction of the context window (greater than 0, at most 1) at which compaction starts.
 	CompactionThreshold *float64 `pulumi:"compactionThreshold"`
+	// The context window of the model in tokens, overriding the built-in catalog.
+	ContextWindow *int `pulumi:"contextWindow"`
 	// Prices per million tokens, used for cost tracking.
 	Cost *UserModelCost `pulumi:"cost"`
 	// A description of the model.
@@ -14410,6 +14807,8 @@ type UserModel struct {
 	ProviderOpts map[string]interface{} `pulumi:"providerOpts"`
 	// Rules that route requests to other models based on example prompts.
 	Routing []UserModelRoutingRule `pulumi:"routing"`
+	// The maximum idle time between two chunks of the model's stream.
+	StreamIdleTimeout *UserStreamIdleTimeout `pulumi:"streamIdleTimeout"`
 	// Total token budget for an agentic task (Anthropic `task_budget`).
 	TaskBudget *UserTaskBudget `pulumi:"taskBudget"`
 	// Sampling temperature.
@@ -14451,6 +14850,8 @@ type UserModelArgs struct {
 	CompactionModel pulumi.StringPtrInput `pulumi:"compactionModel"`
 	// The fraction of the context window (greater than 0, at most 1) at which compaction starts.
 	CompactionThreshold pulumi.Float64PtrInput `pulumi:"compactionThreshold"`
+	// The context window of the model in tokens, overriding the built-in catalog.
+	ContextWindow pulumi.IntPtrInput `pulumi:"contextWindow"`
 	// Prices per million tokens, used for cost tracking.
 	Cost UserModelCostPtrInput `pulumi:"cost"`
 	// A description of the model.
@@ -14475,6 +14876,8 @@ type UserModelArgs struct {
 	ProviderOpts pulumi.MapInput `pulumi:"providerOpts"`
 	// Rules that route requests to other models based on example prompts.
 	Routing UserModelRoutingRuleArrayInput `pulumi:"routing"`
+	// The maximum idle time between two chunks of the model's stream.
+	StreamIdleTimeout UserStreamIdleTimeoutPtrInput `pulumi:"streamIdleTimeout"`
 	// Total token budget for an agentic task (Anthropic `task_budget`).
 	TaskBudget UserTaskBudgetPtrInput `pulumi:"taskBudget"`
 	// Sampling temperature.
@@ -14599,6 +15002,11 @@ func (o UserModelOutput) CompactionThreshold() pulumi.Float64PtrOutput {
 	return o.ApplyT(func(v UserModel) *float64 { return v.CompactionThreshold }).(pulumi.Float64PtrOutput)
 }
 
+// The context window of the model in tokens, overriding the built-in catalog.
+func (o UserModelOutput) ContextWindow() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v UserModel) *int { return v.ContextWindow }).(pulumi.IntPtrOutput)
+}
+
 // Prices per million tokens, used for cost tracking.
 func (o UserModelOutput) Cost() UserModelCostPtrOutput {
 	return o.ApplyT(func(v UserModel) *UserModelCost { return v.Cost }).(UserModelCostPtrOutput)
@@ -14657,6 +15065,11 @@ func (o UserModelOutput) ProviderOpts() pulumi.MapOutput {
 // Rules that route requests to other models based on example prompts.
 func (o UserModelOutput) Routing() UserModelRoutingRuleArrayOutput {
 	return o.ApplyT(func(v UserModel) []UserModelRoutingRule { return v.Routing }).(UserModelRoutingRuleArrayOutput)
+}
+
+// The maximum idle time between two chunks of the model's stream.
+func (o UserModelOutput) StreamIdleTimeout() UserStreamIdleTimeoutPtrOutput {
+	return o.ApplyT(func(v UserModel) *UserStreamIdleTimeout { return v.StreamIdleTimeout }).(UserStreamIdleTimeoutPtrOutput)
 }
 
 // Total token budget for an agentic task (Anthropic `task_budget`).
@@ -14778,6 +15191,16 @@ func (o UserModelPtrOutput) CompactionThreshold() pulumi.Float64PtrOutput {
 	}).(pulumi.Float64PtrOutput)
 }
 
+// The context window of the model in tokens, overriding the built-in catalog.
+func (o UserModelPtrOutput) ContextWindow() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v *UserModel) *int {
+		if v == nil {
+			return nil
+		}
+		return v.ContextWindow
+	}).(pulumi.IntPtrOutput)
+}
+
 // Prices per million tokens, used for cost tracking.
 func (o UserModelPtrOutput) Cost() UserModelCostPtrOutput {
 	return o.ApplyT(func(v *UserModel) *UserModelCost {
@@ -14896,6 +15319,16 @@ func (o UserModelPtrOutput) Routing() UserModelRoutingRuleArrayOutput {
 		}
 		return v.Routing
 	}).(UserModelRoutingRuleArrayOutput)
+}
+
+// The maximum idle time between two chunks of the model's stream.
+func (o UserModelPtrOutput) StreamIdleTimeout() UserStreamIdleTimeoutPtrOutput {
+	return o.ApplyT(func(v *UserModel) *UserStreamIdleTimeout {
+		if v == nil {
+			return nil
+		}
+		return v.StreamIdleTimeout
+	}).(UserStreamIdleTimeoutPtrOutput)
 }
 
 // Total token budget for an agentic task (Anthropic `task_budget`).
@@ -16192,6 +16625,165 @@ func (o UserProviderMapOutput) MapIndex(k pulumi.StringInput) UserProviderOutput
 	}).(UserProviderOutput)
 }
 
+// The maximum idle time between two chunks of a model stream (`stream_idle_timeout`). Set exactly one of `duration` and `disabled`.
+type UserStreamIdleTimeout struct {
+	// `true` turns the idle timer off (written as `-1`).
+	Disabled *bool `pulumi:"disabled"`
+	// A positive duration, for example `90s` or `2m`.
+	Duration *string `pulumi:"duration"`
+}
+
+// UserStreamIdleTimeoutInput is an input type that accepts UserStreamIdleTimeoutArgs and UserStreamIdleTimeoutOutput values.
+// You can construct a concrete instance of `UserStreamIdleTimeoutInput` via:
+//
+//	UserStreamIdleTimeoutArgs{...}
+type UserStreamIdleTimeoutInput interface {
+	pulumi.Input
+
+	ToUserStreamIdleTimeoutOutput() UserStreamIdleTimeoutOutput
+	ToUserStreamIdleTimeoutOutputWithContext(context.Context) UserStreamIdleTimeoutOutput
+}
+
+// The maximum idle time between two chunks of a model stream (`stream_idle_timeout`). Set exactly one of `duration` and `disabled`.
+type UserStreamIdleTimeoutArgs struct {
+	// `true` turns the idle timer off (written as `-1`).
+	Disabled pulumi.BoolPtrInput `pulumi:"disabled"`
+	// A positive duration, for example `90s` or `2m`.
+	Duration pulumi.StringPtrInput `pulumi:"duration"`
+}
+
+func (UserStreamIdleTimeoutArgs) ElementType() reflect.Type {
+	return reflect.TypeOf((*UserStreamIdleTimeout)(nil)).Elem()
+}
+
+func (i UserStreamIdleTimeoutArgs) ToUserStreamIdleTimeoutOutput() UserStreamIdleTimeoutOutput {
+	return i.ToUserStreamIdleTimeoutOutputWithContext(context.Background())
+}
+
+func (i UserStreamIdleTimeoutArgs) ToUserStreamIdleTimeoutOutputWithContext(ctx context.Context) UserStreamIdleTimeoutOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(UserStreamIdleTimeoutOutput)
+}
+
+func (i UserStreamIdleTimeoutArgs) ToUserStreamIdleTimeoutPtrOutput() UserStreamIdleTimeoutPtrOutput {
+	return i.ToUserStreamIdleTimeoutPtrOutputWithContext(context.Background())
+}
+
+func (i UserStreamIdleTimeoutArgs) ToUserStreamIdleTimeoutPtrOutputWithContext(ctx context.Context) UserStreamIdleTimeoutPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(UserStreamIdleTimeoutOutput).ToUserStreamIdleTimeoutPtrOutputWithContext(ctx)
+}
+
+// UserStreamIdleTimeoutPtrInput is an input type that accepts UserStreamIdleTimeoutArgs, UserStreamIdleTimeoutPtr and UserStreamIdleTimeoutPtrOutput values.
+// You can construct a concrete instance of `UserStreamIdleTimeoutPtrInput` via:
+//
+//	        UserStreamIdleTimeoutArgs{...}
+//
+//	or:
+//
+//	        nil
+type UserStreamIdleTimeoutPtrInput interface {
+	pulumi.Input
+
+	ToUserStreamIdleTimeoutPtrOutput() UserStreamIdleTimeoutPtrOutput
+	ToUserStreamIdleTimeoutPtrOutputWithContext(context.Context) UserStreamIdleTimeoutPtrOutput
+}
+
+type userStreamIdleTimeoutPtrType UserStreamIdleTimeoutArgs
+
+func UserStreamIdleTimeoutPtr(v *UserStreamIdleTimeoutArgs) UserStreamIdleTimeoutPtrInput {
+	return (*userStreamIdleTimeoutPtrType)(v)
+}
+
+func (*userStreamIdleTimeoutPtrType) ElementType() reflect.Type {
+	return reflect.TypeOf((**UserStreamIdleTimeout)(nil)).Elem()
+}
+
+func (i *userStreamIdleTimeoutPtrType) ToUserStreamIdleTimeoutPtrOutput() UserStreamIdleTimeoutPtrOutput {
+	return i.ToUserStreamIdleTimeoutPtrOutputWithContext(context.Background())
+}
+
+func (i *userStreamIdleTimeoutPtrType) ToUserStreamIdleTimeoutPtrOutputWithContext(ctx context.Context) UserStreamIdleTimeoutPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(UserStreamIdleTimeoutPtrOutput)
+}
+
+// The maximum idle time between two chunks of a model stream (`stream_idle_timeout`). Set exactly one of `duration` and `disabled`.
+type UserStreamIdleTimeoutOutput struct{ *pulumi.OutputState }
+
+func (UserStreamIdleTimeoutOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*UserStreamIdleTimeout)(nil)).Elem()
+}
+
+func (o UserStreamIdleTimeoutOutput) ToUserStreamIdleTimeoutOutput() UserStreamIdleTimeoutOutput {
+	return o
+}
+
+func (o UserStreamIdleTimeoutOutput) ToUserStreamIdleTimeoutOutputWithContext(ctx context.Context) UserStreamIdleTimeoutOutput {
+	return o
+}
+
+func (o UserStreamIdleTimeoutOutput) ToUserStreamIdleTimeoutPtrOutput() UserStreamIdleTimeoutPtrOutput {
+	return o.ToUserStreamIdleTimeoutPtrOutputWithContext(context.Background())
+}
+
+func (o UserStreamIdleTimeoutOutput) ToUserStreamIdleTimeoutPtrOutputWithContext(ctx context.Context) UserStreamIdleTimeoutPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v UserStreamIdleTimeout) *UserStreamIdleTimeout {
+		return &v
+	}).(UserStreamIdleTimeoutPtrOutput)
+}
+
+// `true` turns the idle timer off (written as `-1`).
+func (o UserStreamIdleTimeoutOutput) Disabled() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v UserStreamIdleTimeout) *bool { return v.Disabled }).(pulumi.BoolPtrOutput)
+}
+
+// A positive duration, for example `90s` or `2m`.
+func (o UserStreamIdleTimeoutOutput) Duration() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v UserStreamIdleTimeout) *string { return v.Duration }).(pulumi.StringPtrOutput)
+}
+
+type UserStreamIdleTimeoutPtrOutput struct{ *pulumi.OutputState }
+
+func (UserStreamIdleTimeoutPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**UserStreamIdleTimeout)(nil)).Elem()
+}
+
+func (o UserStreamIdleTimeoutPtrOutput) ToUserStreamIdleTimeoutPtrOutput() UserStreamIdleTimeoutPtrOutput {
+	return o
+}
+
+func (o UserStreamIdleTimeoutPtrOutput) ToUserStreamIdleTimeoutPtrOutputWithContext(ctx context.Context) UserStreamIdleTimeoutPtrOutput {
+	return o
+}
+
+func (o UserStreamIdleTimeoutPtrOutput) Elem() UserStreamIdleTimeoutOutput {
+	return o.ApplyT(func(v *UserStreamIdleTimeout) UserStreamIdleTimeout {
+		if v != nil {
+			return *v
+		}
+		var ret UserStreamIdleTimeout
+		return ret
+	}).(UserStreamIdleTimeoutOutput)
+}
+
+// `true` turns the idle timer off (written as `-1`).
+func (o UserStreamIdleTimeoutPtrOutput) Disabled() pulumi.BoolPtrOutput {
+	return o.ApplyT(func(v *UserStreamIdleTimeout) *bool {
+		if v == nil {
+			return nil
+		}
+		return v.Disabled
+	}).(pulumi.BoolPtrOutput)
+}
+
+// A positive duration, for example `90s` or `2m`.
+func (o UserStreamIdleTimeoutPtrOutput) Duration() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *UserStreamIdleTimeout) *string {
+		if v == nil {
+			return nil
+		}
+		return v.Duration
+	}).(pulumi.StringPtrOutput)
+}
+
 // A total budget for an agentic task. `0` disables it.
 type UserTaskBudget struct {
 	// The total budget, in tokens.
@@ -17049,6 +17641,8 @@ func init() {
 	pulumi.RegisterInputType(reflect.TypeOf((*UserBoardProjectArrayInput)(nil)).Elem(), UserBoardProjectArray{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserCredentialHelperInput)(nil)).Elem(), UserCredentialHelperArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserCredentialHelperPtrInput)(nil)).Elem(), UserCredentialHelperArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*UserExperimentalSettingsInput)(nil)).Elem(), UserExperimentalSettingsArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*UserExperimentalSettingsPtrInput)(nil)).Elem(), UserExperimentalSettingsArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserFederationAuthInput)(nil)).Elem(), UserFederationAuthArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserFederationAuthPtrInput)(nil)).Elem(), UserFederationAuthArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserGlobalSettingsInput)(nil)).Elem(), UserGlobalSettingsArgs{})
@@ -17085,6 +17679,8 @@ func init() {
 	pulumi.RegisterInputType(reflect.TypeOf((*UserPermissionsPtrInput)(nil)).Elem(), UserPermissionsArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserProviderInput)(nil)).Elem(), UserProviderArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserProviderMapInput)(nil)).Elem(), UserProviderMap{})
+	pulumi.RegisterInputType(reflect.TypeOf((*UserStreamIdleTimeoutInput)(nil)).Elem(), UserStreamIdleTimeoutArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*UserStreamIdleTimeoutPtrInput)(nil)).Elem(), UserStreamIdleTimeoutArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserTaskBudgetInput)(nil)).Elem(), UserTaskBudgetArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserTaskBudgetPtrInput)(nil)).Elem(), UserTaskBudgetArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*UserThinkingBudgetInput)(nil)).Elem(), UserThinkingBudgetArgs{})
@@ -17200,6 +17796,8 @@ func init() {
 	pulumi.RegisterOutputType(UserBoardProjectArrayOutput{})
 	pulumi.RegisterOutputType(UserCredentialHelperOutput{})
 	pulumi.RegisterOutputType(UserCredentialHelperPtrOutput{})
+	pulumi.RegisterOutputType(UserExperimentalSettingsOutput{})
+	pulumi.RegisterOutputType(UserExperimentalSettingsPtrOutput{})
 	pulumi.RegisterOutputType(UserFederationAuthOutput{})
 	pulumi.RegisterOutputType(UserFederationAuthPtrOutput{})
 	pulumi.RegisterOutputType(UserGlobalSettingsOutput{})
@@ -17236,6 +17834,8 @@ func init() {
 	pulumi.RegisterOutputType(UserPermissionsPtrOutput{})
 	pulumi.RegisterOutputType(UserProviderOutput{})
 	pulumi.RegisterOutputType(UserProviderMapOutput{})
+	pulumi.RegisterOutputType(UserStreamIdleTimeoutOutput{})
+	pulumi.RegisterOutputType(UserStreamIdleTimeoutPtrOutput{})
 	pulumi.RegisterOutputType(UserTaskBudgetOutput{})
 	pulumi.RegisterOutputType(UserTaskBudgetPtrOutput{})
 	pulumi.RegisterOutputType(UserThinkingBudgetOutput{})

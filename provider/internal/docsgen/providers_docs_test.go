@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	modelprovider "github.com/docker/docker-agent/pkg/model/provider"
+	"github.com/docker/docker-agent/pkg/model/provider/catalog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,22 +41,23 @@ func TestDocsCoverAllModelProviders(t *testing.T) {
 		rows[name] += line + "\n"
 	}
 
-	for _, name := range modelprovider.CoreProviders {
+	// The providers with their own API client; every other catalog entry is an alias of an
+	// OpenAI-compatible endpoint.
+	core := []string{"openai", "anthropic", "google", "amazon-bedrock", "dmr"}
+	for _, name := range core {
 		assert.Contains(t, rows, name, "core provider %q has no row in the credentials table", name)
 	}
-	names := make([]string, 0, len(modelprovider.Aliases))
-	for name := range modelprovider.Aliases {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	for _, name := range names {
-		alias := modelprovider.Aliases[name]
+	for _, alias := range catalog.Ordered() {
+		name := alias.Name
+		if slices.Contains(core, name) {
+			continue
+		}
 		row, ok := rows[name]
 		if !assert.True(t, ok, "alias %q has no row in the credentials table", name) {
 			continue
 		}
-		if alias.TokenEnvVar != "" {
-			assert.Contains(t, row, "`"+alias.TokenEnvVar+"`", "the row of alias %q names its key variable", name)
+		if len(alias.TokenEnvVars) > 0 {
+			assert.Contains(t, row, "`"+alias.TokenEnvVars[0]+"`", "the row of alias %q names its key variable", name)
 		}
 		if alias.BaseURL != "" {
 			assert.Contains(t, row, "`"+alias.BaseURL+"`", "the row of alias %q names its default endpoint", name)

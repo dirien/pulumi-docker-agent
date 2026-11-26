@@ -19,31 +19,38 @@ import (
 
 // UserGlobalSettings is the `settings:` block of the user configuration.
 type UserGlobalSettings struct {
-	HideToolResults       *bool                  `pulumi:"hideToolResults,optional"       yaml:"hide_tool_results"`
-	ExpandThinking        *bool                  `pulumi:"expandThinking,optional"        yaml:"expand_thinking"`
-	SplitDiffView         *bool                  `pulumi:"splitDiffView,optional"         yaml:"split_diff_view"`
-	RenderImages          *bool                  `pulumi:"renderImages,optional"          yaml:"render_images"`
-	ShowBanner            *bool                  `pulumi:"showBanner,optional"            yaml:"show_banner"`
-	Theme                 *string                `pulumi:"theme,optional"                 yaml:"theme"`
-	ThemeDark             *string                `pulumi:"themeDark,optional"             yaml:"theme_dark"`
-	ThemeLight            *string                `pulumi:"themeLight,optional"            yaml:"theme_light"`
-	Yolo                  *bool                  `pulumi:"yolo,optional"                  yaml:"YOLO"`
-	Safety                *render.SafetyMode     `pulumi:"safety,optional"                yaml:"safety"`
-	Lean                  *bool                  `pulumi:"lean,optional"                  yaml:"lean"`
-	TabTitleMaxLength     *int                   `pulumi:"tabTitleMaxLength,optional"     yaml:"tab_title_max_length"`
-	RestoreTabs           *bool                  `pulumi:"restoreTabs,optional"           yaml:"restore_tabs"`
-	Sound                 *bool                  `pulumi:"sound,optional"                 yaml:"sound"`
-	SoundThreshold        *int                   `pulumi:"soundThreshold,optional"        yaml:"sound_threshold"`
-	Snapshot              *bool                  `pulumi:"snapshot,optional"              yaml:"snapshot"`
-	CacheStablePrompts    *bool                  `pulumi:"cacheStablePrompts,optional"    yaml:"cache_stable_prompts"`
-	WarnOnCacheMiss       *bool                  `pulumi:"warnOnCacheMiss,optional"       yaml:"warn_on_cache_miss"`
-	Permissions           *UserPermissions       `pulumi:"permissions,optional"           yaml:"permissions"`
-	Hooks                 *UserHooks             `pulumi:"hooks,optional"                 yaml:"hooks"`
-	Keybindings           []UserKeybinding       `pulumi:"keybindings,optional"           yaml:"keybindings"`
-	Layout                *UserLayoutSettings    `pulumi:"layout,optional"                yaml:"layout"`
-	BusySendMode          *BusySendMode          `pulumi:"busySendMode,optional"          yaml:"busy_send_mode"`
-	InterruptConfirmation *InterruptConfirmation `pulumi:"interruptConfirmation,optional" yaml:"interrupt_confirmation"`
-	Extra                 map[string]any         `pulumi:"extra,optional"                 yaml:",inline"`
+	HideToolResults               *bool                     `pulumi:"hideToolResults,optional"       yaml:"hide_tool_results"`
+	ExpandThinking                *bool                     `pulumi:"expandThinking,optional"        yaml:"expand_thinking"`
+	SplitDiffView                 *bool                     `pulumi:"splitDiffView,optional"         yaml:"split_diff_view"`
+	RenderImages                  *bool                     `pulumi:"renderImages,optional"          yaml:"render_images"`
+	ShowBanner                    *bool                     `pulumi:"showBanner,optional"            yaml:"show_banner"`
+	TopMargin                     *bool                     `pulumi:"topMargin,optional"             yaml:"top_margin"`
+	FadeScrollEdges               *bool                     `pulumi:"fadeScrollEdges,optional"       yaml:"fade_scroll_edges"`
+	Theme                         *string                   `pulumi:"theme,optional"                 yaml:"theme"`
+	ThemeDark                     *string                   `pulumi:"themeDark,optional"             yaml:"theme_dark"`
+	ThemeLight                    *string                   `pulumi:"themeLight,optional"            yaml:"theme_light"`
+	Yolo                          *bool                     `pulumi:"yolo,optional"                  yaml:"YOLO"`
+	Safety                        *render.SafetyMode        `pulumi:"safety,optional"                yaml:"safety"`
+	Lean                          *bool                     `pulumi:"lean,optional"                  yaml:"lean"`
+	LeanFullFilePreview           *bool                     `pulumi:"leanFullFilePreview,optional"   yaml:"lean_full_file_preview"`
+	TabTitleMaxLength             *int                      `pulumi:"tabTitleMaxLength,optional"     yaml:"tab_title_max_length"`
+	RestoreTabs                   *bool                     `pulumi:"restoreTabs,optional"           yaml:"restore_tabs"`
+	Sound                         *bool                     `pulumi:"sound,optional"                 yaml:"sound"`
+	SoundThreshold                *int                      `pulumi:"soundThreshold,optional"        yaml:"sound_threshold"`
+	KeepAwake                     *bool                     `pulumi:"keepAwake,optional"             yaml:"keep_awake"`
+	Snapshot                      *bool                     `pulumi:"snapshot,optional"              yaml:"snapshot"`
+	CacheStablePrompts            *bool                     `pulumi:"cacheStablePrompts,optional"    yaml:"cache_stable_prompts"`
+	BackgroundCompaction          *bool                     `pulumi:"backgroundCompaction,optional"  yaml:"background_compaction"`
+	BackgroundCompactionThreshold *int                      `pulumi:"backgroundCompactionThreshold,optional" yaml:"background_compaction_threshold"`
+	WarnOnCacheMiss               *bool                     `pulumi:"warnOnCacheMiss,optional"       yaml:"warn_on_cache_miss"`
+	Permissions                   *UserPermissions          `pulumi:"permissions,optional"           yaml:"permissions"`
+	Hooks                         *UserHooks                `pulumi:"hooks,optional"                 yaml:"hooks"`
+	Keybindings                   []UserKeybinding          `pulumi:"keybindings,optional"           yaml:"keybindings"`
+	Layout                        *UserLayoutSettings       `pulumi:"layout,optional"                yaml:"layout"`
+	BusySendMode                  *BusySendMode             `pulumi:"busySendMode,optional"          yaml:"busy_send_mode"`
+	InterruptConfirmation         *InterruptConfirmation    `pulumi:"interruptConfirmation,optional" yaml:"interrupt_confirmation"`
+	Experimental                  *UserExperimentalSettings `pulumi:"experimental,optional" yaml:"experimental"`
+	Extra                         map[string]any            `pulumi:"extra,optional"                 yaml:",inline"`
 }
 
 // Annotate describes UserGlobalSettings.
@@ -60,6 +67,10 @@ func (s *UserGlobalSettings) Annotate(a infer.Annotator) {
 	a.Describe(&s.RenderImages, "Render images in the TUI with the Kitty graphics protocol (`render_images`, "+
 		"default `true`).")
 	a.Describe(&s.ShowBanner, "Show the ASCII-art startup banner in the TUI (`show_banner`, default `true`).")
+	a.Describe(&s.TopMargin, "Add a blank row above the TUI in terminals taller than 24 rows (`top_margin`, "+
+		"default `false`).")
+	a.Describe(&s.FadeScrollEdges, "Dim the edges of a viewport when content is hidden above or below "+
+		"(`fade_scroll_edges`, default `true`).")
 	a.Describe(&s.Theme, "The TUI theme (`theme`, default `default`): a built-in theme or "+
 		"`~/.cagent/themes/<name>.yaml`. `auto` follows the terminal background and picks `themeDark` or "+
 		"`themeLight`.")
@@ -75,6 +86,8 @@ func (s *UserGlobalSettings) Annotate(a infer.Annotator) {
 		"so the provider rejects it.")
 	a.Describe(&s.Lean, "Make the lean TUI (minimal chrome) the default for interactive runs (`lean`, default "+
 		"`false`).")
+	a.Describe(&s.LeanFullFilePreview, "In the lean TUI, show entire written files instead of their last ten "+
+		"lines (`lean_full_file_preview`, default `false`).")
 	a.Describe(&s.TabTitleMaxLength, "Maximum display length of tab titles before they are truncated "+
 		"(`tab_title_max_length`, default `20`).")
 	a.Describe(&s.RestoreTabs, "Restore previously open tabs when the TUI starts (`restore_tabs`, default "+
@@ -82,11 +95,16 @@ func (s *UserGlobalSettings) Annotate(a infer.Annotator) {
 	a.Describe(&s.Sound, "Play a notification sound when a task succeeds or fails (`sound`, default `false`).")
 	a.Describe(&s.SoundThreshold, "Minimum task duration in seconds before a success sound plays "+
 		"(`sound_threshold`, default `10`). Failures always play.")
+	a.Describe(&s.KeepAwake, "Prevent idle system sleep while an agent runs (`keep_awake`, default `false`).")
 	a.Describe(&s.Snapshot, "Take automatic shadow-git snapshots at turn boundaries for every agent (`snapshot`, "+
 		"default `false`).")
 	a.Describe(&s.CacheStablePrompts, "Keep changing context (date, environment info, dynamic prompt files) out "+
 		"of the frozen system prompt and append chronological updates instead, which improves prompt-cache hit "+
 		"rates (`cache_stable_prompts`, default `false`).")
+	a.Describe(&s.BackgroundCompaction, "Summarize the session in the background while the agent keeps working, "+
+		"instead of pausing for automatic compaction (`background_compaction`, default `false`).")
+	a.Describe(&s.BackgroundCompactionThreshold, "The context-window percentage (1 to 99) at which background "+
+		"compaction starts (`background_compaction_threshold`).")
 	a.Describe(&s.WarnOnCacheMiss, "Warn when a model call after the first one in a session reports no cached "+
 		"input tokens (`warn_on_cache_miss`, default `false`).")
 	a.Describe(&s.Permissions, "Global tool permission rules, merged with the permissions of every agent and "+
@@ -101,9 +119,28 @@ func (s *UserGlobalSettings) Annotate(a infer.Annotator) {
 	a.Describe(&s.InterruptConfirmation, "How Esc interrupts a running stream (`interrupt_confirmation`): "+
 		"`always` (default) asks for confirmation, `double-tap` requires pressing Esc twice within a second, "+
 		"`none` interrupts immediately.")
+	a.Describe(&s.Experimental, "Opt-in experimental features (`experimental`). Every feature is off by default.")
 	a.Describe(&s.Extra, "Additional `settings:` keys that this provider version does not model, for example "+
 		"settings added by a newer docker-agent. They are written verbatim (snake_case keys) and must not repeat "+
 		"a typed setting.")
+}
+
+// UserExperimentalSettings is `settings.experimental`.
+type UserExperimentalSettings struct {
+	McpEvents *bool `pulumi:"mcpEvents,optional" yaml:"mcp_events"`
+	McpSkills *bool `pulumi:"mcpSkills,optional" yaml:"mcp_skills"`
+	McpTasks  *bool `pulumi:"mcpTasks,optional"  yaml:"mcp_tasks"`
+}
+
+// Annotate describes UserExperimentalSettings.
+func (e *UserExperimentalSettings) Annotate(a infer.Annotator) {
+	a.Describe(&e, "Experimental docker-agent features (`settings.experimental`). They may change or go away in a "+
+		"later docker-agent release.")
+	a.Describe(&e.McpEvents, "MCP event discovery and push subscriptions (SEP-3415) over stdio and Streamable HTTP "+
+		"(`mcp_events`, default `false`).")
+	a.Describe(&e.McpSkills, "MCP Skills discovery and verified loading (SEP-2640) (`mcp_skills`, default `false`).")
+	a.Describe(&e.McpTasks, "Asynchronous tool execution with MCP Tasks (SEP-2663) over stdio and Streamable HTTP "+
+		"(`mcp_tasks`, default `false`).")
 }
 
 // UserLayoutSettings is `settings.layout`.
@@ -498,6 +535,7 @@ type UserModel struct {
 	Description         *string                      `pulumi:"description,optional"         yaml:"description"`
 	Temperature         *float64                     `pulumi:"temperature,optional"         yaml:"temperature"`
 	MaxTokens           *int                         `pulumi:"maxTokens,optional"           yaml:"max_tokens"`
+	ContextWindow       *int                         `pulumi:"contextWindow,optional"       yaml:"context_window"`
 	TopP                *float64                     `pulumi:"topP,optional"                yaml:"top_p"`
 	FrequencyPenalty    *float64                     `pulumi:"frequencyPenalty,optional"    yaml:"frequency_penalty"`
 	PresencePenalty     *float64                     `pulumi:"presencePenalty,optional"     yaml:"presence_penalty"`
@@ -507,6 +545,7 @@ type UserModel struct {
 	BypassModelsGateway *bool                        `pulumi:"bypassModelsGateway,optional" yaml:"bypass_models_gateway"`
 	ProviderOpts        map[string]any               `pulumi:"providerOpts,optional"        yaml:"provider_opts"`
 	TrackUsage          *bool                        `pulumi:"trackUsage,optional"          yaml:"track_usage"`
+	StreamIdleTimeout   *UserStreamIdleTimeout       `pulumi:"streamIdleTimeout,optional"   yaml:"stream_idle_timeout"`
 	ThinkingBudget      *UserThinkingBudget          `pulumi:"thinkingBudget,optional"      yaml:"thinking_budget"`
 	TaskBudget          *UserTaskBudget              `pulumi:"taskBudget,optional"          yaml:"task_budget"`
 	Auth                *UserModelAuth               `pulumi:"auth,optional"                yaml:"auth"`
@@ -530,6 +569,7 @@ func (m *UserModel) Annotate(a infer.Annotator) {
 	a.Describe(&m.Description, "A description of the model.")
 	a.Describe(&m.Temperature, "Sampling temperature.")
 	a.Describe(&m.MaxTokens, "Maximum number of output tokens.")
+	a.Describe(&m.ContextWindow, "The context window of the model in tokens, overriding the built-in catalog.")
 	a.Describe(&m.TopP, "Top-p sampling parameter.")
 	a.Describe(&m.FrequencyPenalty, "Frequency penalty.")
 	a.Describe(&m.PresencePenalty, "Presence penalty.")
@@ -541,6 +581,7 @@ func (m *UserModel) Annotate(a infer.Annotator) {
 	a.Describe(&m.ProviderOpts, "Provider-specific options, written verbatim (snake_case keys), for example "+
 		"`context_size`.")
 	a.Describe(&m.TrackUsage, "Whether token usage is tracked.")
+	a.Describe(&m.StreamIdleTimeout, "The maximum idle time between two chunks of the model's stream.")
 	a.Describe(&m.ThinkingBudget, "Reasoning effort or token budget.")
 	a.Describe(&m.TaskBudget, "Total token budget for an agentic task (Anthropic `task_budget`).")
 	a.Describe(&m.Auth, "A non-API-key authentication scheme.")
@@ -582,6 +623,35 @@ func (b UserThinkingBudget) YAMLValue() (any, error) {
 		return *b.Tokens, nil
 	}
 	return nil, errors.New("thinkingBudget: set effort or tokens")
+}
+
+// UserStreamIdleTimeout is a stream idle timeout. docker-agent writes it as a scalar: a
+// positive duration or the integer -1.
+type UserStreamIdleTimeout struct {
+	Duration *string `pulumi:"duration,optional" yaml:"duration"`
+	Disabled *bool   `pulumi:"disabled,optional" yaml:"disabled"`
+}
+
+// Annotate describes UserStreamIdleTimeout.
+func (t *UserStreamIdleTimeout) Annotate(a infer.Annotator) {
+	a.Describe(&t, "The maximum idle time between two chunks of a model stream (`stream_idle_timeout`). Set exactly "+
+		"one of `duration` and `disabled`.")
+	a.Describe(&t.Duration, "A positive duration, for example `90s` or `2m`.")
+	a.Describe(&t.Disabled, "`true` turns the idle timer off (written as `-1`).")
+}
+
+// YAMLValue returns the scalar docker-agent expects.
+func (t UserStreamIdleTimeout) YAMLValue() (any, error) {
+	disabled := t.Disabled != nil && *t.Disabled
+	switch {
+	case t.Duration != nil && disabled:
+		return nil, errors.New("streamIdleTimeout: set either duration or disabled, not both")
+	case t.Duration != nil:
+		return *t.Duration, nil
+	case disabled:
+		return -1, nil
+	}
+	return nil, errors.New("streamIdleTimeout: set duration, or disabled: true")
 }
 
 // UserTaskBudget mirrors docker-agent's TaskBudget.

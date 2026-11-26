@@ -1,0 +1,4 @@
+# Keep secrets away from the agent.
+.env
+secrets/
+*.pem
