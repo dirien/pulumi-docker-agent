@@ -71,7 +71,7 @@ func TestSchemaExamples(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(resp.Schema), &schema))
 	require.Len(t, schema.Resources, 5)
-	require.Len(t, schema.Functions, 2)
+	require.Len(t, schema.Functions, 4)
 	for token, r := range schema.Resources {
 		t.Run(token, func(t *testing.T) {
 			t.Parallel()

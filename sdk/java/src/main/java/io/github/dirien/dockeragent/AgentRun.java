@@ -261,6 +261,8 @@ import javax.annotation.Nullable;
  * import com.pulumi.core.Output;
  * import io.github.dirien.dockeragent.AgentRun;
  * import io.github.dirien.dockeragent.AgentRunArgs;
+ * import io.github.dirien.dockeragent.enums.Logging;
+ * import io.github.dirien.dockeragent.enums.ToolApproval;
  * import java.util.ArrayList;
  * import java.util.Arrays;
  * import java.util.Map;
@@ -288,8 +290,8 @@ import javax.annotation.Nullable;
  *             .prompt(String.format("Write the release notes for %s.", commits))
  *             .inheritEnvironment(false)
  *             .env(anthropicApiKey.applyValue(_anthropicApiKey -> Map.of("ANTHROPIC_API_KEY", _anthropicApiKey)))
- *             .toolApproval(io.github.dirien.dockeragent.enums.ToolApproval.Deny)
- *             .logging(io.github.dirien.dockeragent.enums.Logging.Tools)
+ *             .toolApproval(ToolApproval.Deny)
+ *             .logging(Logging.Tools)
  *             .timeoutSeconds(600)
  *             .build());
  * 
@@ -313,6 +315,8 @@ import javax.annotation.Nullable;
  * import io.github.dirien.dockeragent.inputs.HarnessArgs;
  * import io.github.dirien.dockeragent.AgentRun;
  * import io.github.dirien.dockeragent.AgentRunArgs;
+ * import io.github.dirien.dockeragent.enums.HarnessEffort;
+ * import io.github.dirien.dockeragent.enums.HarnessType;
  * import com.pulumi.resources.CustomResourceOptions;
  * import java.util.ArrayList;
  * import java.util.Arrays;
@@ -339,9 +343,9 @@ import javax.annotation.Nullable;
  *                 .name("root")
  *                 .description("Maintains the notes of a repository with Claude Code")
  *                 .harness(HarnessArgs.builder()
- *                     .type(io.github.dirien.dockeragent.enums.HarnessType.ClaudeCode)
+ *                     .type(HarnessType.ClaudeCode)
  *                     .model("sonnet")
- *                     .effort(io.github.dirien.dockeragent.enums.HarnessEffort.High)
+ *                     .effort(HarnessEffort.High)
  *                     .build())
  *                 .build())
  *             .build());
@@ -441,6 +445,7 @@ import javax.annotation.Nullable;
  * import io.github.dirien.dockeragent.inputs.HarnessArgs;
  * import io.github.dirien.dockeragent.AgentRun;
  * import io.github.dirien.dockeragent.AgentRunArgs;
+ * import io.github.dirien.dockeragent.enums.HarnessType;
  * import java.util.ArrayList;
  * import java.util.Arrays;
  * import java.util.Map;
@@ -468,7 +473,7 @@ import javax.annotation.Nullable;
  *                 .name("root")
  *                 .description("Maintains the notes of a repository with Codex")
  *                 .harness(HarnessArgs.builder()
- *                     .type(io.github.dirien.dockeragent.enums.HarnessType.Codex)
+ *                     .type(HarnessType.Codex)
  *                     .build())
  *                 .build())
  *             .build());

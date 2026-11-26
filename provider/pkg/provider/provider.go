@@ -218,6 +218,8 @@ func Builder() *infer.ProviderBuilder {
 		WithFunctions(
 			infer.Function(&GetAgent{}),
 			infer.Function(&ValidateAgentConfig{}),
+			infer.Function(&GetUserSettings{}),
+			infer.Function(&GetAgentsIgnore{}),
 		).
 		WithModuleMap(map[tokens.ModuleName]tokens.ModuleName{
 			"provider": "index",

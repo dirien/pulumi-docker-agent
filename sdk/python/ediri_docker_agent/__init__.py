@@ -12,6 +12,8 @@ from .agent_config import *
 from .agent_run import *
 from .agents_ignore import *
 from .get_agent import *
+from .get_agents_ignore import *
+from .get_user_settings import *
 from .provider import *
 from .user_settings import *
 from .validate_agent_config import *

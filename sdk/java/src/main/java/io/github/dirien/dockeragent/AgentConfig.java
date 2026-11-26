@@ -190,6 +190,8 @@ import javax.annotation.Nullable;
  * import io.github.dirien.dockeragent.inputs.HooksArgs;
  * import io.github.dirien.dockeragent.inputs.HookDefinitionArgs;
  * import io.github.dirien.dockeragent.inputs.BudgetArgs;
+ * import io.github.dirien.dockeragent.enums.HookType;
+ * import io.github.dirien.dockeragent.enums.SafetyMode;
  * import java.util.ArrayList;
  * import java.util.Arrays;
  * import java.util.Map;
@@ -207,7 +209,7 @@ import javax.annotation.Nullable;
  *         var sandboxed = new AgentConfig("sandboxed", AgentConfigArgs.builder()
  *             .runtime(RuntimeDefaultsArgs.builder()
  *                 .sandbox(true)
- *                 .safety(io.github.dirien.dockeragent.enums.SafetyMode.Restricted)
+ *                 .safety(SafetyMode.Restricted)
  *                 .networkAllowlist(
  *                     "api.github.com",
  *                     "registry.npmjs.org:443")
@@ -228,7 +230,7 @@ import javax.annotation.Nullable;
  *                         .build())
  *                 .hooks(HooksArgs.builder()
  *                     .sessionStart(HookDefinitionArgs.builder()
- *                         .type(io.github.dirien.dockeragent.enums.HookType.Builtin)
+ *                         .type(HookType.Builtin)
  *                         .command("add_environment_info")
  *                         .build())
  *                     .build())

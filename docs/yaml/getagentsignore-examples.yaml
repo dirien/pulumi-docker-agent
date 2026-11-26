@@ -1,0 +1,42 @@
+# Example Usage of getAgentsIgnore. See agentconfig-examples.yaml for the format.
+---
+description: Reuse a project's patterns
+name: reuse-agents-ignore
+runtime: yaml
+variables:
+  project:
+    fn::invoke:
+      function: docker-agent:index:getAgentsIgnore
+      arguments:
+        directory: .
+resources:
+  # Copies the patterns of ./.agentsignore, which the function reads without managing it.
+  service:
+    type: docker-agent:index:AgentsIgnore
+    properties:
+      directory: ./services/api
+      comment: ${project.comment}
+      patterns: ${project.patterns}
+outputs:
+  existed: ${project.exists}
+  patterns: ${project.patterns}
+---
+description: Read a file by its path
+name: read-agents-ignore-file
+runtime: yaml
+variables:
+  repo:
+    fn::invoke:
+      function: docker-agent:index:getAgentsIgnore
+      arguments:
+        directory: ~/src/my-service/.agentsignore
+resources:
+  # No `directory`: renders the same patterns for a container image.
+  image:
+    type: docker-agent:index:AgentsIgnore
+    properties:
+      patterns: ${repo.patterns}
+outputs:
+  sourceFile: ${repo.filePath}
+  sourceSha256: ${repo.sha256}
+  imageFile: ${image.content}

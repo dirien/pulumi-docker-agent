@@ -1,0 +1,41 @@
+# Example Usage of getUserSettings. See agentconfig-examples.yaml for the format.
+---
+description: Reuse the default model of the user configuration
+name: reuse-default-model
+runtime: yaml
+variables:
+  # Reads ~/.config/cagent/config.yaml without managing it.
+  current:
+    fn::invoke:
+      function: docker-agent:index:getUserSettings
+      arguments: {}
+resources:
+  assistant:
+    type: docker-agent:index:AgentConfig
+    properties:
+      models:
+        main:
+          provider: ${current.defaultModel.provider}
+          model: ${current.defaultModel.model}
+      agents:
+        - name: root
+          model: main
+          instruction: You are a helpful assistant. Answer briefly.
+outputs:
+  configExists: ${current.exists}
+  aliases: ${current.aliases}
+---
+description: Read a configuration file in the project
+name: read-project-settings
+runtime: yaml
+variables:
+  # Relative paths are relative to the Pulumi project directory.
+  team:
+    fn::invoke:
+      function: docker-agent:index:getUserSettings
+      arguments:
+        path: ./team-config.yaml
+outputs:
+  filePath: ${team.filePath}
+  sha256: ${team.sha256}
+  theme: ${team.settings.theme}

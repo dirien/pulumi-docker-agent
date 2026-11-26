@@ -71,6 +71,8 @@ import javax.annotation.Nullable;
  * import io.github.dirien.dockeragent.inputs.UserPermissionsArgs;
  * import io.github.dirien.dockeragent.inputs.UserKeybindingArgs;
  * import io.github.dirien.dockeragent.inputs.UserAliasArgs;
+ * import io.github.dirien.dockeragent.enums.SafetyMode;
+ * import io.github.dirien.dockeragent.enums.SidebarPosition;
  * import java.util.ArrayList;
  * import java.util.Arrays;
  * import java.util.Map;
@@ -90,10 +92,10 @@ import javax.annotation.Nullable;
  *             .settings(UserGlobalSettingsArgs.builder()
  *                 .theme("auto")
  *                 .themeDark("dracula")
- *                 .safety(io.github.dirien.dockeragent.enums.SafetyMode.Balanced)
+ *                 .safety(SafetyMode.Balanced)
  *                 .sound(true)
  *                 .layout(UserLayoutSettingsArgs.builder()
- *                     .sidebarPosition(io.github.dirien.dockeragent.enums.SidebarPosition.Left)
+ *                     .sidebarPosition(SidebarPosition.Left)
  *                     .hideUsage(true)
  *                     .build())
  *                 .permissions(UserPermissionsArgs.builder()
@@ -109,7 +111,7 @@ import javax.annotation.Nullable;
  *                 .build())
  *             .aliases(Map.of("reviewer", UserAliasArgs.builder()
  *                 .path("docker.io/myorg/reviewer:latest")
- *                 .safety(io.github.dirien.dockeragent.enums.SafetyMode.Restricted)
+ *                 .safety(SafetyMode.Restricted)
  *                 .build()))
  *             .build());
  * 
@@ -135,6 +137,7 @@ import javax.annotation.Nullable;
  * import io.github.dirien.dockeragent.inputs.UserHooksArgs;
  * import io.github.dirien.dockeragent.inputs.UserHookArgs;
  * import io.github.dirien.dockeragent.inputs.UserHookMatcherArgs;
+ * import io.github.dirien.dockeragent.enums.HookType;
  * import java.util.ArrayList;
  * import java.util.Arrays;
  * import java.util.Map;
@@ -162,13 +165,13 @@ import javax.annotation.Nullable;
  *             .settings(UserGlobalSettingsArgs.builder()
  *                 .hooks(UserHooksArgs.builder()
  *                     .sessionStart(UserHookArgs.builder()
- *                         .type(io.github.dirien.dockeragent.enums.HookType.Command)
+ *                         .type(HookType.Command)
  *                         .command("~/.config/cagent/hooks/session-start.sh")
  *                         .build())
  *                     .preToolUse(UserHookMatcherArgs.builder()
  *                         .matcher("shell")
  *                         .hooks(UserHookArgs.builder()
- *                             .type(io.github.dirien.dockeragent.enums.HookType.Builtin)
+ *                             .type(HookType.Builtin)
  *                             .command("redact_secrets")
  *                             .build())
  *                         .build())

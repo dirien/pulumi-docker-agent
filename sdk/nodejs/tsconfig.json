@@ -26,6 +26,8 @@
         "config/index.ts",
         "config/vars.ts",
         "getAgent.ts",
+        "getAgentsIgnore.ts",
+        "getUserSettings.ts",
         "index.ts",
         "provider.ts",
         "types/enums/index.ts",

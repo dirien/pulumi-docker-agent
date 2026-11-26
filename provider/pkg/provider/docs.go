@@ -26,6 +26,10 @@ var (
 	getAgentExamples string
 	//go:embed embed/validateagentconfig-examples.md
 	validateAgentConfigExamples string
+	//go:embed embed/getusersettings-examples.md
+	getUserSettingsExamples string
+	//go:embed embed/getagentsignore-examples.md
+	getAgentsIgnoreExamples string
 )
 
 // describe joins the prose of a description, its generated examples and, for resources, the

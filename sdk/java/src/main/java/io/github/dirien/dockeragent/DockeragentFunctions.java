@@ -11,9 +11,15 @@ import com.pulumi.deployment.InvokeOutputOptions;
 import io.github.dirien.dockeragent.Utilities;
 import io.github.dirien.dockeragent.inputs.GetAgentArgs;
 import io.github.dirien.dockeragent.inputs.GetAgentPlainArgs;
+import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+import io.github.dirien.dockeragent.inputs.GetAgentsIgnorePlainArgs;
+import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+import io.github.dirien.dockeragent.inputs.GetUserSettingsPlainArgs;
 import io.github.dirien.dockeragent.inputs.ValidateAgentConfigArgs;
 import io.github.dirien.dockeragent.inputs.ValidateAgentConfigPlainArgs;
 import io.github.dirien.dockeragent.outputs.GetAgentResult;
+import io.github.dirien.dockeragent.outputs.GetAgentsIgnoreResult;
+import io.github.dirien.dockeragent.outputs.GetUserSettingsResult;
 import io.github.dirien.dockeragent.outputs.ValidateAgentConfigResult;
 import java.util.concurrent.CompletableFuture;
 
@@ -562,6 +568,1434 @@ public final class DockeragentFunctions {
      */
     public static CompletableFuture<GetAgentResult> getAgentPlain(GetAgentPlainArgs args, InvokeOptions options) {
         return Deployment.getInstance().invokeAsync("docker-agent:index:getAgent", TypeShape.of(GetAgentResult.class), args, Utilities.withVersion(options));
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [`.agentsignore`](https://docs.docker.com/ai/docker-agent/configuration/agentsignore/) file into the
+     * `patterns` and `comment` of `AgentsIgnore`, without managing it. Use it to extend a
+     * project&#39;s patterns, for example in an `AgentsIgnore` of another directory or a container image.
+     * 
+     * The comment block at the top of the file becomes `comment` and every other non-empty line a pattern, in order
+     * (comments between patterns are dropped, as for `pulumi import`). The patterns are returned as they are:
+     * `AgentsIgnore` reports patterns that docker-agent reads differently. The file is read on the machine that runs
+     * Pulumi; a missing file is not an error, `exists` is then `false`. Unlike docker-agent, the function does
+     * not look for the nearest `.agentsignore` above the directory.
+     * 
+     * ## Example Usage
+     * ### Reuse a project&#39;s patterns
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var projectVar = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory(".")
+     *             .build());
+     * 
+     *         // Copies the patterns of ./.agentsignore, which the function reads without managing it.
+     *         var service = new AgentsIgnore("service", AgentsIgnoreArgs.builder()
+     *             .directory("./services/api")
+     *             .comment(projectVar.applyValue(_projectVar -> _projectVar.comment()))
+     *             .patterns(projectVar.applyValue(_projectVar -> _projectVar.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("existed", projectVar.applyValue(_projectVar -> _projectVar.exists()));
+     *         ctx.export("patterns", projectVar.applyValue(_projectVar -> _projectVar.patterns()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a file by its path
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var repo = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory("~/src/my-service/.agentsignore")
+     *             .build());
+     * 
+     *         // No `directory`: renders the same patterns for a container image.
+     *         var image = new AgentsIgnore("image", AgentsIgnoreArgs.builder()
+     *             .patterns(repo.applyValue(_repo -> _repo.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("sourceFile", repo.applyValue(_repo -> _repo.filePath()));
+     *         ctx.export("sourceSha256", repo.applyValue(_repo -> _repo.sha256()));
+     *         ctx.export("imageFile", image.content());
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static Output<GetAgentsIgnoreResult> getAgentsIgnore() {
+        return getAgentsIgnore(GetAgentsIgnoreArgs.Empty, InvokeOptions.Empty);
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [`.agentsignore`](https://docs.docker.com/ai/docker-agent/configuration/agentsignore/) file into the
+     * `patterns` and `comment` of `AgentsIgnore`, without managing it. Use it to extend a
+     * project&#39;s patterns, for example in an `AgentsIgnore` of another directory or a container image.
+     * 
+     * The comment block at the top of the file becomes `comment` and every other non-empty line a pattern, in order
+     * (comments between patterns are dropped, as for `pulumi import`). The patterns are returned as they are:
+     * `AgentsIgnore` reports patterns that docker-agent reads differently. The file is read on the machine that runs
+     * Pulumi; a missing file is not an error, `exists` is then `false`. Unlike docker-agent, the function does
+     * not look for the nearest `.agentsignore` above the directory.
+     * 
+     * ## Example Usage
+     * ### Reuse a project&#39;s patterns
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var projectVar = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory(".")
+     *             .build());
+     * 
+     *         // Copies the patterns of ./.agentsignore, which the function reads without managing it.
+     *         var service = new AgentsIgnore("service", AgentsIgnoreArgs.builder()
+     *             .directory("./services/api")
+     *             .comment(projectVar.applyValue(_projectVar -> _projectVar.comment()))
+     *             .patterns(projectVar.applyValue(_projectVar -> _projectVar.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("existed", projectVar.applyValue(_projectVar -> _projectVar.exists()));
+     *         ctx.export("patterns", projectVar.applyValue(_projectVar -> _projectVar.patterns()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a file by its path
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var repo = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory("~/src/my-service/.agentsignore")
+     *             .build());
+     * 
+     *         // No `directory`: renders the same patterns for a container image.
+     *         var image = new AgentsIgnore("image", AgentsIgnoreArgs.builder()
+     *             .patterns(repo.applyValue(_repo -> _repo.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("sourceFile", repo.applyValue(_repo -> _repo.filePath()));
+     *         ctx.export("sourceSha256", repo.applyValue(_repo -> _repo.sha256()));
+     *         ctx.export("imageFile", image.content());
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static CompletableFuture<GetAgentsIgnoreResult> getAgentsIgnorePlain() {
+        return getAgentsIgnorePlain(GetAgentsIgnorePlainArgs.Empty, InvokeOptions.Empty);
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [`.agentsignore`](https://docs.docker.com/ai/docker-agent/configuration/agentsignore/) file into the
+     * `patterns` and `comment` of `AgentsIgnore`, without managing it. Use it to extend a
+     * project&#39;s patterns, for example in an `AgentsIgnore` of another directory or a container image.
+     * 
+     * The comment block at the top of the file becomes `comment` and every other non-empty line a pattern, in order
+     * (comments between patterns are dropped, as for `pulumi import`). The patterns are returned as they are:
+     * `AgentsIgnore` reports patterns that docker-agent reads differently. The file is read on the machine that runs
+     * Pulumi; a missing file is not an error, `exists` is then `false`. Unlike docker-agent, the function does
+     * not look for the nearest `.agentsignore` above the directory.
+     * 
+     * ## Example Usage
+     * ### Reuse a project&#39;s patterns
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var projectVar = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory(".")
+     *             .build());
+     * 
+     *         // Copies the patterns of ./.agentsignore, which the function reads without managing it.
+     *         var service = new AgentsIgnore("service", AgentsIgnoreArgs.builder()
+     *             .directory("./services/api")
+     *             .comment(projectVar.applyValue(_projectVar -> _projectVar.comment()))
+     *             .patterns(projectVar.applyValue(_projectVar -> _projectVar.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("existed", projectVar.applyValue(_projectVar -> _projectVar.exists()));
+     *         ctx.export("patterns", projectVar.applyValue(_projectVar -> _projectVar.patterns()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a file by its path
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var repo = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory("~/src/my-service/.agentsignore")
+     *             .build());
+     * 
+     *         // No `directory`: renders the same patterns for a container image.
+     *         var image = new AgentsIgnore("image", AgentsIgnoreArgs.builder()
+     *             .patterns(repo.applyValue(_repo -> _repo.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("sourceFile", repo.applyValue(_repo -> _repo.filePath()));
+     *         ctx.export("sourceSha256", repo.applyValue(_repo -> _repo.sha256()));
+     *         ctx.export("imageFile", image.content());
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static Output<GetAgentsIgnoreResult> getAgentsIgnore(GetAgentsIgnoreArgs args) {
+        return getAgentsIgnore(args, InvokeOptions.Empty);
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [`.agentsignore`](https://docs.docker.com/ai/docker-agent/configuration/agentsignore/) file into the
+     * `patterns` and `comment` of `AgentsIgnore`, without managing it. Use it to extend a
+     * project&#39;s patterns, for example in an `AgentsIgnore` of another directory or a container image.
+     * 
+     * The comment block at the top of the file becomes `comment` and every other non-empty line a pattern, in order
+     * (comments between patterns are dropped, as for `pulumi import`). The patterns are returned as they are:
+     * `AgentsIgnore` reports patterns that docker-agent reads differently. The file is read on the machine that runs
+     * Pulumi; a missing file is not an error, `exists` is then `false`. Unlike docker-agent, the function does
+     * not look for the nearest `.agentsignore` above the directory.
+     * 
+     * ## Example Usage
+     * ### Reuse a project&#39;s patterns
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var projectVar = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory(".")
+     *             .build());
+     * 
+     *         // Copies the patterns of ./.agentsignore, which the function reads without managing it.
+     *         var service = new AgentsIgnore("service", AgentsIgnoreArgs.builder()
+     *             .directory("./services/api")
+     *             .comment(projectVar.applyValue(_projectVar -> _projectVar.comment()))
+     *             .patterns(projectVar.applyValue(_projectVar -> _projectVar.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("existed", projectVar.applyValue(_projectVar -> _projectVar.exists()));
+     *         ctx.export("patterns", projectVar.applyValue(_projectVar -> _projectVar.patterns()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a file by its path
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var repo = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory("~/src/my-service/.agentsignore")
+     *             .build());
+     * 
+     *         // No `directory`: renders the same patterns for a container image.
+     *         var image = new AgentsIgnore("image", AgentsIgnoreArgs.builder()
+     *             .patterns(repo.applyValue(_repo -> _repo.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("sourceFile", repo.applyValue(_repo -> _repo.filePath()));
+     *         ctx.export("sourceSha256", repo.applyValue(_repo -> _repo.sha256()));
+     *         ctx.export("imageFile", image.content());
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static CompletableFuture<GetAgentsIgnoreResult> getAgentsIgnorePlain(GetAgentsIgnorePlainArgs args) {
+        return getAgentsIgnorePlain(args, InvokeOptions.Empty);
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [`.agentsignore`](https://docs.docker.com/ai/docker-agent/configuration/agentsignore/) file into the
+     * `patterns` and `comment` of `AgentsIgnore`, without managing it. Use it to extend a
+     * project&#39;s patterns, for example in an `AgentsIgnore` of another directory or a container image.
+     * 
+     * The comment block at the top of the file becomes `comment` and every other non-empty line a pattern, in order
+     * (comments between patterns are dropped, as for `pulumi import`). The patterns are returned as they are:
+     * `AgentsIgnore` reports patterns that docker-agent reads differently. The file is read on the machine that runs
+     * Pulumi; a missing file is not an error, `exists` is then `false`. Unlike docker-agent, the function does
+     * not look for the nearest `.agentsignore` above the directory.
+     * 
+     * ## Example Usage
+     * ### Reuse a project&#39;s patterns
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var projectVar = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory(".")
+     *             .build());
+     * 
+     *         // Copies the patterns of ./.agentsignore, which the function reads without managing it.
+     *         var service = new AgentsIgnore("service", AgentsIgnoreArgs.builder()
+     *             .directory("./services/api")
+     *             .comment(projectVar.applyValue(_projectVar -> _projectVar.comment()))
+     *             .patterns(projectVar.applyValue(_projectVar -> _projectVar.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("existed", projectVar.applyValue(_projectVar -> _projectVar.exists()));
+     *         ctx.export("patterns", projectVar.applyValue(_projectVar -> _projectVar.patterns()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a file by its path
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var repo = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory("~/src/my-service/.agentsignore")
+     *             .build());
+     * 
+     *         // No `directory`: renders the same patterns for a container image.
+     *         var image = new AgentsIgnore("image", AgentsIgnoreArgs.builder()
+     *             .patterns(repo.applyValue(_repo -> _repo.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("sourceFile", repo.applyValue(_repo -> _repo.filePath()));
+     *         ctx.export("sourceSha256", repo.applyValue(_repo -> _repo.sha256()));
+     *         ctx.export("imageFile", image.content());
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static Output<GetAgentsIgnoreResult> getAgentsIgnore(GetAgentsIgnoreArgs args, InvokeOptions options) {
+        return Deployment.getInstance().invoke("docker-agent:index:getAgentsIgnore", TypeShape.of(GetAgentsIgnoreResult.class), args, Utilities.withVersion(options));
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [`.agentsignore`](https://docs.docker.com/ai/docker-agent/configuration/agentsignore/) file into the
+     * `patterns` and `comment` of `AgentsIgnore`, without managing it. Use it to extend a
+     * project&#39;s patterns, for example in an `AgentsIgnore` of another directory or a container image.
+     * 
+     * The comment block at the top of the file becomes `comment` and every other non-empty line a pattern, in order
+     * (comments between patterns are dropped, as for `pulumi import`). The patterns are returned as they are:
+     * `AgentsIgnore` reports patterns that docker-agent reads differently. The file is read on the machine that runs
+     * Pulumi; a missing file is not an error, `exists` is then `false`. Unlike docker-agent, the function does
+     * not look for the nearest `.agentsignore` above the directory.
+     * 
+     * ## Example Usage
+     * ### Reuse a project&#39;s patterns
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var projectVar = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory(".")
+     *             .build());
+     * 
+     *         // Copies the patterns of ./.agentsignore, which the function reads without managing it.
+     *         var service = new AgentsIgnore("service", AgentsIgnoreArgs.builder()
+     *             .directory("./services/api")
+     *             .comment(projectVar.applyValue(_projectVar -> _projectVar.comment()))
+     *             .patterns(projectVar.applyValue(_projectVar -> _projectVar.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("existed", projectVar.applyValue(_projectVar -> _projectVar.exists()));
+     *         ctx.export("patterns", projectVar.applyValue(_projectVar -> _projectVar.patterns()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a file by its path
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var repo = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory("~/src/my-service/.agentsignore")
+     *             .build());
+     * 
+     *         // No `directory`: renders the same patterns for a container image.
+     *         var image = new AgentsIgnore("image", AgentsIgnoreArgs.builder()
+     *             .patterns(repo.applyValue(_repo -> _repo.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("sourceFile", repo.applyValue(_repo -> _repo.filePath()));
+     *         ctx.export("sourceSha256", repo.applyValue(_repo -> _repo.sha256()));
+     *         ctx.export("imageFile", image.content());
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static Output<GetAgentsIgnoreResult> getAgentsIgnore(GetAgentsIgnoreArgs args, InvokeOutputOptions options) {
+        return Deployment.getInstance().invoke("docker-agent:index:getAgentsIgnore", TypeShape.of(GetAgentsIgnoreResult.class), args, Utilities.withVersion(options));
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [`.agentsignore`](https://docs.docker.com/ai/docker-agent/configuration/agentsignore/) file into the
+     * `patterns` and `comment` of `AgentsIgnore`, without managing it. Use it to extend a
+     * project&#39;s patterns, for example in an `AgentsIgnore` of another directory or a container image.
+     * 
+     * The comment block at the top of the file becomes `comment` and every other non-empty line a pattern, in order
+     * (comments between patterns are dropped, as for `pulumi import`). The patterns are returned as they are:
+     * `AgentsIgnore` reports patterns that docker-agent reads differently. The file is read on the machine that runs
+     * Pulumi; a missing file is not an error, `exists` is then `false`. Unlike docker-agent, the function does
+     * not look for the nearest `.agentsignore` above the directory.
+     * 
+     * ## Example Usage
+     * ### Reuse a project&#39;s patterns
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var projectVar = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory(".")
+     *             .build());
+     * 
+     *         // Copies the patterns of ./.agentsignore, which the function reads without managing it.
+     *         var service = new AgentsIgnore("service", AgentsIgnoreArgs.builder()
+     *             .directory("./services/api")
+     *             .comment(projectVar.applyValue(_projectVar -> _projectVar.comment()))
+     *             .patterns(projectVar.applyValue(_projectVar -> _projectVar.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("existed", projectVar.applyValue(_projectVar -> _projectVar.exists()));
+     *         ctx.export("patterns", projectVar.applyValue(_projectVar -> _projectVar.patterns()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a file by its path
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetAgentsIgnoreArgs;
+     * import io.github.dirien.dockeragent.AgentsIgnore;
+     * import io.github.dirien.dockeragent.AgentsIgnoreArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         final var repo = DockeragentFunctions.getAgentsIgnore(GetAgentsIgnoreArgs.builder()
+     *             .directory("~/src/my-service/.agentsignore")
+     *             .build());
+     * 
+     *         // No `directory`: renders the same patterns for a container image.
+     *         var image = new AgentsIgnore("image", AgentsIgnoreArgs.builder()
+     *             .patterns(repo.applyValue(_repo -> _repo.patterns()))
+     *             .build());
+     * 
+     *         ctx.export("sourceFile", repo.applyValue(_repo -> _repo.filePath()));
+     *         ctx.export("sourceSha256", repo.applyValue(_repo -> _repo.sha256()));
+     *         ctx.export("imageFile", image.content());
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static CompletableFuture<GetAgentsIgnoreResult> getAgentsIgnorePlain(GetAgentsIgnorePlainArgs args, InvokeOptions options) {
+        return Deployment.getInstance().invokeAsync("docker-agent:index:getAgentsIgnore", TypeShape.of(GetAgentsIgnoreResult.class), args, Utilities.withVersion(options));
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [user configuration](https://docs.docker.com/ai/docker-agent/configuration/user-settings/) file
+     * (`~/.config/cagent/config.yaml` by default) into the typed fields of `UserSettings`, without managing it.
+     * Use it to build on settings that `docker agent alias add`, `docker agent setup`
+     * or another program wrote, for example to reuse the default model or an alias in an `AgentConfig`.
+     * 
+     * The file is read on the machine that runs Pulumi: `~` is that user&#39;s home directory and relative paths are
+     * relative to the Pulumi project directory. A missing file is not an error: `exists` is `false` and every
+     * other field is empty, which is what docker-agent uses then. docker-agent&#39;s own types parse the file, so a file that
+     * docker-agent cannot load fails the function. The settings are not validated beyond that; `UserSettings` reports
+     * values that docker-agent rejects.
+     * 
+     * ## Example Usage
+     * ### Reuse the default model of the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.ModelDefArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .models(Map.of("main", ModelDefArgs.builder()
+     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
+     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .build()))
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("main")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a configuration file in the project
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
+     *             .build());
+     * 
+     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
+     *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
+     *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static Output<GetUserSettingsResult> getUserSettings() {
+        return getUserSettings(GetUserSettingsArgs.Empty, InvokeOptions.Empty);
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [user configuration](https://docs.docker.com/ai/docker-agent/configuration/user-settings/) file
+     * (`~/.config/cagent/config.yaml` by default) into the typed fields of `UserSettings`, without managing it.
+     * Use it to build on settings that `docker agent alias add`, `docker agent setup`
+     * or another program wrote, for example to reuse the default model or an alias in an `AgentConfig`.
+     * 
+     * The file is read on the machine that runs Pulumi: `~` is that user&#39;s home directory and relative paths are
+     * relative to the Pulumi project directory. A missing file is not an error: `exists` is `false` and every
+     * other field is empty, which is what docker-agent uses then. docker-agent&#39;s own types parse the file, so a file that
+     * docker-agent cannot load fails the function. The settings are not validated beyond that; `UserSettings` reports
+     * values that docker-agent rejects.
+     * 
+     * ## Example Usage
+     * ### Reuse the default model of the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.ModelDefArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .models(Map.of("main", ModelDefArgs.builder()
+     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
+     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .build()))
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("main")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a configuration file in the project
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
+     *             .build());
+     * 
+     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
+     *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
+     *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static CompletableFuture<GetUserSettingsResult> getUserSettingsPlain() {
+        return getUserSettingsPlain(GetUserSettingsPlainArgs.Empty, InvokeOptions.Empty);
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [user configuration](https://docs.docker.com/ai/docker-agent/configuration/user-settings/) file
+     * (`~/.config/cagent/config.yaml` by default) into the typed fields of `UserSettings`, without managing it.
+     * Use it to build on settings that `docker agent alias add`, `docker agent setup`
+     * or another program wrote, for example to reuse the default model or an alias in an `AgentConfig`.
+     * 
+     * The file is read on the machine that runs Pulumi: `~` is that user&#39;s home directory and relative paths are
+     * relative to the Pulumi project directory. A missing file is not an error: `exists` is `false` and every
+     * other field is empty, which is what docker-agent uses then. docker-agent&#39;s own types parse the file, so a file that
+     * docker-agent cannot load fails the function. The settings are not validated beyond that; `UserSettings` reports
+     * values that docker-agent rejects.
+     * 
+     * ## Example Usage
+     * ### Reuse the default model of the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.ModelDefArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .models(Map.of("main", ModelDefArgs.builder()
+     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
+     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .build()))
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("main")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a configuration file in the project
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
+     *             .build());
+     * 
+     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
+     *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
+     *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static Output<GetUserSettingsResult> getUserSettings(GetUserSettingsArgs args) {
+        return getUserSettings(args, InvokeOptions.Empty);
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [user configuration](https://docs.docker.com/ai/docker-agent/configuration/user-settings/) file
+     * (`~/.config/cagent/config.yaml` by default) into the typed fields of `UserSettings`, without managing it.
+     * Use it to build on settings that `docker agent alias add`, `docker agent setup`
+     * or another program wrote, for example to reuse the default model or an alias in an `AgentConfig`.
+     * 
+     * The file is read on the machine that runs Pulumi: `~` is that user&#39;s home directory and relative paths are
+     * relative to the Pulumi project directory. A missing file is not an error: `exists` is `false` and every
+     * other field is empty, which is what docker-agent uses then. docker-agent&#39;s own types parse the file, so a file that
+     * docker-agent cannot load fails the function. The settings are not validated beyond that; `UserSettings` reports
+     * values that docker-agent rejects.
+     * 
+     * ## Example Usage
+     * ### Reuse the default model of the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.ModelDefArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .models(Map.of("main", ModelDefArgs.builder()
+     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
+     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .build()))
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("main")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a configuration file in the project
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
+     *             .build());
+     * 
+     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
+     *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
+     *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static CompletableFuture<GetUserSettingsResult> getUserSettingsPlain(GetUserSettingsPlainArgs args) {
+        return getUserSettingsPlain(args, InvokeOptions.Empty);
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [user configuration](https://docs.docker.com/ai/docker-agent/configuration/user-settings/) file
+     * (`~/.config/cagent/config.yaml` by default) into the typed fields of `UserSettings`, without managing it.
+     * Use it to build on settings that `docker agent alias add`, `docker agent setup`
+     * or another program wrote, for example to reuse the default model or an alias in an `AgentConfig`.
+     * 
+     * The file is read on the machine that runs Pulumi: `~` is that user&#39;s home directory and relative paths are
+     * relative to the Pulumi project directory. A missing file is not an error: `exists` is `false` and every
+     * other field is empty, which is what docker-agent uses then. docker-agent&#39;s own types parse the file, so a file that
+     * docker-agent cannot load fails the function. The settings are not validated beyond that; `UserSettings` reports
+     * values that docker-agent rejects.
+     * 
+     * ## Example Usage
+     * ### Reuse the default model of the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.ModelDefArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .models(Map.of("main", ModelDefArgs.builder()
+     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
+     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .build()))
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("main")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a configuration file in the project
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
+     *             .build());
+     * 
+     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
+     *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
+     *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static Output<GetUserSettingsResult> getUserSettings(GetUserSettingsArgs args, InvokeOptions options) {
+        return Deployment.getInstance().invoke("docker-agent:index:getUserSettings", TypeShape.of(GetUserSettingsResult.class), args, Utilities.withVersion(options));
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [user configuration](https://docs.docker.com/ai/docker-agent/configuration/user-settings/) file
+     * (`~/.config/cagent/config.yaml` by default) into the typed fields of `UserSettings`, without managing it.
+     * Use it to build on settings that `docker agent alias add`, `docker agent setup`
+     * or another program wrote, for example to reuse the default model or an alias in an `AgentConfig`.
+     * 
+     * The file is read on the machine that runs Pulumi: `~` is that user&#39;s home directory and relative paths are
+     * relative to the Pulumi project directory. A missing file is not an error: `exists` is `false` and every
+     * other field is empty, which is what docker-agent uses then. docker-agent&#39;s own types parse the file, so a file that
+     * docker-agent cannot load fails the function. The settings are not validated beyond that; `UserSettings` reports
+     * values that docker-agent rejects.
+     * 
+     * ## Example Usage
+     * ### Reuse the default model of the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.ModelDefArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .models(Map.of("main", ModelDefArgs.builder()
+     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
+     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .build()))
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("main")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a configuration file in the project
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
+     *             .build());
+     * 
+     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
+     *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
+     *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static Output<GetUserSettingsResult> getUserSettings(GetUserSettingsArgs args, InvokeOutputOptions options) {
+        return Deployment.getInstance().invoke("docker-agent:index:getUserSettings", TypeShape.of(GetUserSettingsResult.class), args, Utilities.withVersion(options));
+    }
+    /**
+     * Reads an existing Docker Agent
+     * [user configuration](https://docs.docker.com/ai/docker-agent/configuration/user-settings/) file
+     * (`~/.config/cagent/config.yaml` by default) into the typed fields of `UserSettings`, without managing it.
+     * Use it to build on settings that `docker agent alias add`, `docker agent setup`
+     * or another program wrote, for example to reuse the default model or an alias in an `AgentConfig`.
+     * 
+     * The file is read on the machine that runs Pulumi: `~` is that user&#39;s home directory and relative paths are
+     * relative to the Pulumi project directory. A missing file is not an error: `exists` is `false` and every
+     * other field is empty, which is what docker-agent uses then. docker-agent&#39;s own types parse the file, so a file that
+     * docker-agent cannot load fails the function. The settings are not validated beyond that; `UserSettings` reports
+     * values that docker-agent rejects.
+     * 
+     * ## Example Usage
+     * ### Reuse the default model of the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import io.github.dirien.dockeragent.AgentConfig;
+     * import io.github.dirien.dockeragent.AgentConfigArgs;
+     * import io.github.dirien.dockeragent.inputs.ModelDefArgs;
+     * import io.github.dirien.dockeragent.inputs.AgentArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
+     *             .models(Map.of("main", ModelDefArgs.builder()
+     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
+     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .build()))
+     *             .agents(AgentArgs.builder()
+     *                 .name("root")
+     *                 .model("main")
+     *                 .instruction("You are a helpful assistant. Answer briefly.")
+     *                 .build())
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Read a configuration file in the project
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
+     *             .build());
+     * 
+     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
+     *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
+     *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * 
+     */
+    public static CompletableFuture<GetUserSettingsResult> getUserSettingsPlain(GetUserSettingsPlainArgs args, InvokeOptions options) {
+        return Deployment.getInstance().invokeAsync("docker-agent:index:getUserSettings", TypeShape.of(GetUserSettingsResult.class), args, Utilities.withVersion(options));
     }
     /**
      * Validates a Docker Agent YAML document with the docker-agent library the provider

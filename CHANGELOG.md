@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `getUserSettings` reads an existing docker-agent user configuration (`~/.config/cagent/config.yaml` by default, or `path`) into the typed fields of `UserSettings`, and `getAgentsIgnore` reads a project's `.agentsignore` into `patterns` and `comment`, without managing the files, like the `get` functions of other Pulumi providers. Both return `exists`, `filePath`, the content as it is on disk and its `sha256`; a missing file returns `exists: false` instead of failing.
+
 ### Changed
 
 - Upgrade docker-agent from v1.150.0 to v1.166.0 (configuration version `"16"`). New typed inputs: `contextWindow` and `streamIdleTimeout` on models (`ModelDef`), `streamIdleTimeout` on `runtime`, and `standaloneSse` on remote MCP servers; `streamIdleTimeoutInt: -1` turns the stream idle timer off. The `command-code` harness type is accepted in configurations, and `AgentRun` rejects it during preview like `pi` and `opencode`.

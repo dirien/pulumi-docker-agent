@@ -112,6 +112,8 @@ Resource and function names follow the Terraform convention, `<package>_<name in
 | `docker-agent:index:AgentsIgnore` | `resource "docker-agent_agents_ignore" "<name>"` |
 | `docker-agent:index:getAgent` | `data "docker-agent_agent" "<name>"` |
 | `docker-agent:index:validateAgentConfig` | `data "docker-agent_validate_agent_config" "<name>"` |
+| `docker-agent:index:getUserSettings` | `data "docker-agent_user_settings" "<name>"` |
+| `docker-agent:index:getAgentsIgnore` | `data "docker-agent_agents_ignore" "<name>"` |
 | provider configuration | `provider "docker-agent" { ... }` |
 
 Property names are snake_case (`subAgents` is `sub_agents`, `tokenKey` is `token_key`, `pinnedReference` is `pinned_reference`). Lists of objects are written as repeated nested blocks: one `agents { }` block per agent, in order, `toolsets { }` blocks inside an agent, and `registry_auth { }` blocks in the provider block. Maps and single objects such as `models`, `metadata`, `permissions` and `extra` are attributes (`models = { ... }`). The hyphen is part of the HCL identifier, so references read `docker-agent_agent_config.assistant.yaml` and `data.docker-agent_agent.pulled.agent_names`:
