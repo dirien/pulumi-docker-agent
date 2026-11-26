@@ -16,14 +16,14 @@ public final class GetAgentsIgnoreArgs extends com.pulumi.resources.InvokeArgs {
     public static final GetAgentsIgnoreArgs Empty = new GetAgentsIgnoreArgs();
 
     /**
-     * The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+     * The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
      * 
      */
     @Import(name="directory")
     private @Nullable Output<String> directory;
 
     /**
-     * @return The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+     * @return The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
      * 
      */
     public Optional<Output<String>> directory() {
@@ -55,7 +55,7 @@ public final class GetAgentsIgnoreArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param directory The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+         * @param directory The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
          * 
          * @return builder
          * 
@@ -66,7 +66,7 @@ public final class GetAgentsIgnoreArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param directory The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+         * @param directory The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
          * 
          * @return builder
          * 

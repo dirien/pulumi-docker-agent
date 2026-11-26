@@ -1290,7 +1290,42 @@ public final class DockeragentFunctions {
      * values that docker-agent rejects.
      * 
      * ## Example Usage
-     * ### Reuse the default model of the user configuration
+     * ### Read the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("filePath", current.applyValue(_current -> _current.filePath()));
+     *         ctx.export("sha256", current.applyValue(_current -> _current.sha256()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Reuse the default model of a configuration file
      * <pre>
      * {@code
      * package generated_program;
@@ -1317,14 +1352,15 @@ public final class DockeragentFunctions {
      *     }
      * 
      *     public static void stack(Context ctx) {
-     *         // Reads ~/.config/cagent/config.yaml without managing it.
-     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
      *             .build());
      * 
      *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
      *             .models(Map.of("main", ModelDefArgs.builder()
-     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
-     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .provider(team.applyValue(_team -> _team.defaultModel().provider()))
+     *                 .model(team.applyValue(_team -> _team.defaultModel().model()))
      *                 .build()))
      *             .agents(AgentArgs.builder()
      *                 .name("root")
@@ -1333,43 +1369,9 @@ public final class DockeragentFunctions {
      *                 .build())
      *             .build());
      * 
-     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
-     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
-     *     }
-     * }
-     * }
-     * </pre>
-     * ### Read a configuration file in the project
-     * <pre>
-     * {@code
-     * package generated_program;
-     * 
-     * import com.pulumi.Context;
-     * import com.pulumi.Pulumi;
-     * import com.pulumi.core.Output;
-     * import io.github.dirien.dockeragent.DockeragentFunctions;
-     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
-     * import java.util.ArrayList;
-     * import java.util.Arrays;
-     * import java.util.Map;
-     * import java.io.File;
-     * import java.nio.file.Files;
-     * import java.nio.file.Paths;
-     * 
-     * public class App {
-     *     public static void main(String[] args) {
-     *         Pulumi.run(App::stack);
-     *     }
-     * 
-     *     public static void stack(Context ctx) {
-     *         // Relative paths are relative to the Pulumi project directory.
-     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
-     *             .path("./team-config.yaml")
-     *             .build());
-     * 
-     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
      *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
      *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *         ctx.export("agentYaml", assistant.yaml());
      *     }
      * }
      * }
@@ -1393,7 +1395,42 @@ public final class DockeragentFunctions {
      * values that docker-agent rejects.
      * 
      * ## Example Usage
-     * ### Reuse the default model of the user configuration
+     * ### Read the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("filePath", current.applyValue(_current -> _current.filePath()));
+     *         ctx.export("sha256", current.applyValue(_current -> _current.sha256()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Reuse the default model of a configuration file
      * <pre>
      * {@code
      * package generated_program;
@@ -1420,14 +1457,15 @@ public final class DockeragentFunctions {
      *     }
      * 
      *     public static void stack(Context ctx) {
-     *         // Reads ~/.config/cagent/config.yaml without managing it.
-     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
      *             .build());
      * 
      *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
      *             .models(Map.of("main", ModelDefArgs.builder()
-     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
-     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .provider(team.applyValue(_team -> _team.defaultModel().provider()))
+     *                 .model(team.applyValue(_team -> _team.defaultModel().model()))
      *                 .build()))
      *             .agents(AgentArgs.builder()
      *                 .name("root")
@@ -1436,43 +1474,9 @@ public final class DockeragentFunctions {
      *                 .build())
      *             .build());
      * 
-     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
-     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
-     *     }
-     * }
-     * }
-     * </pre>
-     * ### Read a configuration file in the project
-     * <pre>
-     * {@code
-     * package generated_program;
-     * 
-     * import com.pulumi.Context;
-     * import com.pulumi.Pulumi;
-     * import com.pulumi.core.Output;
-     * import io.github.dirien.dockeragent.DockeragentFunctions;
-     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
-     * import java.util.ArrayList;
-     * import java.util.Arrays;
-     * import java.util.Map;
-     * import java.io.File;
-     * import java.nio.file.Files;
-     * import java.nio.file.Paths;
-     * 
-     * public class App {
-     *     public static void main(String[] args) {
-     *         Pulumi.run(App::stack);
-     *     }
-     * 
-     *     public static void stack(Context ctx) {
-     *         // Relative paths are relative to the Pulumi project directory.
-     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
-     *             .path("./team-config.yaml")
-     *             .build());
-     * 
-     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
      *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
      *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *         ctx.export("agentYaml", assistant.yaml());
      *     }
      * }
      * }
@@ -1496,7 +1500,42 @@ public final class DockeragentFunctions {
      * values that docker-agent rejects.
      * 
      * ## Example Usage
-     * ### Reuse the default model of the user configuration
+     * ### Read the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("filePath", current.applyValue(_current -> _current.filePath()));
+     *         ctx.export("sha256", current.applyValue(_current -> _current.sha256()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Reuse the default model of a configuration file
      * <pre>
      * {@code
      * package generated_program;
@@ -1523,14 +1562,15 @@ public final class DockeragentFunctions {
      *     }
      * 
      *     public static void stack(Context ctx) {
-     *         // Reads ~/.config/cagent/config.yaml without managing it.
-     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
      *             .build());
      * 
      *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
      *             .models(Map.of("main", ModelDefArgs.builder()
-     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
-     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .provider(team.applyValue(_team -> _team.defaultModel().provider()))
+     *                 .model(team.applyValue(_team -> _team.defaultModel().model()))
      *                 .build()))
      *             .agents(AgentArgs.builder()
      *                 .name("root")
@@ -1539,43 +1579,9 @@ public final class DockeragentFunctions {
      *                 .build())
      *             .build());
      * 
-     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
-     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
-     *     }
-     * }
-     * }
-     * </pre>
-     * ### Read a configuration file in the project
-     * <pre>
-     * {@code
-     * package generated_program;
-     * 
-     * import com.pulumi.Context;
-     * import com.pulumi.Pulumi;
-     * import com.pulumi.core.Output;
-     * import io.github.dirien.dockeragent.DockeragentFunctions;
-     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
-     * import java.util.ArrayList;
-     * import java.util.Arrays;
-     * import java.util.Map;
-     * import java.io.File;
-     * import java.nio.file.Files;
-     * import java.nio.file.Paths;
-     * 
-     * public class App {
-     *     public static void main(String[] args) {
-     *         Pulumi.run(App::stack);
-     *     }
-     * 
-     *     public static void stack(Context ctx) {
-     *         // Relative paths are relative to the Pulumi project directory.
-     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
-     *             .path("./team-config.yaml")
-     *             .build());
-     * 
-     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
      *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
      *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *         ctx.export("agentYaml", assistant.yaml());
      *     }
      * }
      * }
@@ -1599,7 +1605,42 @@ public final class DockeragentFunctions {
      * values that docker-agent rejects.
      * 
      * ## Example Usage
-     * ### Reuse the default model of the user configuration
+     * ### Read the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("filePath", current.applyValue(_current -> _current.filePath()));
+     *         ctx.export("sha256", current.applyValue(_current -> _current.sha256()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Reuse the default model of a configuration file
      * <pre>
      * {@code
      * package generated_program;
@@ -1626,14 +1667,15 @@ public final class DockeragentFunctions {
      *     }
      * 
      *     public static void stack(Context ctx) {
-     *         // Reads ~/.config/cagent/config.yaml without managing it.
-     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
      *             .build());
      * 
      *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
      *             .models(Map.of("main", ModelDefArgs.builder()
-     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
-     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .provider(team.applyValue(_team -> _team.defaultModel().provider()))
+     *                 .model(team.applyValue(_team -> _team.defaultModel().model()))
      *                 .build()))
      *             .agents(AgentArgs.builder()
      *                 .name("root")
@@ -1642,43 +1684,9 @@ public final class DockeragentFunctions {
      *                 .build())
      *             .build());
      * 
-     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
-     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
-     *     }
-     * }
-     * }
-     * </pre>
-     * ### Read a configuration file in the project
-     * <pre>
-     * {@code
-     * package generated_program;
-     * 
-     * import com.pulumi.Context;
-     * import com.pulumi.Pulumi;
-     * import com.pulumi.core.Output;
-     * import io.github.dirien.dockeragent.DockeragentFunctions;
-     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
-     * import java.util.ArrayList;
-     * import java.util.Arrays;
-     * import java.util.Map;
-     * import java.io.File;
-     * import java.nio.file.Files;
-     * import java.nio.file.Paths;
-     * 
-     * public class App {
-     *     public static void main(String[] args) {
-     *         Pulumi.run(App::stack);
-     *     }
-     * 
-     *     public static void stack(Context ctx) {
-     *         // Relative paths are relative to the Pulumi project directory.
-     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
-     *             .path("./team-config.yaml")
-     *             .build());
-     * 
-     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
      *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
      *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *         ctx.export("agentYaml", assistant.yaml());
      *     }
      * }
      * }
@@ -1702,7 +1710,42 @@ public final class DockeragentFunctions {
      * values that docker-agent rejects.
      * 
      * ## Example Usage
-     * ### Reuse the default model of the user configuration
+     * ### Read the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("filePath", current.applyValue(_current -> _current.filePath()));
+     *         ctx.export("sha256", current.applyValue(_current -> _current.sha256()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Reuse the default model of a configuration file
      * <pre>
      * {@code
      * package generated_program;
@@ -1729,14 +1772,15 @@ public final class DockeragentFunctions {
      *     }
      * 
      *     public static void stack(Context ctx) {
-     *         // Reads ~/.config/cagent/config.yaml without managing it.
-     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
      *             .build());
      * 
      *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
      *             .models(Map.of("main", ModelDefArgs.builder()
-     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
-     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .provider(team.applyValue(_team -> _team.defaultModel().provider()))
+     *                 .model(team.applyValue(_team -> _team.defaultModel().model()))
      *                 .build()))
      *             .agents(AgentArgs.builder()
      *                 .name("root")
@@ -1745,43 +1789,9 @@ public final class DockeragentFunctions {
      *                 .build())
      *             .build());
      * 
-     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
-     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
-     *     }
-     * }
-     * }
-     * </pre>
-     * ### Read a configuration file in the project
-     * <pre>
-     * {@code
-     * package generated_program;
-     * 
-     * import com.pulumi.Context;
-     * import com.pulumi.Pulumi;
-     * import com.pulumi.core.Output;
-     * import io.github.dirien.dockeragent.DockeragentFunctions;
-     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
-     * import java.util.ArrayList;
-     * import java.util.Arrays;
-     * import java.util.Map;
-     * import java.io.File;
-     * import java.nio.file.Files;
-     * import java.nio.file.Paths;
-     * 
-     * public class App {
-     *     public static void main(String[] args) {
-     *         Pulumi.run(App::stack);
-     *     }
-     * 
-     *     public static void stack(Context ctx) {
-     *         // Relative paths are relative to the Pulumi project directory.
-     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
-     *             .path("./team-config.yaml")
-     *             .build());
-     * 
-     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
      *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
      *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *         ctx.export("agentYaml", assistant.yaml());
      *     }
      * }
      * }
@@ -1805,7 +1815,42 @@ public final class DockeragentFunctions {
      * values that docker-agent rejects.
      * 
      * ## Example Usage
-     * ### Reuse the default model of the user configuration
+     * ### Read the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("filePath", current.applyValue(_current -> _current.filePath()));
+     *         ctx.export("sha256", current.applyValue(_current -> _current.sha256()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Reuse the default model of a configuration file
      * <pre>
      * {@code
      * package generated_program;
@@ -1832,14 +1877,15 @@ public final class DockeragentFunctions {
      *     }
      * 
      *     public static void stack(Context ctx) {
-     *         // Reads ~/.config/cagent/config.yaml without managing it.
-     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
      *             .build());
      * 
      *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
      *             .models(Map.of("main", ModelDefArgs.builder()
-     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
-     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .provider(team.applyValue(_team -> _team.defaultModel().provider()))
+     *                 .model(team.applyValue(_team -> _team.defaultModel().model()))
      *                 .build()))
      *             .agents(AgentArgs.builder()
      *                 .name("root")
@@ -1848,43 +1894,9 @@ public final class DockeragentFunctions {
      *                 .build())
      *             .build());
      * 
-     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
-     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
-     *     }
-     * }
-     * }
-     * </pre>
-     * ### Read a configuration file in the project
-     * <pre>
-     * {@code
-     * package generated_program;
-     * 
-     * import com.pulumi.Context;
-     * import com.pulumi.Pulumi;
-     * import com.pulumi.core.Output;
-     * import io.github.dirien.dockeragent.DockeragentFunctions;
-     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
-     * import java.util.ArrayList;
-     * import java.util.Arrays;
-     * import java.util.Map;
-     * import java.io.File;
-     * import java.nio.file.Files;
-     * import java.nio.file.Paths;
-     * 
-     * public class App {
-     *     public static void main(String[] args) {
-     *         Pulumi.run(App::stack);
-     *     }
-     * 
-     *     public static void stack(Context ctx) {
-     *         // Relative paths are relative to the Pulumi project directory.
-     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
-     *             .path("./team-config.yaml")
-     *             .build());
-     * 
-     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
      *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
      *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *         ctx.export("agentYaml", assistant.yaml());
      *     }
      * }
      * }
@@ -1908,7 +1920,42 @@ public final class DockeragentFunctions {
      * values that docker-agent rejects.
      * 
      * ## Example Usage
-     * ### Reuse the default model of the user configuration
+     * ### Read the user configuration
+     * <pre>
+     * {@code
+     * package generated_program;
+     * 
+     * import com.pulumi.Context;
+     * import com.pulumi.Pulumi;
+     * import com.pulumi.core.Output;
+     * import io.github.dirien.dockeragent.DockeragentFunctions;
+     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
+     * import java.util.ArrayList;
+     * import java.util.Arrays;
+     * import java.util.Map;
+     * import java.io.File;
+     * import java.nio.file.Files;
+     * import java.nio.file.Paths;
+     * 
+     * public class App {
+     *     public static void main(String[] args) {
+     *         Pulumi.run(App::stack);
+     *     }
+     * 
+     *     public static void stack(Context ctx) {
+     *         // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
+     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .build());
+     * 
+     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
+     *         ctx.export("filePath", current.applyValue(_current -> _current.filePath()));
+     *         ctx.export("sha256", current.applyValue(_current -> _current.sha256()));
+     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
+     *     }
+     * }
+     * }
+     * </pre>
+     * ### Reuse the default model of a configuration file
      * <pre>
      * {@code
      * package generated_program;
@@ -1935,14 +1982,15 @@ public final class DockeragentFunctions {
      *     }
      * 
      *     public static void stack(Context ctx) {
-     *         // Reads ~/.config/cagent/config.yaml without managing it.
-     *         final var current = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *         // Relative paths are relative to the Pulumi project directory.
+     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
+     *             .path("./team-config.yaml")
      *             .build());
      * 
      *         var assistant = new AgentConfig("assistant", AgentConfigArgs.builder()
      *             .models(Map.of("main", ModelDefArgs.builder()
-     *                 .provider(current.applyValue(_current -> _current.defaultModel().provider()))
-     *                 .model(current.applyValue(_current -> _current.defaultModel().model()))
+     *                 .provider(team.applyValue(_team -> _team.defaultModel().provider()))
+     *                 .model(team.applyValue(_team -> _team.defaultModel().model()))
      *                 .build()))
      *             .agents(AgentArgs.builder()
      *                 .name("root")
@@ -1951,43 +1999,9 @@ public final class DockeragentFunctions {
      *                 .build())
      *             .build());
      * 
-     *         ctx.export("configExists", current.applyValue(_current -> _current.exists()));
-     *         ctx.export("aliases", current.applyValue(_current -> _current.aliases()));
-     *     }
-     * }
-     * }
-     * </pre>
-     * ### Read a configuration file in the project
-     * <pre>
-     * {@code
-     * package generated_program;
-     * 
-     * import com.pulumi.Context;
-     * import com.pulumi.Pulumi;
-     * import com.pulumi.core.Output;
-     * import io.github.dirien.dockeragent.DockeragentFunctions;
-     * import io.github.dirien.dockeragent.inputs.GetUserSettingsArgs;
-     * import java.util.ArrayList;
-     * import java.util.Arrays;
-     * import java.util.Map;
-     * import java.io.File;
-     * import java.nio.file.Files;
-     * import java.nio.file.Paths;
-     * 
-     * public class App {
-     *     public static void main(String[] args) {
-     *         Pulumi.run(App::stack);
-     *     }
-     * 
-     *     public static void stack(Context ctx) {
-     *         // Relative paths are relative to the Pulumi project directory.
-     *         final var team = DockeragentFunctions.getUserSettings(GetUserSettingsArgs.builder()
-     *             .path("./team-config.yaml")
-     *             .build());
-     * 
-     *         ctx.export("filePath", team.applyValue(_team -> _team.filePath()));
      *         ctx.export("sha256", team.applyValue(_team -> _team.sha256()));
      *         ctx.export("theme", team.applyValue(_team -> _team.settings().theme()));
+     *         ctx.export("agentYaml", assistant.yaml());
      *     }
      * }
      * }

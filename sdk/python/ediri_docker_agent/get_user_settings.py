@@ -110,7 +110,7 @@ class GetUserSettingsResult:
     @pulumi.getter
     def extra(self) -> Optional[Mapping[str, Any]]:
         """
-        Top-level keys that this provider version does not model, as they are in the file.
+        Top-level keys that this provider version does not model, as they are in the file. Secret, because the provider cannot tell whether they hold credentials.
         """
         return pulumi.get(self, "extra")
 
@@ -166,7 +166,7 @@ class GetUserSettingsResult:
     @pulumi.getter
     def yaml(self) -> _builtins.str:
         """
-        The file's content, exactly as it is on disk.
+        The file's content, exactly as it is on disk. Secret, because the file can hold credentials (hook `env` values, board `headers`), which the typed fields mark secret too.
         """
         return pulumi.get(self, "yaml")
 
@@ -208,18 +208,30 @@ def get_user_settings(path: Optional[_builtins.str] = None,
     values that docker-agent rejects.
 
     ## Example Usage
-    ### Reuse the default model of the user configuration
+    ### Read the user configuration
     ```python
     import pulumi
     import ediri_docker_agent as docker_agent
 
-    # Reads ~/.config/cagent/config.yaml without managing it.
+    # Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
     current = docker_agent.get_user_settings_output()
+    pulumi.export("configExists", current.exists)
+    pulumi.export("filePath", current.file_path)
+    pulumi.export("sha256", current.sha256)
+    pulumi.export("aliases", current.aliases)
+    ```
+    ### Reuse the default model of a configuration file
+    ```python
+    import pulumi
+    import ediri_docker_agent as docker_agent
+
+    # Relative paths are relative to the Pulumi project directory.
+    team = docker_agent.get_user_settings_output(path="./team-config.yaml")
     assistant = docker_agent.AgentConfig("assistant",
         models={
             "main": {
-                "provider": current.default_model.provider,
-                "model": current.default_model.model,
+                "provider": team.default_model.provider,
+                "model": team.default_model.model,
             },
         },
         agents=[{
@@ -227,19 +239,9 @@ def get_user_settings(path: Optional[_builtins.str] = None,
             "model": "main",
             "instruction": "You are a helpful assistant. Answer briefly.",
         }])
-    pulumi.export("configExists", current.exists)
-    pulumi.export("aliases", current.aliases)
-    ```
-    ### Read a configuration file in the project
-    ```python
-    import pulumi
-    import ediri_docker_agent as docker_agent
-
-    # Relative paths are relative to the Pulumi project directory.
-    team = docker_agent.get_user_settings_output(path="./team-config.yaml")
-    pulumi.export("filePath", team.file_path)
     pulumi.export("sha256", team.sha256)
     pulumi.export("theme", team.settings.theme)
+    pulumi.export("agentYaml", assistant.yaml)
     ```
 
     :param _builtins.str path: The file to read. Defaults to `~/.config/cagent/config.yaml`, where docker-agent reads its user configuration on Linux and macOS. A symbolic link is followed.
@@ -279,18 +281,30 @@ def get_user_settings_output(path: pulumi.Input[Optional[Optional[_builtins.str]
     values that docker-agent rejects.
 
     ## Example Usage
-    ### Reuse the default model of the user configuration
+    ### Read the user configuration
     ```python
     import pulumi
     import ediri_docker_agent as docker_agent
 
-    # Reads ~/.config/cagent/config.yaml without managing it.
+    # Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
     current = docker_agent.get_user_settings_output()
+    pulumi.export("configExists", current.exists)
+    pulumi.export("filePath", current.file_path)
+    pulumi.export("sha256", current.sha256)
+    pulumi.export("aliases", current.aliases)
+    ```
+    ### Reuse the default model of a configuration file
+    ```python
+    import pulumi
+    import ediri_docker_agent as docker_agent
+
+    # Relative paths are relative to the Pulumi project directory.
+    team = docker_agent.get_user_settings_output(path="./team-config.yaml")
     assistant = docker_agent.AgentConfig("assistant",
         models={
             "main": {
-                "provider": current.default_model.provider,
-                "model": current.default_model.model,
+                "provider": team.default_model.provider,
+                "model": team.default_model.model,
             },
         },
         agents=[{
@@ -298,19 +312,9 @@ def get_user_settings_output(path: pulumi.Input[Optional[Optional[_builtins.str]
             "model": "main",
             "instruction": "You are a helpful assistant. Answer briefly.",
         }])
-    pulumi.export("configExists", current.exists)
-    pulumi.export("aliases", current.aliases)
-    ```
-    ### Read a configuration file in the project
-    ```python
-    import pulumi
-    import ediri_docker_agent as docker_agent
-
-    # Relative paths are relative to the Pulumi project directory.
-    team = docker_agent.get_user_settings_output(path="./team-config.yaml")
-    pulumi.export("filePath", team.file_path)
     pulumi.export("sha256", team.sha256)
     pulumi.export("theme", team.settings.theme)
+    pulumi.export("agentYaml", assistant.yaml)
     ```
 
     :param _builtins.str path: The file to read. Defaults to `~/.config/cagent/config.yaml`, where docker-agent reads its user configuration on Linux and macOS. A symbolic link is followed.

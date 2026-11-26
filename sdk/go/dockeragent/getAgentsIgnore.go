@@ -36,7 +36,7 @@ import (
 //
 //	func main() {
 //		pulumi.Run(func(ctx *pulumi.Context) error {
-//			projectVar := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+//			projectVar := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
 //				Directory: pulumi.String("."),
 //			}, nil)
 //
@@ -69,7 +69,7 @@ import (
 //
 //	func main() {
 //		pulumi.Run(func(ctx *pulumi.Context) error {
-//			repo := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+//			repo := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
 //				Directory: pulumi.String("~/src/my-service/.agentsignore"),
 //			}, nil)
 //
@@ -99,7 +99,7 @@ func LookupAgentsIgnore(ctx *pulumi.Context, args *LookupAgentsIgnoreArgs, opts 
 }
 
 type LookupAgentsIgnoreArgs struct {
-	// The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+	// The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
 	Directory *string `pulumi:"directory"`
 }
 
@@ -124,7 +124,7 @@ func LookupAgentsIgnoreOutput(ctx *pulumi.Context, args LookupAgentsIgnoreOutput
 }
 
 type LookupAgentsIgnoreOutputArgs struct {
-	// The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+	// The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
 	Directory pulumi.StringPtrInput `pulumi:"directory"`
 }
 

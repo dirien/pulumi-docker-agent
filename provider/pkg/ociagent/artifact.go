@@ -3,7 +3,7 @@
 
 // Package ociagent pushes, pulls and deletes docker-agent OCI artifacts with
 // go-containerregistry. The artifacts are byte-compatible with
-// `docker agent share push` (docker-agent v1.150.0):
+// `docker agent share push` (docker-agent v1.166.0):
 //
 //   - an OCI image manifest with artifactType `application/vnd.docker.agent.config.v1+json`
 //   - a near-empty Docker image config (`application/vnd.docker.container.image.v1+json`)

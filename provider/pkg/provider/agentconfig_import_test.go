@@ -13,6 +13,7 @@ import (
 
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/hcl"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/integration"
 	"github.com/pulumi/pulumi/sdk/v3/go/property"
@@ -53,7 +54,7 @@ func upstreamConfigs(t *testing.T) []string {
 // loads a file (HCL included), and returns the loaded config as JSON.
 func loadedJSON(t *testing.T, src config.Source) string {
 	t.Helper()
-	cfg, err := config.Load(t.Context(), hcl.NewSource(src))
+	cfg, err := config.Load(t.Context(), hcl.NewSource(src), config.WithVersions(legacy.Register))
 	require.NoError(t, err, "%s does not load", src.Name())
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	require.NoError(t, err)

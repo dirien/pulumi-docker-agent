@@ -15,14 +15,14 @@ public final class GetAgentsIgnorePlainArgs extends com.pulumi.resources.InvokeA
     public static final GetAgentsIgnorePlainArgs Empty = new GetAgentsIgnorePlainArgs();
 
     /**
-     * The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+     * The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
      * 
      */
     @Import(name="directory")
     private @Nullable String directory;
 
     /**
-     * @return The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+     * @return The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
      * 
      */
     public Optional<String> directory() {
@@ -54,7 +54,7 @@ public final class GetAgentsIgnorePlainArgs extends com.pulumi.resources.InvokeA
         }
 
         /**
-         * @param directory The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+         * @param directory The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
          * 
          * @return builder
          * 

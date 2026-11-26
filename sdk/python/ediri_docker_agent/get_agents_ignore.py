@@ -150,7 +150,7 @@ def get_agents_ignore(directory: Optional[_builtins.str] = None,
     pulumi.export("imageFile", image.content)
     ```
 
-    :param _builtins.str directory: The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+    :param _builtins.str directory: The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
     """
     __args__ = dict()
     __args__['directory'] = directory
@@ -208,7 +208,7 @@ def get_agents_ignore_output(directory: pulumi.Input[Optional[Optional[_builtins
     pulumi.export("imageFile", image.content)
     ```
 
-    :param _builtins.str directory: The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+    :param _builtins.str directory: The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
     """
     __args__ = dict()
     __args__['directory'] = directory

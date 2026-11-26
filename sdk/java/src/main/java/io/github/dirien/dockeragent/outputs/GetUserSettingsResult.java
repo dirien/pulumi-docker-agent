@@ -48,7 +48,7 @@ public final class GetUserSettingsResult {
      */
     private Boolean exists;
     /**
-     * @return Top-level keys that this provider version does not model, as they are in the file.
+     * @return Top-level keys that this provider version does not model, as they are in the file. Secret, because the provider cannot tell whether they hold credentials.
      * 
      */
     private @Nullable Map<String,Object> extra;
@@ -83,7 +83,7 @@ public final class GetUserSettingsResult {
      */
     private String sha256;
     /**
-     * @return The file&#39;s content, exactly as it is on disk.
+     * @return The file&#39;s content, exactly as it is on disk. Secret, because the file can hold credentials (hook `env` values, board `headers`), which the typed fields mark secret too.
      * 
      */
     private String yaml;
@@ -125,7 +125,7 @@ public final class GetUserSettingsResult {
         return this.exists;
     }
     /**
-     * @return Top-level keys that this provider version does not model, as they are in the file.
+     * @return Top-level keys that this provider version does not model, as they are in the file. Secret, because the provider cannot tell whether they hold credentials.
      * 
      */
     public Map<String,Object> extra() {
@@ -174,7 +174,7 @@ public final class GetUserSettingsResult {
         return this.sha256;
     }
     /**
-     * @return The file&#39;s content, exactly as it is on disk.
+     * @return The file&#39;s content, exactly as it is on disk. Secret, because the file can hold credentials (hook `env` values, board `headers`), which the typed fields mark secret too.
      * 
      */
     public String yaml() {

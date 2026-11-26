@@ -63,7 +63,7 @@ export function getAgentsIgnore(args?: GetAgentsIgnoreArgs, opts?: pulumi.Invoke
 
 export interface GetAgentsIgnoreArgs {
     /**
-     * The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+     * The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
      */
     directory?: string;
 }
@@ -153,7 +153,7 @@ export function getAgentsIgnoreOutput(args?: GetAgentsIgnoreOutputArgs, opts?: p
 
 export interface GetAgentsIgnoreOutputArgs {
     /**
-     * The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+     * The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
      */
     directory?: pulumi.Input<string | undefined>;
 }

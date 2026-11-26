@@ -8,6 +8,10 @@ Manages the two Docker Agent configuration files that are not agent definitions:
 - `AgentsIgnore` writes a [`.agentsignore`](https://docs.docker.com/ai/docker-agent/configuration/agentsignore/)
   file that hides secrets from the agent's filesystem tools.
 - A second `UserSettings` without `path` only renders YAML, for example to bake into a container image.
+- `getUserSettings` and `getAgentsIgnore` read the hand-written files in [`existing/`](existing) without managing
+  them: the program exports their default model, aliases and patterns, and renders the patterns again for a
+  container image (`imageIgnore`). Point them at `~/.config/cagent/config.yaml` and your project to build on
+  the files you already have.
 
 Both resources validate during `pulumi preview` and never write during a preview. To keep the example
 harmless, it writes into `outputDir` (default `out/` next to `Pulumi.yaml`) instead of your home directory.

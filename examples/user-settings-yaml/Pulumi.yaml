@@ -1,6 +1,6 @@
 name: docker-agent-user-settings
 runtime: yaml
-description: Writes Docker Agent's user configuration and a .agentsignore file, and renders a configuration for a container image.
+description: Writes Docker Agent's user configuration and a .agentsignore file, reads existing ones, and renders configurations for a container image.
 plugins:
   # Use the provider binary built by `make provider` in this repository. When you copy the
   # example elsewhere, remove this block and install the released plugin with
@@ -17,6 +17,20 @@ config:
     type: string
     default: out
 
+variables:
+  # Reads files that something else manages (here: the hand-written files in existing/) without
+  # taking them over. A missing file returns `exists: false`.
+  existingSettings:
+    fn::invoke:
+      function: docker-agent:index:getUserSettings
+      arguments:
+        path: ./existing/config.yaml
+  existingIgnore:
+    fn::invoke:
+      function: docker-agent:index:getAgentsIgnore
+      arguments:
+        directory: ./existing
+
 resources:
   # Docker Agent's user configuration file, validated with docker-agent's own checks during
   # `pulumi preview` and written (mode 0600) on `pulumi up`.
@@ -30,6 +44,8 @@ resources:
         safety: balanced
         sound: true
         soundThreshold: 30
+        keepAwake: true
+        backgroundCompaction: true
         busySendMode: queue
         layout:
           sidebarPosition: left
@@ -86,9 +102,20 @@ resources:
         lean: true
         safety: restricted
 
+  # The patterns of the existing project's .agentsignore, rendered for a container image.
+  imageIgnore:
+    type: docker-agent:index:AgentsIgnore
+    properties:
+      comment: ${existingIgnore.comment}
+      patterns: ${existingIgnore.patterns}
+
 outputs:
   settingsPath: ${settings.filePath}
   settingsYaml: ${settings.yaml}
   agentsIgnorePath: ${project.filePath}
   agentsIgnore: ${project.content}
   imageSettingsYaml: ${imageSettings.yaml}
+  existingDefaultModel: ${existingSettings.defaultModel.model}
+  existingAliases: ${existingSettings.aliases}
+  existingIgnorePatterns: ${existingIgnore.patterns}
+  imageIgnore: ${imageIgnore.content}

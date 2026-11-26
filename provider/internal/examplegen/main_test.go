@@ -19,6 +19,7 @@ import (
 
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/hcl"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	hcl2 "github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/stretchr/testify/assert"
@@ -150,9 +151,9 @@ func TestGoldenIsTheRenderedUpstreamConfig(t *testing.T) {
 
 			// docker-agent loads the golden file like the upstream one, apart from the keys
 			// it never reads.
-			upstream, err := config.Load(t.Context(), src)
+			upstream, err := config.Load(t.Context(), src, config.WithVersions(legacy.Register))
 			require.NoError(t, err)
-			golden, err := config.Load(t.Context(), dirSource{name: path.Base(ex.source), dir: filepath.Dir(file), data: []byte(want)})
+			golden, err := config.Load(t.Context(), dirSource{name: path.Base(ex.source), dir: filepath.Dir(file), data: []byte(want)}, config.WithVersions(legacy.Register))
 			require.NoError(t, err)
 			a, b := loadedJSON(t, upstream), loadedJSON(t, golden)
 			if len(ex.dropped) == 0 {

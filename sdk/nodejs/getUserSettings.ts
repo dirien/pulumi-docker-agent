@@ -21,31 +21,20 @@ import * as utilities from "./utilities";
  * values that docker-agent rejects.
  *
  * ## Example Usage
- * ### Reuse the default model of the user configuration
+ * ### Read the user configuration
  *
  * ```typescript
  * import * as pulumi from "@pulumi/pulumi";
  * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * // Reads ~/.config/cagent/config.yaml without managing it.
+ * // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
  * const current = docker_agent.getUserSettingsOutput({});
- * const assistant = new docker_agent.AgentConfig("assistant", {
- *     models: {
- *         main: {
- *             provider: current.apply(current => current.defaultModel?.provider),
- *             model: current.apply(current => current.defaultModel?.model),
- *         },
- *     },
- *     agents: [{
- *         name: "root",
- *         model: "main",
- *         instruction: "You are a helpful assistant. Answer briefly.",
- *     }],
- * });
  * export const configExists = current.exists;
+ * export const filePath = current.filePath;
+ * export const sha256 = current.sha256;
  * export const aliases = current.aliases;
  * ```
- * ### Read a configuration file in the project
+ * ### Reuse the default model of a configuration file
  *
  * ```typescript
  * import * as pulumi from "@pulumi/pulumi";
@@ -55,9 +44,22 @@ import * as utilities from "./utilities";
  * const team = docker_agent.getUserSettingsOutput({
  *     path: "./team-config.yaml",
  * });
- * export const filePath = team.filePath;
+ * const assistant = new docker_agent.AgentConfig("assistant", {
+ *     models: {
+ *         main: {
+ *             provider: team.apply(team => team.defaultModel?.provider),
+ *             model: team.apply(team => team.defaultModel?.model),
+ *         },
+ *     },
+ *     agents: [{
+ *         name: "root",
+ *         model: "main",
+ *         instruction: "You are a helpful assistant. Answer briefly.",
+ *     }],
+ * });
  * export const sha256 = team.sha256;
  * export const theme = team.apply(team => team.settings?.theme);
+ * export const agentYaml = assistant.yaml;
  * ```
  */
 export function getUserSettings(args?: GetUserSettingsArgs, opts?: pulumi.InvokeOptions): Promise<GetUserSettingsResult> {
@@ -97,7 +99,7 @@ export interface GetUserSettingsResult {
      */
     readonly exists: boolean;
     /**
-     * Top-level keys that this provider version does not model, as they are in the file.
+     * Top-level keys that this provider version does not model, as they are in the file. Secret, because the provider cannot tell whether they hold credentials.
      */
     readonly extra?: {[key: string]: any};
     /**
@@ -125,7 +127,7 @@ export interface GetUserSettingsResult {
      */
     readonly sha256: string;
     /**
-     * The file's content, exactly as it is on disk.
+     * The file's content, exactly as it is on disk. Secret, because the file can hold credentials (hook `env` values, board `headers`), which the typed fields mark secret too.
      */
     readonly yaml: string;
 }
@@ -143,31 +145,20 @@ export interface GetUserSettingsResult {
  * values that docker-agent rejects.
  *
  * ## Example Usage
- * ### Reuse the default model of the user configuration
+ * ### Read the user configuration
  *
  * ```typescript
  * import * as pulumi from "@pulumi/pulumi";
  * import * as docker_agent from "@ediri/pulumi-docker-agent";
  *
- * // Reads ~/.config/cagent/config.yaml without managing it.
+ * // Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
  * const current = docker_agent.getUserSettingsOutput({});
- * const assistant = new docker_agent.AgentConfig("assistant", {
- *     models: {
- *         main: {
- *             provider: current.apply(current => current.defaultModel?.provider),
- *             model: current.apply(current => current.defaultModel?.model),
- *         },
- *     },
- *     agents: [{
- *         name: "root",
- *         model: "main",
- *         instruction: "You are a helpful assistant. Answer briefly.",
- *     }],
- * });
  * export const configExists = current.exists;
+ * export const filePath = current.filePath;
+ * export const sha256 = current.sha256;
  * export const aliases = current.aliases;
  * ```
- * ### Read a configuration file in the project
+ * ### Reuse the default model of a configuration file
  *
  * ```typescript
  * import * as pulumi from "@pulumi/pulumi";
@@ -177,9 +168,22 @@ export interface GetUserSettingsResult {
  * const team = docker_agent.getUserSettingsOutput({
  *     path: "./team-config.yaml",
  * });
- * export const filePath = team.filePath;
+ * const assistant = new docker_agent.AgentConfig("assistant", {
+ *     models: {
+ *         main: {
+ *             provider: team.apply(team => team.defaultModel?.provider),
+ *             model: team.apply(team => team.defaultModel?.model),
+ *         },
+ *     },
+ *     agents: [{
+ *         name: "root",
+ *         model: "main",
+ *         instruction: "You are a helpful assistant. Answer briefly.",
+ *     }],
+ * });
  * export const sha256 = team.sha256;
  * export const theme = team.apply(team => team.settings?.theme);
+ * export const agentYaml = assistant.yaml;
  * ```
  */
 export function getUserSettingsOutput(args?: GetUserSettingsOutputArgs, opts?: pulumi.InvokeOutputOptions): pulumi.Output<GetUserSettingsResult> {

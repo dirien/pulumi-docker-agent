@@ -70,7 +70,7 @@ namespace ediri.DockerAgent
         /// 
         /// func main() {
         /// 	pulumi.Run(func(ctx *pulumi.Context) error {
-        /// 		projectVar := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+        /// 		projectVar := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
         /// 			Directory: pulumi.String("."),
         /// 		}, nil)
         /// 
@@ -245,7 +245,7 @@ namespace ediri.DockerAgent
         /// 
         /// func main() {
         /// 	pulumi.Run(func(ctx *pulumi.Context) error {
-        /// 		repo := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+        /// 		repo := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
         /// 			Directory: pulumi.String("~/src/my-service/.agentsignore"),
         /// 		}, nil)
         /// 
@@ -442,7 +442,7 @@ namespace ediri.DockerAgent
         /// 
         /// func main() {
         /// 	pulumi.Run(func(ctx *pulumi.Context) error {
-        /// 		projectVar := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+        /// 		projectVar := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
         /// 			Directory: pulumi.String("."),
         /// 		}, nil)
         /// 
@@ -617,7 +617,7 @@ namespace ediri.DockerAgent
         /// 
         /// func main() {
         /// 	pulumi.Run(func(ctx *pulumi.Context) error {
-        /// 		repo := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+        /// 		repo := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
         /// 			Directory: pulumi.String("~/src/my-service/.agentsignore"),
         /// 		}, nil)
         /// 
@@ -814,7 +814,7 @@ namespace ediri.DockerAgent
         /// 
         /// func main() {
         /// 	pulumi.Run(func(ctx *pulumi.Context) error {
-        /// 		projectVar := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+        /// 		projectVar := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
         /// 			Directory: pulumi.String("."),
         /// 		}, nil)
         /// 
@@ -989,7 +989,7 @@ namespace ediri.DockerAgent
         /// 
         /// func main() {
         /// 	pulumi.Run(func(ctx *pulumi.Context) error {
-        /// 		repo := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+        /// 		repo := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
         /// 			Directory: pulumi.String("~/src/my-service/.agentsignore"),
         /// 		}, nil)
         /// 
@@ -1133,7 +1133,7 @@ namespace ediri.DockerAgent
     public sealed class GetAgentsIgnoreArgs : global::Pulumi.InvokeArgs
     {
         /// <summary>
-        /// The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+        /// The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
         /// </summary>
         [Input("directory")]
         public string? Directory { get; set; }
@@ -1147,7 +1147,7 @@ namespace ediri.DockerAgent
     public sealed class GetAgentsIgnoreInvokeArgs : global::Pulumi.InvokeArgs
     {
         /// <summary>
-        /// The project directory that holds `.agentsignore`, or the path of the file itself. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
+        /// The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.
         /// </summary>
         [Input("directory")]
         public Input<string>? Directory { get; set; }

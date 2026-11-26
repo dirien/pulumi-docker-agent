@@ -172,7 +172,13 @@ func TestExampleDockerServe(t *testing.T) {
 		Description string `json:"description"`
 		Multi       bool   `json:"multi"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(httpGet(t, stringOutput(t, up.Outputs, "agentsUrl"))), &agents))
+	// Every other endpoint needs the bearer token (docker-agent v1.166.0 requires one on a
+	// non-loopback listener).
+	agentsURL := stringOutput(t, up.Outputs, "agentsUrl")
+	assert.True(t, up.Outputs["token"].Secret, "the token output is a secret")
+	assert.Equal(t, http.StatusUnauthorized, httpStatus(t, agentsURL))
+	require.NoError(t, json.Unmarshal([]byte(httpGet(t, agentsURL, "Authorization",
+		"Bearer "+stringOutput(t, up.Outputs, "token"))), &agents))
 	require.Len(t, agents, 1)
 	assert.Equal(t, "Answers questions and delegates web research", agents[0].Description)
 	assert.True(t, agents[0].Multi, "the served configuration should have several agents")
@@ -196,7 +202,8 @@ func TestExampleDockerServe(t *testing.T) {
 }
 
 // TestExampleUserSettings runs examples/user-settings-yaml, which writes docker-agent's user
-// configuration and a .agentsignore file. The files go to a temp dir (the outputDir stack
+// configuration and a .agentsignore file, and reads existing ones with getUserSettings and
+// getAgentsIgnore. The files go to a temp dir (the outputDir stack
 // setting); the test checks their content and modes, that the docker-agent CLI reads the
 // configuration, drift detection on refresh, and that destroy removes the files. It needs
 // no registry.
@@ -231,6 +238,13 @@ func TestExampleUserSettings(t *testing.T) {
 	assert.Equal(t, wantIgnore, readFixture(t, ignorePath))
 	assert.Equal(t, "version: v1\nsettings:\n  safety: restricted\n  lean: true\n",
 		stringOutput(t, up.Outputs, "imageSettingsYaml"))
+	// getUserSettings and getAgentsIgnore read the hand-written files in existing/.
+	assert.Equal(t, "claude-sonnet-4-5", stringOutput(t, up.Outputs, "existingDefaultModel"))
+	assert.Equal(t, map[string]any{"pirate": map[string]any{"path": "agentcatalog/pirate"}},
+		up.Outputs["existingAliases"].Value)
+	assert.Equal(t, []any{".env", "secrets/", "*.pem"}, up.Outputs["existingIgnorePatterns"].Value)
+	assert.Equal(t, "# Keep secrets away from the agent.\n\n.env\nsecrets/\n*.pem\n",
+		stringOutput(t, up.Outputs, "imageIgnore"))
 	if runtime.GOOS != "windows" {
 		assertFileMode(t, configPath, 0o600)
 		assertFileMode(t, filepath.Dir(configPath), 0o700)
@@ -588,7 +602,26 @@ func assertFileMode(t *testing.T, path string, want os.FileMode) {
 	assert.Equal(t, want, info.Mode().Perm(), path)
 }
 
-func httpGet(t *testing.T, url string) string {
+func httpGet(t *testing.T, url string, header ...string) string {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	require.NoError(t, err)
+	for i := 0; i+1 < len(header); i += 2 {
+		req.Header.Set(header[i], header[i+1])
+	}
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err, "GET %s", url)
+	defer resp.Body.Close() //nolint:errcheck
+	data, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode, "GET %s: %s", url, data)
+	return string(data)
+}
+
+// httpStatus returns the status code of a GET of url without credentials.
+func httpStatus(t *testing.T, url string) int {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -597,10 +630,7 @@ func httpGet(t *testing.T, url string) string {
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err, "GET %s", url)
 	defer resp.Body.Close() //nolint:errcheck
-	data, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, resp.StatusCode, "GET %s: %s", url, data)
-	return string(data)
+	return resp.StatusCode
 }
 
 // useLocalSDK points the copied program at the SDK built in this repository. The programs

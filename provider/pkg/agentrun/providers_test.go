@@ -4,7 +4,7 @@
 package agentrun
 
 // Provider coverage of AgentRun's runs (not coding harnesses): every model provider docker-agent
-// v1.150.0 implements, pointed at the multi-protocol fake of providers_fake_test.go through the
+// v1.166.0 implements, pointed at the multi-protocol fake of providers_fake_test.go through the
 // endpoint override docker-agent offers for it (a model's or custom provider's base_url,
 // Bedrock's provider_opts.endpoint_url, or the SDK's own base URL variable in `env`), with:
 //

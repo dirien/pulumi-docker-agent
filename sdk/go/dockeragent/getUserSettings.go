@@ -24,7 +24,7 @@ import (
 // values that docker-agent rejects.
 //
 // ## Example Usage
-// ### Reuse the default model of the user configuration
+// ### Read the user configuration
 // ```go
 // package main
 //
@@ -37,16 +37,42 @@ import (
 //
 //	func main() {
 //		pulumi.Run(func(ctx *pulumi.Context) error {
-//			// Reads ~/.config/cagent/config.yaml without managing it.
-//			current := dockeragent.GetUserSettingsOutput(ctx, dockeragent.GetUserSettingsOutputArgs{}, nil)
-//			_, err := dockeragent.NewAgentConfig(ctx, "assistant", &dockeragent.AgentConfigArgs{
+//			// Reads ~/.config/cagent/config.yaml without managing it. A missing file returns exists: false.
+//			current := dockeragent.LookupUserSettingsOutput(ctx, dockeragent.LookupUserSettingsOutputArgs{}, nil)
+//			ctx.Export("configExists", current.Exists())
+//			ctx.Export("filePath", current.FilePath())
+//			ctx.Export("sha256", current.Sha256())
+//			ctx.Export("aliases", current.Aliases())
+//			return nil
+//		})
+//	}
+//
+// ```
+// ### Reuse the default model of a configuration file
+// ```go
+// package main
+//
+// import (
+//
+//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
+//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+//
+// )
+//
+//	func main() {
+//		pulumi.Run(func(ctx *pulumi.Context) error {
+//			// Relative paths are relative to the Pulumi project directory.
+//			team := dockeragent.LookupUserSettingsOutput(ctx, dockeragent.LookupUserSettingsOutputArgs{
+//				Path: pulumi.String("./team-config.yaml"),
+//			}, nil)
+//			assistant, err := dockeragent.NewAgentConfig(ctx, "assistant", &dockeragent.AgentConfigArgs{
 //				Models: dockeragent.ModelDefMap{
 //					"main": &dockeragent.ModelDefArgs{
-//						Provider: current.ApplyT(func(current dockeragent.GetUserSettingsResult) (*string, error) {
-//							return current.DefaultModel.Provider, nil
+//						Provider: team.ApplyT(func(team dockeragent.LookupUserSettingsResult) (*string, error) {
+//							return team.DefaultModel.Provider, nil
 //						}).(pulumi.StringPtrOutput),
-//						Model: current.ApplyT(func(current dockeragent.GetUserSettingsResult) (*string, error) {
-//							return current.DefaultModel.Model, nil
+//						Model: team.ApplyT(func(team dockeragent.LookupUserSettingsResult) (*string, error) {
+//							return team.DefaultModel.Model, nil
 //						}).(pulumi.StringPtrOutput),
 //					},
 //				},
@@ -61,35 +87,11 @@ import (
 //			if err != nil {
 //				return err
 //			}
-//			ctx.Export("configExists", current.Exists())
-//			ctx.Export("aliases", current.Aliases())
-//			return nil
-//		})
-//	}
-//
-// ```
-// ### Read a configuration file in the project
-// ```go
-// package main
-//
-// import (
-//
-//	"github.com/dirien/pulumi-docker-agent/sdk/go/dockeragent"
-//	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-//
-// )
-//
-//	func main() {
-//		pulumi.Run(func(ctx *pulumi.Context) error {
-//			// Relative paths are relative to the Pulumi project directory.
-//			team := dockeragent.GetUserSettingsOutput(ctx, dockeragent.GetUserSettingsOutputArgs{
-//				Path: pulumi.String("./team-config.yaml"),
-//			}, nil)
-//			ctx.Export("filePath", team.FilePath())
 //			ctx.Export("sha256", team.Sha256())
-//			ctx.Export("theme", team.ApplyT(func(team dockeragent.GetUserSettingsResult) (*string, error) {
+//			ctx.Export("theme", team.ApplyT(func(team dockeragent.LookupUserSettingsResult) (*string, error) {
 //				return team.Settings.Theme, nil
 //			}).(pulumi.StringPtrOutput))
+//			ctx.Export("agentYaml", assistant.Yaml)
 //			return nil
 //		})
 //	}
@@ -121,7 +123,7 @@ type LookupUserSettingsResult struct {
 	DefaultModel *UserModel `pulumi:"defaultModel"`
 	// Whether the file exists. When `false`, every other field except `filePath` is empty.
 	Exists bool `pulumi:"exists"`
-	// Top-level keys that this provider version does not model, as they are in the file.
+	// Top-level keys that this provider version does not model, as they are in the file. Secret, because the provider cannot tell whether they hold credentials.
 	Extra map[string]interface{} `pulumi:"extra"`
 	// The absolute path of the file that was read.
 	FilePath string `pulumi:"filePath"`
@@ -135,7 +137,7 @@ type LookupUserSettingsResult struct {
 	Settings *UserGlobalSettings `pulumi:"settings"`
 	// The hex-encoded SHA-256 of `yaml`, empty when the file does not exist.
 	Sha256 string `pulumi:"sha256"`
-	// The file's content, exactly as it is on disk.
+	// The file's content, exactly as it is on disk. Secret, because the file can hold credentials (hook `env` values, board `headers`), which the typed fields mark secret too.
 	Yaml string `pulumi:"yaml"`
 }
 
@@ -192,7 +194,7 @@ func (o LookupUserSettingsResultOutput) Exists() pulumi.BoolOutput {
 	return o.ApplyT(func(v LookupUserSettingsResult) bool { return v.Exists }).(pulumi.BoolOutput)
 }
 
-// Top-level keys that this provider version does not model, as they are in the file.
+// Top-level keys that this provider version does not model, as they are in the file. Secret, because the provider cannot tell whether they hold credentials.
 func (o LookupUserSettingsResultOutput) Extra() pulumi.MapOutput {
 	return o.ApplyT(func(v LookupUserSettingsResult) map[string]interface{} { return v.Extra }).(pulumi.MapOutput)
 }
@@ -227,7 +229,7 @@ func (o LookupUserSettingsResultOutput) Sha256() pulumi.StringOutput {
 	return o.ApplyT(func(v LookupUserSettingsResult) string { return v.Sha256 }).(pulumi.StringOutput)
 }
 
-// The file's content, exactly as it is on disk.
+// The file's content, exactly as it is on disk. Secret, because the file can hold credentials (hook `env` values, board `headers`), which the typed fields mark secret too.
 func (o LookupUserSettingsResultOutput) Yaml() pulumi.StringOutput {
 	return o.ApplyT(func(v LookupUserSettingsResult) string { return v.Yaml }).(pulumi.StringOutput)
 }

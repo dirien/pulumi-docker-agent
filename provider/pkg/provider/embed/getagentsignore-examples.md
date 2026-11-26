@@ -44,7 +44,7 @@ import (
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
-		projectVar := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+		projectVar := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
 			Directory: pulumi.String("."),
 		}, nil)
 
@@ -219,7 +219,7 @@ import (
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
-		repo := dockeragent.GetAgentsIgnoreOutput(ctx, dockeragent.GetAgentsIgnoreOutputArgs{
+		repo := dockeragent.LookupAgentsIgnoreOutput(ctx, dockeragent.LookupAgentsIgnoreOutputArgs{
 			Directory: pulumi.String("~/src/my-service/.agentsignore"),
 		}, nil)
 

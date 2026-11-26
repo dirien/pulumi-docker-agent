@@ -29,7 +29,7 @@ func TestDocsExamplesRoundTrip(t *testing.T) {
 			require.NoError(t, err)
 			want, err := loadJSON(t, name, orig)
 			if err != nil {
-				t.Skipf("the docs example does not load with docker-agent v1.150.0: %v", err)
+				t.Skipf("the docs example does not load with the pinned docker-agent: %v", err)
 			}
 			dec, err := DecodeYAML(orig)
 			require.NoError(t, err)
@@ -336,7 +336,7 @@ var docsCases = []docsCase{
 		Type: "session_context", Tools: []string{"list_sessions"},
 	})}},
 	{page: "tools/session_plan/", file: "tools-session_plan-2.yaml",
-		skip: "the session_plan toolset type was removed upstream (docker/docker-agent#4199) and v1.150.0 rejects it; the docs page is stale"},
+		skip: "the session_plan toolset type was removed upstream (docker/docker-agent#4199) and the pinned docker-agent rejects it; the docs page is stale"},
 	{page: "tools/shell/", file: "tools-shell-2.yaml", doc: Document{Agents: toolAgent(Toolset{
 		Type: "shell", Env: map[string]string{"MY_VAR": "value", "PATH": "${env.PATH}:/custom/bin"},
 	})}},

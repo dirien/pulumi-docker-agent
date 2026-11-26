@@ -28,12 +28,14 @@ In HCL these are `resource "docker-agent_agent_config"`, `resource "docker-agent
 [`docker-serve-ts/`](docker-serve-ts) goes one step further: it combines the provider with the
 [Pulumi Docker provider](https://www.pulumi.com/registry/packages/docker/) to run its own `registry:2`
 on a user-defined network, push the agent there, and serve it with `docker agent serve api` in a
-`docker/docker-agent` container that has a health check on `/health`.
+`docker/docker-agent` container that has a health check on `/health` and requires a bearer token
+(`--auth-token`, generated when the `apiToken` setting is unset).
 
 [`user-settings-yaml/`](user-settings-yaml) covers the two configuration files that are not agent
 definitions: `UserSettings` writes Docker Agent's user configuration (`~/.config/cagent/config.yaml`:
 settings, aliases, global providers, the default model, the sandbox allowlist) and `AgentsIgnore` writes a
-`.agentsignore` file. It writes into a scratch directory (`outputDir`, default `out/`) and needs no registry.
+`.agentsignore` file. It also reads existing files with `getUserSettings` and `getAgentsIgnore`. It writes into a scratch directory
+(`outputDir`, default `out/`) and needs no registry.
 
 [`agent-run-yaml/`](agent-run-yaml) runs an agent during `pulumi up` with `AgentRun`: a change-review agent
 with structured output answers a prompt, and the program exports its `risk` and `summary`. The model provider is

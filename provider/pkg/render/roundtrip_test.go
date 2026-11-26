@@ -17,6 +17,7 @@ import (
 
 	"github.com/docker/docker-agent/pkg/config"
 	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +31,7 @@ func loadJSON(t *testing.T, name string, data []byte) (string, error) {
 
 func loadSourceJSON(t *testing.T, src config.Source) (string, error) {
 	t.Helper()
-	cfg, err := config.Load(t.Context(), src)
+	cfg, err := config.Load(t.Context(), src, config.WithVersions(legacy.Register))
 	if err != nil {
 		return "", err
 	}
