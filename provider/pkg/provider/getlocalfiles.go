@@ -5,7 +5,9 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,10 +61,10 @@ type GetUserSettingsResult struct {
 	Board            *UserBoard              `pulumi:"board,optional"`
 	CredentialHelper *UserCredentialHelper   `pulumi:"credentialHelper,optional"`
 	SandboxAllowlist []string                `pulumi:"sandboxAllowlist,optional"`
-	Extra            map[string]any          `pulumi:"extra,optional"`
+	Extra            map[string]any          `pulumi:"extra,optional" provider:"secret"`
 	FilePath         string                  `pulumi:"filePath"`
 	Exists           bool                    `pulumi:"exists"`
-	YAML             string                  `pulumi:"yaml"`
+	YAML             string                  `pulumi:"yaml" provider:"secret"`
 	SHA256           string                  `pulumi:"sha256"`
 }
 
@@ -77,10 +79,12 @@ func (r *GetUserSettingsResult) Annotate(an infer.Annotator) {
 	an.Describe(&r.CredentialHelper, "The command that supplies the Docker token (`credential_helper:`).")
 	an.Describe(&r.SandboxAllowlist, "Hosts opened in the sandbox network proxy on every sandboxed run "+
 		"(`sandbox_allowlist:`).")
-	an.Describe(&r.Extra, "Top-level keys that this provider version does not model, as they are in the file.")
+	an.Describe(&r.Extra, "Top-level keys that this provider version does not model, as they are in the file. "+
+		"Secret, because the provider cannot tell whether they hold credentials.")
 	an.Describe(&r.FilePath, "The absolute path of the file that was read.")
 	an.Describe(&r.Exists, "Whether the file exists. When `false`, every other field except `filePath` is empty.")
-	an.Describe(&r.YAML, "The file's content, exactly as it is on disk.")
+	an.Describe(&r.YAML, "The file's content, exactly as it is on disk. Secret, because the file can hold "+
+		"credentials (hook `env` values, board `headers`), which the typed fields mark secret too.")
 	an.Describe(&r.SHA256, "The hex-encoded SHA-256 of `yaml`, empty when the file does not exist.")
 }
 
@@ -149,7 +153,7 @@ type GetAgentsIgnoreArgs struct {
 
 // Annotate describes the inputs.
 func (a *GetAgentsIgnoreArgs) Annotate(an infer.Annotator) {
-	an.Describe(&a.Directory, "The project directory that holds `.agentsignore`, or the path of the file itself. "+
+	an.Describe(&a.Directory, "The project directory that holds `.agentsignore`, or the path of a file named `.agentsignore`. "+
 		"Defaults to the Pulumi project directory. `~` is the home directory of the user that runs Pulumi.")
 }
 
@@ -184,8 +188,18 @@ func (*GetAgentsIgnore) Invoke(
 	path := filepath.Join(dir, agentsignore.FileName)
 	if filepath.Base(dir) == agentsignore.FileName {
 		path = dir
-	} else if resolved, err := localfile.Resolve(dir); err == nil {
-		if info, err := os.Stat(resolved); err == nil && !info.IsDir() {
+	} else {
+		resolved, err := localfile.Resolve(dir)
+		if err != nil {
+			return infer.FunctionResponse[GetAgentsIgnoreResult]{}, fmt.Errorf("resolving %s: %w", dir, err)
+		}
+		info, err := os.Stat(resolved)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			// A missing directory has no .agentsignore: exists is false.
+		case err != nil:
+			return infer.FunctionResponse[GetAgentsIgnoreResult]{}, fmt.Errorf("reading %s: %w", resolved, err)
+		case !info.IsDir():
 			return infer.FunctionResponse[GetAgentsIgnoreResult]{}, fmt.Errorf("%s is neither a directory nor a %s "+
 				"file", resolved, agentsignore.FileName)
 		}
@@ -211,7 +225,7 @@ func (*GetAgentsIgnore) Invoke(
 func readLocalFile(path string) (data []byte, file string, exists bool, err error) {
 	file, err = localfile.Resolve(path)
 	if err != nil {
-		return nil, "", false, err
+		return nil, "", false, fmt.Errorf("resolving %s: %w", path, err)
 	}
 	data, exists, err = localfile.Read(file)
 	switch {

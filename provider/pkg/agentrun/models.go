@@ -68,6 +68,9 @@ type modelUse struct {
 	// byDefault names the variable (DOCKER_AGENT_DEFAULT_MODEL) that selected this model for
 	// model auto (autoDefaultUses), "" otherwise.
 	byDefault string
+	// catalogKey reports a token_key that the model did not set: docker-agent gave it the first
+	// key variable of its catalog provider (applyCatalogDefaults).
+	catalogKey bool
 }
 
 // configModels returns the models the configuration's agents can send requests to, each once:
@@ -240,6 +243,7 @@ func newModelUse(cfg *latest.Config, m latest.ModelConfig) modelUse {
 		eff.Provider = modelsdev.CanonicalProviderID(eff.Provider)
 		if alias, ok := catalog.Find(eff.Provider); ok {
 			applyCatalogDefaults(&eff, alias)
+			u.catalogKey = m.TokenKey == "" && eff.TokenKey != ""
 		}
 	}
 	u.cfg = eff
@@ -375,9 +379,11 @@ func hostOf(raw string) string {
 // provider is Google (an API key or application default credentials). Since docker-agent v1.166.0
 // this includes the core providers, so an openai model with a base_url and no token_key needs
 // OPENAI_API_KEY. amazon-bedrock is left as written: its client treats an unset
-// AWS_BEARER_TOKEN_BEDROCK like no token_key and uses the AWS default chain.
+// AWS_BEARER_TOKEN_BEDROCK like no token_key and uses the AWS default chain. dmr is left as
+// written too: its client treats the catalog's base_url as unset (catalog.IsDefaultEndpoint) and
+// finds the Model Runner through MODEL_RUNNER_HOST or `docker model status`.
 func applyCatalogDefaults(dst *latest.ModelConfig, alias catalog.Provider) {
-	if alias.APIType == "amazon-bedrock" {
+	if alias.APIType == "amazon-bedrock" || alias.APIType == "dmr" {
 		return
 	}
 	apiType, _ := dst.ProviderOpts["api_type"].(string)

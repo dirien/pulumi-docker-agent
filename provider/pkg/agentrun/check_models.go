@@ -255,10 +255,12 @@ func endpointOf(u modelUse) string {
 	return hostOf(openAIDefault)
 }
 
-// usesOpenAIKey reports whether docker-agent leaves the key of an OpenAI-protocol model to the
-// SDK's OPENAI_API_KEY (openai/client.go NewClient, the default branch).
+// usesOpenAIKey reports whether an OpenAI-protocol model sends OPENAI_API_KEY without naming it:
+// docker-agent leaves the key to the SDK (openai/client.go NewClient, the default branch), or,
+// since v1.166.0, gives a core openai model the catalog's OPENAI_API_KEY as its token_key.
 func usesOpenAIKey(u modelUse) bool {
-	return u.sdk() == typeOpenAI && u.typ != typeDMR && !u.isChatGPT() && !u.custom && u.cfg.TokenKey == "" &&
+	key := u.cfg.TokenKey == "" || (u.catalogKey && u.cfg.TokenKey == "OPENAI_API_KEY")
+	return u.sdk() == typeOpenAI && u.typ != typeDMR && !u.isChatGPT() && !u.custom && key &&
 		latest.EffectiveAuth(u.cfg, nil) == nil
 }
 
@@ -315,10 +317,19 @@ var sdkVars = []sdkVar{
 		reads: func(u modelUse, _ envView) bool {
 			return usesOpenAIKey(u) && u.cfg.BaseURL != "" && !isLoopbackURL(u.cfg.BaseURL)
 		},
-		lost: func(_ modelUse, endpoint string) string {
+		lost: func(u modelUse, endpoint string) string {
+			if u.catalogKey {
+				return "the run fails: since docker-agent v1.166.0 an openai model with a base_url needs " +
+					"OPENAI_API_KEY for its requests to " + endpoint
+			}
 			return "its requests to " + endpoint + " carry no key (it has a base_url without token_key)"
 		},
-		leak: func(_ modelUse, _ envView, model, endpoint string) (string, string) {
+		leak: func(u modelUse, _ envView, model, endpoint string) (string, string) {
+			if u.catalogKey {
+				return "is sent as the key of " + model + " to " + endpoint + " (the model has a base_url without " +
+						"token_key, so docker-agent uses OPENAI_API_KEY, the key of the openai provider)",
+					"set token_key to the variable of that endpoint's key"
+			}
 			return "is sent as the key of " + model + " to " + endpoint + " (the model has a base_url without " +
 					"token_key, so the OpenAI SDK reads OPENAI_API_KEY itself)",
 				"set token_key to the variable of that endpoint's key, or blank it with env: {OPENAI_API_KEY: \"\"}"

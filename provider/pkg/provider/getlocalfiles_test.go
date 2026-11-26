@@ -49,6 +49,7 @@ sandbox_allowlist: [api.github.com]
 	assert.True(t, out.Get("exists").AsBool())
 	assert.Equal(t, file, out.Get("filePath").AsString())
 	assert.Equal(t, handWritten, out.Get("yaml").AsString(), "yaml is the file as it is on disk")
+	assert.True(t, out.Get("yaml").Secret(), "the file can hold hook env values and board headers")
 	assert.Equal(t, usersettings.SHA256(handWritten), out.Get("sha256").AsString())
 	model := out.Get("defaultModel").AsMap()
 	assert.Equal(t, "anthropic", model.Get("provider").AsString())

@@ -12,6 +12,8 @@ import (
 
 	"github.com/docker/docker-agent/pkg/chatgpt"
 	"github.com/docker/docker-agent/pkg/config"
+	"github.com/docker/docker-agent/pkg/config/latest"
+	"github.com/docker/docker-agent/pkg/config/legacy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -149,6 +151,16 @@ func TestCheckModelsSDKVariables(t *testing.T) {
 			"inheritEnvironment: false it no longer reaches agents.root.model (ollama/gpt-oss:120b) since v0.2.0: its "+
 			"requests to https://ollama.com carry no key (it has a base_url without token_key); set it in env, or set the "+
 			"model's token_key")
+
+		// An openai model with a base_url gets OPENAI_API_KEY as its catalog token_key: it still goes
+		// to the gateway.
+		gateway := "models:\n  m:\n    provider: openai\n    model: gpt-4o-mini\n    base_url: https://gateway.example/v1\n" +
+			agentWith("m")
+		warnings, _ = checkModels(t, gateway, nil, true)
+		require.NotEmpty(t, warnings)
+		assert.Contains(t, joined(warnings), "OPENAI_API_KEY (inherited from the environment of the Pulumi CLI) is sent as "+
+			"the key of agents.root.model (openai/gpt-4o-mini) to https://gateway.example (the model has a base_url "+
+			"without token_key, so docker-agent uses OPENAI_API_KEY, the key of the openai provider)")
 
 		// Ollama on this machine: the key goes nowhere.
 		local := "models:\n  m:\n    provider: ollama\n    model: llama3.2\n" + agentWith("m")
@@ -493,7 +505,7 @@ func TestCheckModelsProviderCases(t *testing.T) {
 // TestConfigModels: every place a configuration names a model, and whether it names chatgpt.
 func TestConfigModels(t *testing.T) {
 	load := func(doc string) []modelUse {
-		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)))
+		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)), config.WithVersions(legacy.Register))
 		require.NoError(t, err)
 		return configModels(cfg)
 	}
@@ -590,8 +602,34 @@ rag:
 			"        examples: [a]\n" + agentWith("m"): true,
 		agentWith("openai/gpt-5-mini"): false,
 	} {
-		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)))
+		cfg, err := config.Load(t.Context(), config.NewBytesSource("m.yaml", []byte(doc)), config.WithVersions(legacy.Register))
 		require.NoError(t, err)
 		assert.Equal(t, want, usesChatGPT(t.Context(), cfg, envView{}.asProvider()), doc)
+	}
+}
+
+// TestNewModelUseCatalogDefaults applies docker-agent's catalog defaults: an alias gets its
+// endpoint and key, a core openai model its key, and dmr and amazon-bedrock stay as written
+// (their clients treat the catalog's defaults as unset).
+func TestNewModelUseCatalogDefaults(t *testing.T) {
+	tests := map[string]struct {
+		model                latest.ModelConfig
+		wantBaseURL, wantKey string
+		wantCatalogKey       bool
+	}{
+		"alias":          {model: latest.ModelConfig{Provider: "groq", Model: "m"}, wantBaseURL: "https://api.groq.com/openai/v1", wantKey: "GROQ_API_KEY", wantCatalogKey: true},
+		"openai":         {model: latest.ModelConfig{Provider: "openai", Model: "m"}, wantKey: "OPENAI_API_KEY", wantCatalogKey: true},
+		"own token_key":  {model: latest.ModelConfig{Provider: "openai", Model: "m", TokenKey: "MY_KEY"}, wantKey: "MY_KEY"},
+		"google":         {model: latest.ModelConfig{Provider: "google", Model: "m"}},
+		"dmr":            {model: latest.ModelConfig{Provider: "dmr", Model: "ai/qwen3"}},
+		"amazon-bedrock": {model: latest.ModelConfig{Provider: "amazon-bedrock", Model: "m"}},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			u := newModelUse(&latest.Config{}, tc.model)
+			assert.Equal(t, tc.wantBaseURL, u.cfg.BaseURL)
+			assert.Equal(t, tc.wantKey, u.cfg.TokenKey)
+			assert.Equal(t, tc.wantCatalogKey, u.catalogKey)
+		})
 	}
 }
